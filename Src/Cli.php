@@ -11,6 +11,9 @@ use Symfony\Component\Console\Input\InputDefinition;
 use Symfony\Component\EventDispatcher\EventDispatcher;
 
 class Cli extends Application {
+	final public const ROOT      = __DIR__ . DIRECTORY_SEPARATOR . '..' . DIRECTORY_SEPARATOR;
+	final public const NAMESPACE = __NAMESPACE__;
+
 	private EventDispatcher $eventDispatcher;
 
 	/** @var ?static */
