@@ -14,7 +14,8 @@
   "require": {
     "php": ">=8.2",
     "symfony/console": "^7.2",
-    "symfony/event-dispatcher": "^7.2"
+    "symfony/event-dispatcher": "^7.2",
+    "thewebsolver/code-generator": "dev-master"
   },
   "autoload": {
     "psr-4": {
@@ -33,10 +34,6 @@
       "options": {
         "symlink": false
       }
-    },
-		{
-      "type": "git",
-      "url": "https://github.com/TheWebSolver/code-generator"
     }
   ],
   "scripts": {

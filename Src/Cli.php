@@ -1,0 +1,61 @@
+<?php
+declare( strict_types = 1 );
+
+namespace TheWebSolver\Codegarage\Cli;
+
+use Symfony\Component\Console\Application;
+use Symfony\Component\Console\Input\InputOption;
+use TheWebSolver\Codegarage\Cli\Data\Associative;
+use TheWebSolver\Codegarage\Cli\Helper\HelperSet;
+use Symfony\Component\Console\Input\InputDefinition;
+use Symfony\Component\EventDispatcher\EventDispatcher;
+
+class Cli extends Application {
+	private EventDispatcher $eventDispatcher;
+
+	/** @var ?static */
+	protected static $app;
+
+	// phpcs:ignore Generic.CodeAnalysis.UselessOverridingMethod.Found
+	final public function __construct() {}
+
+	public static function app(): static {
+		if ( static::$app ?? false ) {
+			return static::$app;
+		}
+
+		$app = new static();
+
+		$app->setAutoExit( boolean: false );
+		$app->setHelperSet( helperSet: HelperSet::register() );
+		$app->setDispatcher( $app->eventDispatcher = new EventDispatcher() );
+
+		return static::$app = $app;
+	}
+
+	public function eventDispatcher(): EventDispatcher {
+		return $this->eventDispatcher;
+	}
+
+	protected function getDefaultInputDefinition(): InputDefinition {
+		$definition = parent::getDefaultInputDefinition();
+
+		/** @var Associative[] */
+		$globalOptions = require_once \dirname( __DIR__ ) . '/GlobalOptions.php';
+
+		foreach ( $globalOptions as $option ) {
+			$definition->addOption(
+				new InputOption(
+					$option->name,
+					$option->shortcut,
+					$option->mode,
+					$option->desc,
+					$option->default,
+					$option->options
+				)
+			);
+		}
+
+		return $definition;
+	}
+}
