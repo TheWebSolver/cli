@@ -1,0 +1,6 @@
+parameters:
+	level: max
+	paths:
+		- Src/
+	excludePaths:
+		- vendor/
