@@ -4,56 +4,36 @@ declare ( strict_types = 1 );
 namespace TheWebSolver\Codegarage\Cli;
 
 use DirectoryIterator;
-use UnexpectedValueException;
 
 trait DirectoryScanner {
 	public const EXTENSION = 'php';
 
-	private string $dirname;
+	/** @var array<string,string> */
+	protected array $scannedFiles;
 
 	abstract protected function isIgnored( string $filename ): bool;
 
-	abstract protected function executeFor( string $filename, string $classname ): void;
+	abstract protected function executeFor( string $filename, string $filepath ): void;
 
-	private function scan( string $dirname ): self {
-		$this->dirname = $dirname;
-
-		foreach ( new DirectoryIterator( directory: __DIR__ . "/{$dirname}" ) as $fileInfo ) {
-			if ( $fileInfo->isDot() || ! $fileInfo->isFile() ) {
+	private function scan( string $directory ): self {
+		foreach ( new DirectoryIterator( $directory ) as $item ) {
+			if ( ! $this->isPHPFile( $item ) ) {
 				continue;
 			}
 
-			if ( self::EXTENSION !== $fileInfo->getExtension() ) {
+			if ( $this->isIgnored( $filename = $item->getBasename( '.' . self::EXTENSION ) ) ) {
 				continue;
 			}
 
-			$name = $fileInfo->getBasename( suffix: '.' . self::EXTENSION );
+			$this->scannedFiles[ $filename ] = $pathname = $item->getPathname();
 
-			if ( $this->isIgnored( filename: $name ) ) {
-				continue;
-			}
-
-			$this->executeFor(
-				filename: $name,
-				classname: $this->validateClassName( className: $this->toFQCN( filename: $name ) )
-			);
+			$this->executeFor( $filename, $pathname );
 		}
 
 		return $this;
 	}
 
-	/** @throws UnexpectedValueException When file cannot resolve to classname. */
-	private function validateClassName( string $className ): string {
-		if ( ! class_exists( class: $className ) ) {
-			throw new UnexpectedValueException(
-				message: sprintf( 'The classname "%s" could not be resolved.', $className )
-			);
-		}
-
-		return $className;
-	}
-
-	private function toFQCN( string $filename ): string {
-		return __NAMESPACE__ . "\\{$this->dirname}\\{$filename}";
+	private function isPHPFile( DirectoryIterator $current ): bool {
+		return ! $current->isDot() && $current->isFile() && $current->getExtension() === self::EXTENSION;
 	}
 }
