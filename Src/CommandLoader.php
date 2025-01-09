@@ -63,14 +63,14 @@ class CommandLoader {
 	}
 
 	protected function executeFor( string $filename, string $filepath ): void {
-		$classname = Cli::NAMESPACE . '\\' . self::COMMAND_DIRECTORY . "\\{$filename}";
+		$command = Cli::NAMESPACE . '\\' . self::COMMAND_DIRECTORY . "\\{$filename}";
 
-		if ( ! is_a( $classname, Console::class, allow_string: true ) ) {
+		if ( ! is_a( $command, Console::class, allow_string: true ) ) {
 			return;
 		}
 
-		$commandName        = $classname::asCommandName();
-		$this->classNames[] = $classname;
+		$commandName        = $command::asCommandName();
+		$this->classNames[] = $command;
 
 		/**
 		 * Defer Symfony command instantiation until current command is ran.
@@ -78,6 +78,6 @@ class CommandLoader {
 		 * @see \Symfony\Component\Console\Application::setCommandLoader
 		 * @link https://symfony.com/doc/current/console/lazy_commands.html
 		 */
-		$this->commands[ $commandName ] = $classname::instantiate( ... );
+		$this->commands[ $commandName ] = $command::start( ... );
 	}
 }
