@@ -14,6 +14,7 @@ class Cli extends Application {
 	final public const ROOT      = __DIR__ . DIRECTORY_SEPARATOR . '..' . DIRECTORY_SEPARATOR;
 	final public const NAMESPACE = __NAMESPACE__;
 
+	private bool $shouldUseClassNameForCommand = true;
 	private EventDispatcher $eventDispatcher;
 
 	/** @var ?static */
@@ -30,7 +31,7 @@ class Cli extends Application {
 		$app = new static();
 
 		$app->setAutoExit( boolean: false );
-		$app->setHelperSet( helperSet: HelperSet::register() );
+		// FIXME: $app->setHelperSet( helperSet: HelperSet::register() );
 		$app->setDispatcher( $app->eventDispatcher = new EventDispatcher() );
 
 		return static::$app = $app;
@@ -38,6 +39,14 @@ class Cli extends Application {
 
 	public function eventDispatcher(): EventDispatcher {
 		return $this->eventDispatcher;
+	}
+
+	public function useClassNameAsCommand( bool $set = true ): void {
+		$this->shouldUseClassNameForCommand = $set;
+	}
+
+	public function shouldUseClassNameAsCommand(): bool {
+		return $this->shouldUseClassNameForCommand;
 	}
 
 	protected function getDefaultInputDefinition(): InputDefinition {

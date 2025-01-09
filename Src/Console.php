@@ -3,6 +3,7 @@ declare( strict_types = 1 );
 
 namespace TheWebSolver\Codegarage\Cli;
 
+use ReflectionClass;
 use InvalidArgumentException;
 use TheWebSolver\Codegarage\Cli\Cli;
 use Symfony\Component\Console\Command\Command;
@@ -10,30 +11,26 @@ use Symfony\Component\Console\Input\ArgvInput;
 use TheWebSolver\Codegarage\Cli\Data\Positional;
 use Symfony\Component\Console\Style\SymfonyStyle;
 use TheWebSolver\Codegarage\Cli\Data\Associative;
-use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\ConsoleOutput;
 use TheWebSolver\Codegarage\Cli\Helper\CommandArgs;
 use Symfony\Component\Console\Helper\HelperInterface;
 use Symfony\Component\Console\Output\OutputInterface;
-use TheWebSolver\Codegarage\Generator\NamespacedClass;
-use TheWebSolver\Codegarage\Cli\Helper\Parser as CommandParser;
+use TheWebSolver\Codegarage\Cli\Attribute\Command as CommandAttribute;
 
 /** @phpstan-consistent-constructor */
-abstract class Console extends Command {
-	public readonly NamespacedClass $builder;
-	public readonly CommandParser $parser;
+class Console extends Command {
 	protected InputInterface $input;
 	protected bool $printProgress;
 	private SymfonyStyle $io;
 
+	/** @var string */
+	public const CLI_NAMESPACE           = 'app';
 	public const COMMAND_ARGUMENTS_ERROR = '[COMMAND_ARGUMENTS_ERROR]';
 	public const COMMAND_VALUE_ERROR     = '[COMMAND_VALUE_ERROR]';
-	final public const CLI_NAMESPACE     = 'tws';
 	public const LONG_SEPARATOR_LINE     = '______________________________________________________________________________';
 	public const LONG_SEPARATOR          = '==============================================================================';
 	final public const DEFAULT_METHOD    = '__invoke';
-	final public const TEXT_DOMAIN       = 'tws-codegarage';
 
 	/**
 	 * @param ?string $name
@@ -42,62 +39,37 @@ abstract class Console extends Command {
 	 * @throws InvalidArgumentException When command parsing fails.
 	 */
 	public function __construct( ?string $name = null, public readonly ?string $subcommand = null ) {
-		$this->io      = new SymfonyStyle( new ArgvInput(), new ConsoleOutput() );
-		$this->builder = $this->getBuilder();
-		$this->parser  = ! empty( $commandArgs = $this->getCommandArgs()->toArray() )
-			? CommandParser::parseFromArgs( $commandArgs )
-			: CommandParser::parseFromDocBlock( $this, $this->subcommand ?? self::DEFAULT_METHOD );
+		$this->io = new SymfonyStyle( new ArgvInput(), new ConsoleOutput() );
 
-		parent::__construct( $name ?? static::asCommandName() );
+		parent::__construct( $name ?? static::asCommandName() ?: null );
 		$this->setApplication( Cli::app() );
 	}
 
-	final public static function instantiate(): static {
-		return new static();
+	final public static function start(): static {
+		return ( ! $attribute = self::getCommandAttribute() )
+			? new static()
+			: ( new static( $attribute->commandName ) )
+				->setDescription( $attribute->description ?? '' )
+				->setAliases( $attribute->altNames )
+				->setHidden( $attribute->isInternal );
 	}
 
-	abstract protected function getBuilder(): NamespacedClass;
-
 	/**
-	 * Each child class should follow the WP-CLI command cookbook Third Parameter guideline
-	 * to define arguments, options, & flags. This passed param value will be
-	 * used to parse the arguments, options & flags.
-	 *
-	 * @link https://make.wordpress.org/cli/handbook/guides/commands-cookbook/#wp_cliadd_commands-third-args-parameter
+	 * @return string Possible return values:
+	 * - **_non-empty-string:_** If class has attribute: `TheWebSolver\Codegarage\Cli\Attribute\Command`,
+	 * - **_non-empty-string:_** Using classname itself: `static::CLI_NAMESPACE` . **':camelCaseClassName'**, or
+	 * - **_empty-string:_**     If command name from classname is disabled: `Cli::app()->useClassNameAsCommand(false)`.
 	 */
-	abstract public function getCommandArgs(): CommandArgs;
-
-	/**
-	 * Each child class should follow the WP-CLI command cookbook PHPDoc guideline
-	 * to define arguments, options, & flags. This DocBlock will then be
-	 * used to parse the arguments, options & flags.
-	 *
-	 * ### Recommended to use {@see @method `Console::getCommandArgs()`} to define command args.
-	 *
-	 * The {`@param`s} of this method are never used anywhere in the app.
-	 * These are here just for completeness.
-	 *
-	 * @param array<int,string>    $args The   Required args.
-	 * @param array<string,string> $assoc_args The optional arguments or flags.
-	 * @link https://make.wordpress.org/cli/handbook/guides/commands-cookbook/#longdesc
-	 * @uses Console::invokeWpCLI() Must be called inside this method.
-	 */
-	public function __invoke( array $args, array $assoc_args ): void {
-		$this->invokeWpCLI();
-	}
-
 	final public static function asCommandName(): string {
-		return self::CLI_NAMESPACE . ':' . strtolower(
-			string: str_replace(
-				search: '_',
-				replace: '',
-				subject: (string) NamespacedClass::resolveClassNameFrom( fqcn: static::class )
-			)
-		);
-	}
+		$reflection = new ReflectionClass( static::class );
 
-	protected function invokeWpCLI(): void {
-		$this->getApplication()?->run();
+		if ( $attribute = self::getCommandAttribute( $reflection ) ) {
+			return $attribute->commandName;
+		}
+
+		return ! Cli::app()->shouldUseClassNameAsCommand() ? '' : static::CLI_NAMESPACE . ':' . lcfirst(
+			str_replace( search: '_', replace: '', subject: ucwords( $reflection->getShortName(), separators: '_' ) )
+		);
 	}
 
 	/**
@@ -182,143 +154,13 @@ abstract class Console extends Command {
 		exit;
 	}
 
-	protected function addRequiredArgs(): void {
-		foreach ( $this->parser->required as $command ) {
-			$this->registerArgument( $command );
-		}
-	}
+	/** @param ?ReflectionClass<static> $reflection */
+	// phpcs:ignore Squiz.Commenting.FunctionComment.IncorrectTypeHint
+	private static function getCommandAttribute( ?ReflectionClass $reflection = null ): ?CommandAttribute {
+		$reflection ??= new ReflectionClass( static::class );
 
-	protected function addRequiredVariadicArgs(): void {
-		if ( empty( $commands = $this->parser->requiredVariadic ) ) {
-			return;
-		}
-
-		if (
-			( $command = $this->validatePositionalIfMoreThanOne( $commands, type: 'Required Variadic' ) )
-				&& empty( $this->parser->optionalVariadic )
-				&& empty( $this->parser->optional )
-		) {
-			$this->registerArgument( $command );
-
-			return;
-		}
-
-		$invalid = array();
-
-		if ( ! empty( $optionalCommands = $this->parser->optional ) ) {
-			$invalid = static::convertForResponse( commands: $optionalCommands );
-		}
-
-		if ( ! empty( $variadicCommands = $this->parser->optionalVariadic ) ) {
-			$invalid = array( ...$invalid, ...static::convertForResponse( commands: $variadicCommands ) );
-		}
-
-		$this->io->error(
-			message: array(
-				static::COMMAND_ARGUMENTS_ERROR,
-				'Positional Required Variadic Arg cannot be used with other Positional Optional Args.',
-				static::LONG_SEPARATOR,
-				'Registered Positional Required Variadic Arg is:',
-				...static::convertForResponse( commands: $this->parser->requiredVariadic ),
-				static::LONG_SEPARATOR,
-				'SOLUTION:',
-				static::LONG_SEPARATOR_LINE,
-				'Convert below Positional Optional Args to Optional Associative Args.',
-				static::LONG_SEPARATOR,
-				...$invalid,
-			)
-		);
-
-		exit;
-	}
-
-	protected function addOptionalArg(): void {
-		if ( empty( $commands = $this->parser->optional ) ) {
-			return;
-		}
-
-		$invalid = array();
-
-		if (
-				( $command = $this->validatePositionalIfMoreThanOne( $commands, type: 'Optional' ) )
-					&& empty( $invalid = $this->parser->optionalVariadic )
-			) {
-			$this->registerArgument( $command );
-
-			return;
-		}
-
-		$this->io->error(
-			message: array(
-				static::COMMAND_ARGUMENTS_ERROR,
-				'Positional Optional Arg cannot be used with Positional Optional Variadic Arg.',
-				static::LONG_SEPARATOR,
-				'Registered Positional Optional Arg is:',
-				...static::convertForResponse( $commands ),
-				static::LONG_SEPARATOR,
-				'SOLUTION:',
-				static::LONG_SEPARATOR_LINE,
-				'Convert below Positional Optional Variadic Arg to Optional Associative Arg.',
-				static::LONG_SEPARATOR,
-				...static::convertForResponse( commands: $invalid ),
-			)
-		);
-
-		exit;
-	}
-
-	protected function addOptionalVariadicArg(): void {
-		if ( empty( $commands = $this->parser->optionalVariadic ) ) {
-			return;
-		}
-
-		$invalid = array();
-
-		if (
-			( $command = $this->validatePositionalIfMoreThanOne( $commands, type: 'Optional Variadic' ) )
-				&& empty( $invalid = $this->parser->optional )
-		) {
-			$this->registerArgument( $command );
-
-			return;
-		}
-
-		$this->io->error(
-			message: array(
-				static::COMMAND_ARGUMENTS_ERROR,
-				'Positional Optional Arg and Positional Optional Variadic Arg cannot be used on same command.',
-				static::LONG_SEPARATOR,
-				'Recommended to remove Positional Optional Arg and use as Optional Associative Arg.',
-				static::LONG_SEPARATOR,
-				...static::convertForResponse( commands: $invalid ),
-				...static::convertForResponse( $commands ),
-			)
-		);
-
-		exit;
-	}
-
-	protected function configure(): void {
-		$this->setDescription( description: $this->parser->title );
-
-		// WP CLI does not register method of a class that is invocable as a subcommand.
-		// We'll silently ignore it and do not register for the Symfony console.
-		// Unless a different method name is passed.
-		if ( $this->subcommand && self::DEFAULT_METHOD !== $this->subcommand ) {
-			$this->addArgument( name: $this->subcommand, mode: InputArgument::REQUIRED );
-		}
-
-		$this->addRequiredArgs();
-		$this->addRequiredVariadicArgs();
-		$this->addOptionalArg();
-		$this->addOptionalVariadicArg();
-
-		foreach ( $this->parser->associative as $command ) {
-			$this->registerOption( $command );
-		}
-
-		foreach ( $this->parser->flag as $command ) {
-			$this->registerOption( $command );
-		}
+		return ( $attribute = ( $reflection->getAttributes( CommandAttribute::class )[0] ?? false ) )
+			? $attribute->newInstance()
+			: null;
 	}
 }
