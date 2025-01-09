@@ -8,7 +8,7 @@ use DirectoryIterator;
 trait DirectoryScanner {
 	public const EXTENSION = 'php';
 
-	/** @var array<string,string> */
+	/** @var array<string,string> List of found filePaths indexed by filename. */
 	protected array $scannedFiles;
 
 	abstract protected function isIgnored( string $filename ): bool;
