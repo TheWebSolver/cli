@@ -16,25 +16,17 @@ class Cli extends Application {
 
 	private bool $shouldUseClassNameForCommand = true;
 	private EventDispatcher $eventDispatcher;
-
 	/** @var ?static */
 	protected static $app;
 
-	// phpcs:ignore Generic.CodeAnalysis.UselessOverridingMethod.Found
-	final public function __construct() {}
+	final public function __construct() {
+		$this->setAutoExit( false );
+		$this->setDispatcher( $this->eventDispatcher = new EventDispatcher() );
+		// FIXME: $app->setHelperSet( helperSet: HelperSet::register() );
+	}
 
 	public static function app(): static {
-		if ( static::$app ?? false ) {
-			return static::$app;
-		}
-
-		$app = new static();
-
-		$app->setAutoExit( boolean: false );
-		// FIXME: $app->setHelperSet( helperSet: HelperSet::register() );
-		$app->setDispatcher( $app->eventDispatcher = new EventDispatcher() );
-
-		return static::$app = $app;
+		return static::$app ??= ( static::$app = new static() );
 	}
 
 	public function eventDispatcher(): EventDispatcher {
