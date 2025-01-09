@@ -42,6 +42,10 @@ class Console extends Command {
 		$this->io = new SymfonyStyle( new ArgvInput(), new ConsoleOutput() );
 
 		parent::__construct( $name ?? static::asCommandName() ?: null );
+		$this->setCliApp();
+	}
+
+	protected function setCliApp(): void {
 		$this->setApplication( Cli::app() );
 	}
 
