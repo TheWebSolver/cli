@@ -13,8 +13,8 @@ class DirectoryScannerTest extends TestCase {
 		$scanner = new Scanner();
 		$scanner->run();
 
-		$this->assertCount( 3, $files = $scanner->getFiles() );
-		$this->assertArrayHasKey( substr( basename( __FILE__ ), 0, -4 /* remove .php */ ), $files );
+		$this->assertCount( 1, $files = $scanner->getFiles() );
+		$this->assertArrayHasKey( 'Valid', $files );
 	}
 }
 
@@ -23,13 +23,13 @@ class Scanner {
 	use DirectoryScanner;
 
 	public function run(): self {
-		$this->scan( __DIR__ );
+		$this->scan( __DIR__ . '/Scan' );
 
 		return $this;
 	}
 
 	protected function isIgnored( string $filename ): bool {
-		return ! $filename;
+		return str_contains( $filename, 'Ignore' );
 	}
 
 	public function getFiles(): array {
