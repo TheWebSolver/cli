@@ -6,7 +6,7 @@ namespace TheWebSolver\Codegarage\Cli;
 use Closure;
 use LogicException;
 use TheWebSolver\Codegarage\Cli\Console;
-use TheWebSolver\Codegarage\Cli\Event\BeforeRunEvent;
+use TheWebSolver\Codegarage\Cli\Event\AfterLoadEvent;
 use Symfony\Component\EventDispatcher\EventDispatcher;
 use Symfony\Component\Console\CommandLoader\FactoryCommandLoader;
 
@@ -59,8 +59,8 @@ class CommandLoader {
 	public function withListener( callable $listener ): self {
 		if ( $this->dispatcher ) {
 			$this->dispatcher->addListener(
-				BeforeRunEvent::class,
-				fn( BeforeRunEvent $e ) => $e->runCommand( $listener( ... ) )
+				AfterLoadEvent::class,
+				fn( AfterLoadEvent $e ) => $e->runCommand( $listener( ... ) )
 			);
 
 			$this->startScan();
@@ -121,14 +121,14 @@ class CommandLoader {
 		 * It is the developer's responsibility to run the Symfony application by
 		 * themselves using the arguments passed to the "$loader".
 		 */
-		if ( $commandRunner = $this->getLoaderFromEvent() ) {
+		if ( $commandRunner = $this->getCommandRunnerFromEvent() ) {
 			$commandRunner( $commandName, $lazyload, $command );
 		}
 	}
 
 	/** @return ?callable(string $commandName, Closure():Console $command, string $className): void */
-	private function getLoaderFromEvent(): ?callable {
-		return $this->dispatcher?->dispatch( new BeforeRunEvent() )->getCommandRunner();
+	private function getCommandRunnerFromEvent(): ?callable {
+		return $this->dispatcher?->dispatch( new AfterLoadEvent() )->getCommandRunner();
 	}
 
 	private function throwInvalidDir(): never {

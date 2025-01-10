@@ -6,7 +6,7 @@ namespace TheWebSolver\Codegarage\Cli\Event;
 use Closure;
 use TheWebSolver\Codegarage\Cli\Console;
 
-class BeforeRunEvent {
+class AfterLoadEvent {
 	/** @var ?callable(string $commandName, Closure():Console $command, string $className): void */
 	private $commandRunner;
 
