@@ -3,7 +3,6 @@ declare( strict_types = 1 );
 
 namespace TheWebSolver\Codegarage\Cli;
 
-use Closure;
 use LogicException;
 use TheWebSolver\Codegarage\Cli\Console;
 use TheWebSolver\Codegarage\Container\Container;
@@ -17,10 +16,10 @@ class CommandLoader {
 	final public const COMMAND_DIRECTORY = Cli::ROOT . 'Command';
 
 	/**
-	 * @param Container                       $container
-	 * @param array{0:string,1:string}        $registeredDirAndNamespace
-	 * @param class-string<Console>[]         $classNames
-	 * @param array<string,Closure():Console> $commands
+	 * @param Container                        $container
+	 * @param array{0:string,1:string}         $registeredDirAndNamespace
+	 * @param class-string<Console>[]          $classNames
+	 * @param array<string,callable():Console> $commands
 	 */
 	private function __construct(
 		private Container $container,
@@ -30,6 +29,10 @@ class CommandLoader {
 		private ?EventDispatcher $dispatcher = null
 	) {
 		// TODO: add subscriber for autocompletion.
+	}
+
+	public function getContainer(): Container {
+		return $this->container;
 	}
 
 	/** @return array<string,string> List of found filePaths indexed by filename. */
@@ -42,7 +45,7 @@ class CommandLoader {
 		return $this->classNames;
 	}
 
-	/** @return array<string,Closure():Console> */
+	/** @return array<string,callable():Console> */
 	public function getLazyLoadedCommands(): array {
 		return $this->commands;
 	}
@@ -61,13 +64,13 @@ class CommandLoader {
 		return $this;
 	}
 
-	/** @param callable(string $commandName, Closure():Console $command, string $className): void $listener */
+	/** @param callable(string $commandName, callable():Console $command, class-string<Console> $className): void $listener */
 	// phpcs:ignore Squiz.Commenting.FunctionComment.ParamNameNoMatch
 	public function withListener( callable $listener ): self {
 		if ( $this->dispatcher ) {
 			$this->dispatcher->addListener(
 				AfterLoadEvent::class,
-				fn( AfterLoadEvent $e ) => $e->runCommand( $listener( ... ) )
+				static fn( AfterLoadEvent $e ) => $e->runCommand( $listener( ... ) )
 			);
 
 			$this->startScan();
@@ -109,7 +112,7 @@ class CommandLoader {
 	}
 
 	protected function executeFor( string $filename, string $filepath ): void {
-		$command = "\\{$this->registeredDirAndNamespace[1]}\\{$filename}";
+		$command = "{$this->registeredDirAndNamespace[1]}\\{$filename}";
 
 		if ( ! is_a( $command, Console::class, allow_string: true ) ) {
 			return;
@@ -117,7 +120,7 @@ class CommandLoader {
 
 		$this->classNames[] = $command;
 		$commandName        = $command::asCommandName();
-		$lazyload           = $command::start( ... );
+		$lazyload           = array( $command, 'start' );
 
 		/**
 		 * Defer Symfony command instantiation until current command is ran.
@@ -138,7 +141,7 @@ class CommandLoader {
 		}
 	}
 
-	/** @return ?callable(string $commandName, Closure():Console $command, string $className): void */
+	/** @return ?callable(string, callable(): Console, class-string<Console>): void */
 	private function getCommandRunnerFromEvent(): ?callable {
 		return $this->dispatcher?->dispatch( new AfterLoadEvent() )->getCommandRunner();
 	}

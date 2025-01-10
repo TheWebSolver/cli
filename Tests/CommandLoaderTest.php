@@ -3,12 +3,10 @@ declare( strict_types = 1 );
 
 namespace TheWebSolver\Codegarage\Test;
 
-use Closure;
 use PHPUnit\Framework\TestCase;
 use TheWebSolver\Codegarage\Cli\Cli;
 use PHPUnit\Framework\Attributes\Test;
 use TheWebSolver\Codegarage\Cli\CommandLoader;
-use TheWebSolver\Codegarage\Container\Container;
 use TheWebSolver\Codegarage\Test\Stub\TestCommand;
 use TheWebSolver\Codegarage\Test\Stub\AnotherScannedCommand;
 
@@ -27,10 +25,9 @@ class CommandLoaderTest extends TestCase {
 
 	#[Test]
 	public function itScansAndLazyloadCommandFromGivenLocation(): void {
-		$loader  = CommandLoader::run( ...self::LOCATION );
-		$classes = array_map( fn( string $className ) => ltrim( $className, '\\' ), $loader->getClassNames() );
+		$loader = CommandLoader::run( ...self::LOCATION );
 
-		$this->assertEmpty( array_diff( self::EXPECTED_COMMANDS, $classes ) );
+		$this->assertEmpty( array_diff( self::EXPECTED_COMMANDS, $loader->getClassNames() ) );
 		$this->assertEmpty( array_diff( self::EXPECTED_FILENAMES, array_keys( $loader->getFileNames() ) ) );
 
 		$this->assertEmpty( array_diff_key( self::EXPECTED_COMMANDS, $loader->getLazyLoadedCommands() ) );
@@ -50,16 +47,15 @@ class CommandLoaderTest extends TestCase {
 		$this->assertEmpty( array_diff( self::EXPECTED_FILENAMES, array_keys( $fileNames ) ) );
 	}
 
-	public function assertLoadedCommandIsListened( string $name, Closure $command, string $classname ): void {
-		$this->assertContains( ltrim( $classname, '\\' ), self::EXPECTED_COMMANDS );
+	public function assertLoadedCommandIsListened( string $name, callable $command, string $classname ): void {
+		$this->assertContains( $classname, self::EXPECTED_COMMANDS );
 		$this->assertInstanceOf( self::EXPECTED_COMMANDS[ $name ], $command() );
 	}
 
 	#[Test]
 	public function itProvidesLazyLoadedCommandsToCli(): void {
-		CommandLoader::run( ...self::LOCATION );
-
-		$cli = Container::boot()->get( Cli::class );
+		$loader = CommandLoader::run( ...self::LOCATION );
+		$cli    = $loader->getContainer()->get( Cli::class );
 
 		$this->assertCount( 1, $cli->all( 'app' ) );
 		$this->assertCount( 1, $cli->all( 'scanned' ) );
