@@ -3,39 +3,54 @@ declare( strict_types = 1 );
 
 namespace TheWebSolver\Codegarage\Test;
 
+use Closure;
 use PHPUnit\Framework\TestCase;
 use TheWebSolver\Codegarage\Cli\Cli;
 use PHPUnit\Framework\Attributes\Test;
 use TheWebSolver\Codegarage\Cli\CommandLoader;
 use TheWebSolver\Codegarage\Test\Stub\TestCommand;
-use TheWebSolver\Codegarage\Cli\Event\BeforeRunEvent;
+use TheWebSolver\Codegarage\Test\Stub\AnotherScannedCommand;
 
 class CommandLoaderTest extends TestCase {
+	private const LOCATION = array(
+		Cli::ROOT . 'Tests' . DIRECTORY_SEPARATOR . 'Stub',
+		__NAMESPACE__ . '\\Stub',
+		false,
+	);
+
+	private const EXPECTED_FILENAMES = array( 'TestCommand', 'AnotherScannedCommand' );
+	private const EXPECTED_COMMANDS  = array(
+		'app:testCommand'               => TestCommand::class,
+		'scanned:anotherScannedCommand' => AnotherScannedCommand::class,
+	);
+
 	#[Test]
-	public function itRunsCommandUsingEventListener(): void {
-		$dispatcher = Cli::app()->eventDispatcher();
+	public function itScansAndLazyloadCommandFromGivenLocation(): void {
+		$loader  = CommandLoader::run( ...self::LOCATION );
+		$classes = array_map( fn( string $className ) => ltrim( $className, '\\' ), $loader->getClassNames() );
 
-		$dispatcher->addListener(
-			BeforeRunEvent::class,
-			static fn( BeforeRunEvent $e ) => $e->runCommand( self::assertCommandIsLazyLoaded( ... ) )
-		);
+		$this->assertEmpty( array_diff( self::EXPECTED_COMMANDS, $classes ) );
+		$this->assertEmpty( array_diff( self::EXPECTED_FILENAMES, array_keys( $loader->getFileNames() ) ) );
 
-		$dispatcher->addListener(
-			BeforeRunEvent::class,
-			static fn( BeforeRunEvent $e ) => $e->runCommand( self::assertCommandFileIsScanned( ... ) )
-		);
+		$this->assertEmpty( array_diff_key( self::EXPECTED_COMMANDS, $loader->getLazyLoadedCommands() ) );
 
-		$dir    = 'Tests' . DIRECTORY_SEPARATOR . 'Stub';
-		$loader = CommandLoader::run( directory: Cli::ROOT . $dir, ns: __NAMESPACE__ . '\\Stub' );
-
-		$this->assertCount( 1, $loader->getClassNames() );
+		foreach ( self::EXPECTED_COMMANDS as $commandName => $className ) {
+			$this->assertInstanceOf( $className, $loader->getLazyLoadedCommands()[ $commandName ]() );
+		}
 	}
 
-	public static function assertCommandIsLazyLoaded( CommandLoader $loader ): void {
-		self::assertInstanceOf( TestCommand::class, ( $loader->getLazyLoadedCommands()['app:testCommand'] )() );
+	#[Test]
+	public function itListensForEventsForEachResolvedCommandFile(): void {
+		$loader = CommandLoader::subscribe()
+			->toLocation( ...self::LOCATION )
+			->withListener( $this->assertLoadedCommandIsListened( ... ) );
+
+		$this->assertCount( 2, $fileNames = $loader->getFileNames() );
+		$this->assertEmpty( array_diff( self::EXPECTED_FILENAMES, array_keys( $fileNames ) ) );
 	}
 
-	public static function assertCommandFileIsScanned( CommandLoader $loader ): void {
-		self::assertArrayHasKey( 'TestCommand', $loader->getFileNames() );
+	public function assertLoadedCommandIsListened( string $name, Closure $command, string $classname ): void {
+		$this->assertContains( ltrim( $classname, '\\' ), self::EXPECTED_COMMANDS );
+		$this->assertInstanceOf( self::EXPECTED_COMMANDS[ $name ], $command() );
 	}
 }

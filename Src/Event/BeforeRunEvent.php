@@ -4,26 +4,26 @@ declare( strict_types = 1 );
 namespace TheWebSolver\Codegarage\Cli\Event;
 
 use Closure;
-use TheWebSolver\Codegarage\Cli\CommandLoader;
+use TheWebSolver\Codegarage\Cli\Console;
 
 class BeforeRunEvent {
-	/** @var (Closure(CommandLoader): void)[] */
-	private array $commandLoader;
+	/** @var ?callable(string $commandName, Closure():Console $command, string $className): void */
+	private $commandRunner;
 
 	/**
-	 * @param callable(CommandLoader): void $loader The callable accepts the command loader instance.
+	 * @param callable(string $commandName, Closure():Console $command, string $className): void $loader
 	 * @listener
 	 */
 	// phpcs:ignore Squiz.Commenting.FunctionComment.IncorrectTypeHint
 	public function runCommand( callable $loader ): void {
-		$this->commandLoader[] = $loader( ... );
+		$this->commandRunner = $loader;
 	}
 
 	/**
-	 * @return (Closure(CommandLoader): void)[]
+	 * @return ?callable(string $commandName, Closure():Console $command, string $className): void
 	 * @dispatcher
 	 */
-	public function getCommandLoader(): ?array {
-		return $this->commandLoader ?? null;
+	public function getCommandRunner(): ?callable {
+		return $this->commandRunner ?? null;
 	}
 }

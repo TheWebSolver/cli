@@ -7,12 +7,13 @@ use Closure;
 use LogicException;
 use TheWebSolver\Codegarage\Cli\Console;
 use TheWebSolver\Codegarage\Cli\Event\BeforeRunEvent;
+use Symfony\Component\EventDispatcher\EventDispatcher;
 use Symfony\Component\Console\CommandLoader\FactoryCommandLoader;
 
 class CommandLoader {
 	use DirectoryScanner;
 
-	final public const COMMAND_DIRECTORY = 'Command';
+	final public const COMMAND_DIRECTORY = Cli::ROOT . 'Command';
 
 	/**
 	 * @param array{0:string,1:string}        $registeredDirAndNamespace
@@ -22,10 +23,9 @@ class CommandLoader {
 	private function __construct(
 		private array $registeredDirAndNamespace,
 		private array $classNames = array(),
-		private array $commands = array()
+		private array $commands = array(),
+		private ?EventDispatcher $dispatcher = null
 	) {
-		$this->startScan();
-
 		// TODO: add subscriber for autocompletion.
 	}
 
@@ -44,19 +44,41 @@ class CommandLoader {
 		return $this->commands;
 	}
 
+	public static function subscribe(): self {
+		return new self( array( self::COMMAND_DIRECTORY, Cli::NAMESPACE ), dispatcher: new EventDispatcher() );
+	}
+
+	public function toLocation( string $directory, string $ns ): self {
+		$this->registeredDirAndNamespace = array( $directory, $ns );
+
+		return $this;
+	}
+
+	/** @param callable(string $commandName, Closure():Console $command, string $className): void $listener */
+	// phpcs:ignore Squiz.Commenting.FunctionComment.ParamNameNoMatch
+	public function withListener( callable $listener ): self {
+		if ( $this->dispatcher ) {
+			$this->dispatcher->addListener(
+				BeforeRunEvent::class,
+				fn( BeforeRunEvent $e ) => $e->runCommand( $listener( ... ) )
+			);
+
+			$this->startScan();
+		}
+
+		return $this;
+	}
+
 	public static function run(
-		string $directory = Cli::ROOT . self::COMMAND_DIRECTORY,
-		string $ns = Cli::NAMESPACE
+		string $directory = self::COMMAND_DIRECTORY,
+		string $ns = Cli::NAMESPACE,
+		/* bool $runApplication = true: Runs Symfony Application by default. */
 	): self {
 		$loader = new self( array( $directory, $ns ) );
-		$event  = Cli::app()->eventDispatcher()->dispatch( new BeforeRunEvent() );
 
-		if ( $commandLoaders = $event->getCommandLoader() ) {
-			foreach ( $commandLoaders as $commandLoader ) {
-				// Allow listeners to use scanned files, classnames and lazy-loaded commands.
-				$commandLoader( $loader );
-			}
-		} else {
+		$loader->startScan();
+
+		if ( true === ( func_num_args() >= 3 ? func_get_arg( position: 2 ) : true ) ) {
 			Cli::app()->run();
 		}
 
@@ -82,8 +104,9 @@ class CommandLoader {
 			return;
 		}
 
-		$commandName        = $command::asCommandName();
 		$this->classNames[] = $command;
+		$commandName        = $command::asCommandName();
+		$lazyload           = $command::start( ... );
 
 		/**
 		 * Defer Symfony command instantiation until current command is ran.
@@ -91,7 +114,21 @@ class CommandLoader {
 		 * @see \Symfony\Component\Console\Application::setCommandLoader
 		 * @link https://symfony.com/doc/current/console/lazy_commands.html
 		 */
-		$this->commands[ $commandName ] = $command::start( ... );
+		$this->commands[ $commandName ] = $lazyload;
+
+		/**
+		 * Allow third-party to listen for resolved command file by the directory scanner.
+		 * It is the developer's responsibility to run the Symfony application by
+		 * themselves using the arguments passed to the "$loader".
+		 */
+		if ( $commandRunner = $this->getLoaderFromEvent() ) {
+			$commandRunner( $commandName, $lazyload, $command );
+		}
+	}
+
+	/** @return ?callable(string $commandName, Closure():Console $command, string $className): void */
+	private function getLoaderFromEvent(): ?callable {
+		return $this->dispatcher?->dispatch( new BeforeRunEvent() )->getCommandRunner();
 	}
 
 	private function throwInvalidDir(): never {
