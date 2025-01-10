@@ -6,9 +6,10 @@ namespace TheWebSolver\Codegarage\Cli;
 use Closure;
 use LogicException;
 use TheWebSolver\Codegarage\Cli\Console;
+use TheWebSolver\Codegarage\Container\Container;
 use TheWebSolver\Codegarage\Cli\Event\AfterLoadEvent;
 use Symfony\Component\EventDispatcher\EventDispatcher;
-use Symfony\Component\Console\CommandLoader\FactoryCommandLoader;
+use Symfony\Component\Console\CommandLoader\ContainerCommandLoader;
 
 class CommandLoader {
 	use DirectoryScanner;
@@ -16,11 +17,13 @@ class CommandLoader {
 	final public const COMMAND_DIRECTORY = Cli::ROOT . 'Command';
 
 	/**
+	 * @param Container                       $container
 	 * @param array{0:string,1:string}        $registeredDirAndNamespace
 	 * @param class-string<Console>[]         $classNames
 	 * @param array<string,Closure():Console> $commands
 	 */
 	private function __construct(
+		private Container $container,
 		private array $registeredDirAndNamespace,
 		private array $classNames = array(),
 		private array $commands = array(),
@@ -45,7 +48,11 @@ class CommandLoader {
 	}
 
 	public static function subscribe(): self {
-		return new self( array( self::COMMAND_DIRECTORY, Cli::NAMESPACE ), dispatcher: new EventDispatcher() );
+		return new self(
+			container: Container::boot(),
+			registeredDirAndNamespace: array( self::COMMAND_DIRECTORY, Cli::NAMESPACE ),
+			dispatcher: new EventDispatcher()
+		);
 	}
 
 	public function toLocation( string $directory, string $ns ): self {
@@ -74,12 +81,12 @@ class CommandLoader {
 		string $ns = Cli::NAMESPACE,
 		/* bool $runApplication = true: Runs Symfony Application by default. */
 	): self {
-		$loader = new self( array( $directory, $ns ) );
+		$loader = new self( Container::boot(), array( $directory, $ns ) );
 
 		$loader->startScan();
 
 		if ( true === ( func_num_args() >= 3 ? func_get_arg( position: 2 ) : true ) ) {
-			Cli::app()->run();
+			$loader->container->get( Cli::class )->run();
 		}
 
 		return $loader;
@@ -90,7 +97,11 @@ class CommandLoader {
 
 		// By default, all lazy-loaded commands extending Console will use the Cli::app().
 		// By overriding Console::setCliApp(), different application may be used.
-		Cli::app()->setCommandLoader( new FactoryCommandLoader( $this->commands ) );
+		$commands = array_combine( array_keys( $this->commands ), $this->classNames );
+
+		$this->container
+			->get( Cli::class )
+			->setCommandLoader( new ContainerCommandLoader( $this->container, $commands ) );
 	}
 
 	protected function isIgnored( string $filename ): bool {
@@ -115,6 +126,7 @@ class CommandLoader {
 		 * @link https://symfony.com/doc/current/console/lazy_commands.html
 		 */
 		$this->commands[ $commandName ] = $lazyload;
+		$this->container->set( $command, $lazyload );
 
 		/**
 		 * Allow third-party to listen for resolved command file by the directory scanner.

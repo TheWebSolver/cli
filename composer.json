@@ -15,12 +15,16 @@
     "php": ">=8.2",
     "symfony/console": "^7.2",
     "symfony/event-dispatcher": "^7.2",
-    "thewebsolver/code-generator": "dev-master"
+    "thewebsolver/code-generator": "dev-master",
+    "thewebsolver/container": "dev-main"
   },
   "autoload": {
     "psr-4": {
       "TheWebSolver\\Codegarage\\Cli\\": "Src/"
-    }
+    },
+    "files": [
+      "bootstrap.php"
+    ]
   },
   "autoload-dev": {
     "psr-4": {
@@ -34,6 +38,10 @@
       "options": {
         "symlink": false
       }
+    },
+    {
+      "type": "path",
+      "url": "../container"
     }
   ],
   "scripts": {

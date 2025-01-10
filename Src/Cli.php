@@ -16,17 +16,11 @@ class Cli extends Application {
 
 	private bool $shouldUseClassNameForCommand = true;
 	private EventDispatcher $eventDispatcher;
-	/** @var ?static */
-	protected static $app;
 
 	final public function __construct() {
 		$this->setAutoExit( false );
 		$this->setDispatcher( $this->eventDispatcher = new EventDispatcher() );
 		// FIXME: $app->setHelperSet( helperSet: HelperSet::register() );
-	}
-
-	public static function app(): static {
-		return static::$app ??= ( static::$app = new static() );
 	}
 
 	public function eventDispatcher(): EventDispatcher {

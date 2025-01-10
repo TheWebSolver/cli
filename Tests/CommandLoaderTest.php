@@ -8,6 +8,7 @@ use PHPUnit\Framework\TestCase;
 use TheWebSolver\Codegarage\Cli\Cli;
 use PHPUnit\Framework\Attributes\Test;
 use TheWebSolver\Codegarage\Cli\CommandLoader;
+use TheWebSolver\Codegarage\Container\Container;
 use TheWebSolver\Codegarage\Test\Stub\TestCommand;
 use TheWebSolver\Codegarage\Test\Stub\AnotherScannedCommand;
 
@@ -52,5 +53,19 @@ class CommandLoaderTest extends TestCase {
 	public function assertLoadedCommandIsListened( string $name, Closure $command, string $classname ): void {
 		$this->assertContains( ltrim( $classname, '\\' ), self::EXPECTED_COMMANDS );
 		$this->assertInstanceOf( self::EXPECTED_COMMANDS[ $name ], $command() );
+	}
+
+	#[Test]
+	public function itProvidesLazyLoadedCommandsToCli(): void {
+		CommandLoader::run( ...self::LOCATION );
+
+		$cli = Container::boot()->get( Cli::class );
+
+		$this->assertCount( 1, $cli->all( 'app' ) );
+		$this->assertCount( 1, $cli->all( 'scanned' ) );
+
+		foreach ( self::EXPECTED_COMMANDS as $name => $class ) {
+			$this->assertInstanceOf( $class, $cli->get( $name ) );
+		}
 	}
 }

@@ -9,11 +9,11 @@ use TheWebSolver\Codegarage\Cli\Cli;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\ArgvInput;
 use TheWebSolver\Codegarage\Cli\Data\Positional;
+use TheWebSolver\Codegarage\Container\Container;
 use Symfony\Component\Console\Style\SymfonyStyle;
 use TheWebSolver\Codegarage\Cli\Data\Associative;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\ConsoleOutput;
-use TheWebSolver\Codegarage\Cli\Helper\CommandArgs;
 use Symfony\Component\Console\Helper\HelperInterface;
 use Symfony\Component\Console\Output\OutputInterface;
 use TheWebSolver\Codegarage\Cli\Attribute\Command as CommandAttribute;
@@ -46,7 +46,7 @@ class Console extends Command {
 	}
 
 	protected function setCliApp(): void {
-		$this->setApplication( Cli::app() );
+		$this->setApplication( Container::boot()->get( Cli::class ) );
 	}
 
 	final public static function start(): static {
@@ -71,7 +71,7 @@ class Console extends Command {
 			return $attribute->commandName;
 		}
 
-		return ! Cli::app()->shouldUseClassNameAsCommand() ? '' : static::CLI_NAMESPACE . ':' . lcfirst(
+		return ! Container::boot()->get( Cli::class )->shouldUseClassNameAsCommand() ? '' : static::CLI_NAMESPACE . ':' . lcfirst(
 			str_replace( search: '_', replace: '', subject: ucwords( $reflection->getShortName(), separators: '_' ) )
 		);
 	}
