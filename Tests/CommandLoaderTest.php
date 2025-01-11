@@ -54,6 +54,15 @@ class CommandLoaderTest extends TestCase {
 	}
 
 	#[Test]
+	public function itEnsuresCommandsAreLazyLoadedToContainer(): void {
+		$loader = CommandLoader::run( ...self::LOCATION );
+
+		foreach ( self::EXPECTED_COMMANDS as $class ) {
+			$this->assertEquals( $class::start( ... ), $loader->getContainer()->getBinding( $class )->material );
+		}
+	}
+
+	#[Test]
 	public function itProvidesLazyLoadedCommandsToCli(): void {
 		$loader = CommandLoader::run( ...self::LOCATION );
 		$cli    = $loader->getContainer()->get( Cli::class );
