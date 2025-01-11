@@ -47,7 +47,7 @@ class Cli extends Application {
 					$option->mode,
 					$option->desc,
 					$option->default,
-					$option->options
+					$option->suggestedValues
 				)
 			);
 		}

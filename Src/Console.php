@@ -114,17 +114,6 @@ class Console extends Command {
 		);
 	}
 
-	protected function registerOption( Associative $command ): void {
-		$this->addOption(
-			$command->name,
-			$command->shortcut,
-			$command->mode,
-			$command->desc,
-			$command->default,
-			$command->options
-		);
-	}
-
 	/**
 	 * @param array<string,Positional> $commands The commands.
 	 * @return array<int,string>

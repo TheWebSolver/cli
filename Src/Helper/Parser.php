@@ -104,21 +104,14 @@ class Parser {
 					isOptional: $isOptional,
 					name: $name,
 					desc: self::toDescription( from: $maybeDesc ),
-					mode: InputArgument::REQUIRED
 				);
 
 				if ( $isOptional && $isVariadic ) {
-					$optionalVariadic[ $name ] = $positional->recreateFrom(
-						args: array( 'mode' => InputArgument::OPTIONAL | InputArgument::IS_ARRAY )
-					);
+					$optionalVariadic[ $name ] = $positional;
 				} elseif ( ! $isOptional && $isVariadic ) {
-					$requiredVariadic[ $name ] = $positional->recreateFrom(
-						args: array( 'mode' => InputArgument::REQUIRED | InputArgument::IS_ARRAY )
-					);
+					$requiredVariadic[ $name ] = $positional;
 				} elseif ( ! $isVariadic && $isOptional ) {
-					$optional[ $name ] = $positional->recreateFrom(
-						args: array( 'mode' => InputArgument::OPTIONAL )
-					);
+					$optional[ $name ] = $positional;
 				} else {
 					$required[ $name ] = $positional;
 				}
@@ -167,7 +160,7 @@ class Parser {
 					}
 
 					$associative[ $inputName ] = new Associative(
-						options: $options ?: array(),
+						suggestedValues: $options ?: array(),
 						desc: $description,
 						name: $inputName,
 						mode: $inputMode,
@@ -210,32 +203,9 @@ class Parser {
 					isOptional: $isOptional,
 					name: $name,
 					desc: $desc,
-					mode: InputArgument::REQUIRED,
 					default: $default
 				);
 
-				if ( $isVariadic ) {
-					if ( $isOptional ) {
-						$optionalVariadic[ $name ] = $args->recreateFrom(
-							array( 'mode' => InputArgument::IS_ARRAY | InputArgument::OPTIONAL )
-						);
-
-						continue;
-					}
-					$requiredVariadic[ $name ] = $args->recreateFrom(
-						array( 'mode' => InputArgument::IS_ARRAY | InputArgument::REQUIRED )
-					);
-
-					continue;
-				}
-
-				if ( $isOptional ) {
-					$optional[ $name ] = $args->recreateFrom(
-						array( 'mode' => InputArgument::OPTIONAL )
-					);
-
-					continue;
-				}
 				$required[ $name ] = $args;
 
 				continue;
@@ -243,7 +213,7 @@ class Parser {
 
 			if ( 'assoc' === $type ) {
 				$associative[ $name ] = new Associative(
-					options: $command['options'] ?? array(),
+					suggestedValues: $command['options'] ?? array(),
 					default: $default,
 					desc: $desc,
 					name: $name,
