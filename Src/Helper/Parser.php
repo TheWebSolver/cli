@@ -15,6 +15,7 @@ use TheWebSolver\Codegarage\Generator\Enum\Type;
 use TheWebSolver\Codegarage\Cli\Data\Associative;
 use Symfony\Component\Console\Input\InputArgument;
 use PHPStan\PhpDocParser\Ast\PhpDoc\PhpDocTextNode;
+use TheWebSolver\Codegarage\Cli\Data\Flag;
 
 class Parser {
 	public const IS_VALUE_OPTIONAL = 'valueOptional';
@@ -138,7 +139,7 @@ class Parser {
 				if ( $isVariadic ) {
 					// REVIEW: implement associative name for variadic input passing "name" in docBlock.
 					$associative['field'] = new Associative(
-						mode: InputOption::VALUE_REQUIRED | InputOption::VALUE_IS_ARRAY,
+						isVariadic: true,
 						name: 'field',
 						desc: $description,
 					);
@@ -163,7 +164,7 @@ class Parser {
 						suggestedValues: $options ?: array(),
 						desc: $description,
 						name: $inputName,
-						mode: $inputMode,
+						// mode: $inputMode, /* FIXME */
 						default: $default,
 					);
 				}//end if
@@ -217,7 +218,7 @@ class Parser {
 					default: $default,
 					desc: $desc,
 					name: $name,
-					mode: $isOptional ? InputOption::VALUE_OPTIONAL : InputOption::VALUE_REQUIRED
+					// mode: $isOptional ? InputOption::VALUE_OPTIONAL : InputOption::VALUE_REQUIRED /* FIXME */
 				);
 			}
 
@@ -226,12 +227,9 @@ class Parser {
 					self::throwInvalidArg( name: $name, type: 'flag' );
 				}
 
-				$mode = ( $command['negatable'] ?? false )
-					&& true === $command['negatable']
-						? InputOption::VALUE_NEGATABLE
-						: InputOption::VALUE_NONE;
+				$isNegatable = ( $command['negatable'] ?? false ) && true === $command['negatable'];
 
-				$flag[ $name ] = new Associative( name: $name, desc: $desc, mode: $mode );
+				$flag[ $name ] = new Flag( $name, $desc, $isNegatable );
 			}
 		}//end foreach
 
