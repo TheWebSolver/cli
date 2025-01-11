@@ -17,15 +17,13 @@ class CommandLoader {
 	final public const COMMAND_DIRECTORY = Cli::ROOT . 'Command';
 
 	/**
-	 * @param Container                        $container
-	 * @param array{0:string,1:string}         $registeredDirAndNamespace
-	 * @param class-string<Console>[]          $classNames
-	 * @param array<string,callable():Console> $commands
+	 * @param Container                           $container
+	 * @param array{0:string,1:string}            $registeredDirAndNamespace
+	 * @param array<string,class-string<Console>> $commands
 	 */
 	private function __construct(
 		private Container $container,
 		private array $registeredDirAndNamespace,
-		private array $classNames = array(),
 		private array $commands = array(),
 		private ?EventDispatcher $dispatcher = null
 	) {
@@ -41,13 +39,8 @@ class CommandLoader {
 		return $this->scannedFiles;
 	}
 
-	/** @return class-string<Console>[] */
-	public function getClassNames(): array {
-		return $this->classNames;
-	}
-
-	/** @return array<string,callable():Console> */
-	public function getLazyLoadedCommands(): array {
+	/** @return array<string,class-string<Console>> */
+	public function getCommands(): array {
 		return $this->commands;
 	}
 
@@ -100,11 +93,9 @@ class CommandLoader {
 
 		// By default, all lazy-loaded commands extending Console will use default "Cli".
 		// Different application maybe used with setter "Console::setApplication()".
-		$commands = array_combine( array_keys( $this->commands ), $this->classNames );
-
 		$this->container
 			->get( Cli::class )
-			->setCommandLoader( new ContainerCommandLoader( $this->container, $commands ) );
+			->setCommandLoader( new ContainerCommandLoader( $this->container, $this->commands ) );
 	}
 
 	protected function isIgnored( string $filename ): bool {
@@ -118,18 +109,11 @@ class CommandLoader {
 			return;
 		}
 
-		$this->classNames[] = $command;
-		$commandName        = $command::asCommandName( $this->container );
-		$lazyload           = array( $command, 'start' );
+		$lazyload                       = array( $command, 'start' );
+		$commandName                    = $command::asCommandName( $this->container );
+		$this->commands[ $commandName ] = $command;
 
-		/**
-		 * Defer Symfony command instantiation until current command is ran.
-		 *
-		 * @link https://symfony.com/doc/current/console/lazy_commands.html
-		 */
-		$this->commands[ $commandName ] = $lazyload;
-
-		$this->container->set( $command, $lazyload );
+		$this->handleResolved( $command, $lazyload, $commandName );
 
 		/**
 		 * Allow third-party to listen for resolved command by Command Loader.
@@ -139,6 +123,20 @@ class CommandLoader {
 		if ( $commandRunner = $this->getCommandRunnerFromEvent() ) {
 			$commandRunner( new EventTask( $lazyload( ... ), $command, $commandName, $this->container ) );
 		}
+	}
+
+	/**
+	 * Allows developers to handle the resolved commands.
+	 *
+	 * By default, it defers command instantiation until current command is ran.
+	 *
+	 * @param class-string<Console>     $classname
+	 * @param callable(Container): void $command
+	 * @link https://symfony.com/doc/current/console/lazy_commands.html
+	 */
+	// phpcs:ignore Squiz.Commenting.FunctionComment.IncorrectTypeHint
+	protected function handleResolved( string $classname, callable $command, string $commandName ): void {
+		$this->container->set( $classname, $command );
 	}
 
 	/** @return ?callable(EventTask): void */

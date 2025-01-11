@@ -28,14 +28,9 @@ class CommandLoaderTest extends TestCase {
 	public function itScansAndLazyloadCommandFromGivenLocation(): void {
 		$loader = CommandLoader::run( ...self::LOCATION );
 
-		$this->assertEmpty( array_diff( self::EXPECTED_COMMANDS, $loader->getClassNames() ) );
+		$this->assertEmpty( array_diff( self::EXPECTED_COMMANDS, $loader->getCommands() ) );
+		$this->assertEmpty( array_diff_key( self::EXPECTED_COMMANDS, $loader->getCommands() ) );
 		$this->assertEmpty( array_diff( self::EXPECTED_FILENAMES, array_keys( $loader->getFileNames() ) ) );
-
-		$this->assertEmpty( array_diff_key( self::EXPECTED_COMMANDS, $loader->getLazyLoadedCommands() ) );
-
-		foreach ( self::EXPECTED_COMMANDS as $commandName => $className ) {
-			$this->assertInstanceOf( $className, $loader->getLazyLoadedCommands()[ $commandName ]() );
-		}
 	}
 
 	#[Test]
