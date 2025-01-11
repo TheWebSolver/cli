@@ -6,7 +6,6 @@ namespace TheWebSolver\Codegarage\Cli;
 use Symfony\Component\Console\Application;
 use Symfony\Component\Console\Input\InputOption;
 use TheWebSolver\Codegarage\Cli\Data\Associative;
-use TheWebSolver\Codegarage\Cli\Helper\HelperSet;
 use Symfony\Component\Console\Input\InputDefinition;
 use Symfony\Component\EventDispatcher\EventDispatcher;
 
@@ -20,7 +19,6 @@ class Cli extends Application {
 	final public function __construct() {
 		$this->setAutoExit( false );
 		$this->setDispatcher( $this->eventDispatcher = new EventDispatcher() );
-		// FIXME: $app->setHelperSet( helperSet: HelperSet::register() );
 	}
 
 	public function eventDispatcher(): EventDispatcher {
