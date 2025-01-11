@@ -39,23 +39,22 @@ class Console extends Command {
 	 * @throws InvalidArgumentException When command parsing fails.
 	 */
 	public function __construct( ?string $name = null, public readonly ?string $subcommand = null ) {
+		parent::__construct( $name );
+
 		$this->io = new SymfonyStyle( new ArgvInput(), new ConsoleOutput() );
-
-		parent::__construct( $name ?? static::asCommandName() ?: null );
-		$this->setCliApp();
 	}
 
-	protected function setCliApp(): void {
-		$this->setApplication( Container::boot()->get( Cli::class ) );
-	}
-
-	final public static function start(): static {
-		return ( ! $attribute = self::getCommandAttribute() )
-			? new static()
+	final public static function start( Container $container = null ): static {
+		$console = ( ! $attribute = self::getCommandAttribute() )
+			? new static( static::asCommandName( $container ) ?: null )
 			: ( new static( $attribute->commandName ) )
 				->setDescription( $attribute->description ?? '' )
 				->setAliases( $attribute->altNames )
 				->setHidden( $attribute->isInternal );
+
+		$console->setApplication( $container?->get( Cli::class ) );
+
+		return $console;
 	}
 
 	/**
@@ -64,16 +63,20 @@ class Console extends Command {
 	 * - **_non-empty-string:_** Using classname itself: `static::CLI_NAMESPACE` . **':camelCaseClassName'**, or
 	 * - **_empty-string:_**     If command name from classname is disabled: `Cli::app()->useClassNameAsCommand(false)`.
 	 */
-	final public static function asCommandName(): string {
-		$reflection = new ReflectionClass( static::class );
+	final public static function asCommandName( Container $container = null ): string {
+		$ref = new ReflectionClass( static::class );
 
-		if ( $attribute = self::getCommandAttribute( $reflection ) ) {
+		if ( $attribute = self::getCommandAttribute( $ref ) ) {
 			return $attribute->commandName;
 		}
 
-		return ! Container::boot()->get( Cli::class )->shouldUseClassNameAsCommand() ? '' : static::CLI_NAMESPACE . ':' . lcfirst(
-			str_replace( search: '_', replace: '', subject: ucwords( $reflection->getShortName(), separators: '_' ) )
-		);
+		if ( ! $container?->get( Cli::class )->shouldUseClassNameAsCommand() ) {
+			return '';
+		}
+
+		$name = str_replace( search: '_', replace: '', subject: ucwords( $ref->getShortName(), separators: '_' ) );
+
+		return static::CLI_NAMESPACE . ':' . lcfirst( $name );
 	}
 
 	/**

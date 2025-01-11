@@ -4,16 +4,34 @@ declare( strict_types = 1 );
 namespace TheWebSolver\Codegarage\Test;
 
 use PHPUnit\Framework\TestCase;
+use TheWebSolver\Codegarage\Cli\Cli;
 use PHPUnit\Framework\Attributes\Test;
 use TheWebSolver\Codegarage\Cli\Console;
+use TheWebSolver\Codegarage\Container\Container;
 use TheWebSolver\Codegarage\Cli\Attribute\Command;
 
 class ConsoleTest extends TestCase {
 	#[Test]
 	public function itReturnsChildClassAsCommandName(): void {
+		$container = $this->createMock( Container::class );
+		$cli       = $this->createMock( Cli::class );
+
+		$container->expects( $this->exactly( 2 ) )
+			->method( 'get' )
+			->willReturn( $cli );
+
+		$cli->expects( $this->exactly( 2 ) )
+			->method( 'shouldUseClassNameAsCommand' )
+			->willReturn( true, false );
+
 		$this->assertSame(
 			expected: 'create:commandWithoutAttribute',
-			actual: Command_Without_Attribute::asCommandName()
+			actual: Command_Without_Attribute::asCommandName( $container )
+		);
+
+		$this->assertSame(
+			expected: '',
+			actual: Command_Without_Attribute::asCommandName( $container )
 		);
 	}
 

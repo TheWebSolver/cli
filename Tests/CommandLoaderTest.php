@@ -7,6 +7,7 @@ use PHPUnit\Framework\TestCase;
 use TheWebSolver\Codegarage\Cli\Cli;
 use PHPUnit\Framework\Attributes\Test;
 use TheWebSolver\Codegarage\Cli\CommandLoader;
+use TheWebSolver\Codegarage\Cli\Data\EventTask;
 use TheWebSolver\Codegarage\Test\Stub\TestCommand;
 use TheWebSolver\Codegarage\Test\Stub\AnotherScannedCommand;
 
@@ -47,9 +48,14 @@ class CommandLoaderTest extends TestCase {
 		$this->assertEmpty( array_diff( self::EXPECTED_FILENAMES, array_keys( $fileNames ) ) );
 	}
 
-	public function assertLoadedCommandIsListened( string $name, callable $command, string $classname ): void {
-		$this->assertContains( $classname, self::EXPECTED_COMMANDS );
-		$this->assertInstanceOf( self::EXPECTED_COMMANDS[ $name ], $command() );
+	public function assertLoadedCommandIsListened( EventTask $task ): void {
+		$this->assertContains( $task->className, self::EXPECTED_COMMANDS );
+		$this->assertInstanceOf( self::EXPECTED_COMMANDS[ $task->commandName ], ( $task->command )() );
+		$this->assertInstanceOf(
+			$task->className,
+			$task->container->get( $task->className ),
+			'Console instance is return when using Container and Cli gets registered to the console.'
+		);
 	}
 
 	#[Test]

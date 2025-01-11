@@ -3,14 +3,13 @@ declare( strict_types = 1 );
 
 namespace TheWebSolver\Codegarage\Cli\Event;
 
-use TheWebSolver\Codegarage\Cli\Console;
-
+use TheWebSolver\Codegarage\Cli\Data\EventTask;
 class AfterLoadEvent {
-	/** @var ?callable(string, callable():Console, class-string<Console>): void */
+	/** @var ?callable(EventTask): void */
 	private $commandRunner;
 
 	/**
-	 * @param callable(string, callable():Console, class-string<Console>): void $runner
+	 * @param callable(EventTask): void $runner
 	 * @listener
 	 */
 	// phpcs:ignore Squiz.Commenting.FunctionComment.IncorrectTypeHint
@@ -19,7 +18,7 @@ class AfterLoadEvent {
 	}
 
 	/**
-	 * @return ?callable(string, callable():Console, class-string<Console>): void
+	 * @return ?callable(EventTask): void
 	 * @dispatcher
 	 */
 	public function getCommandRunner(): ?callable {

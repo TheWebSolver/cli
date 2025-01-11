@@ -5,6 +5,7 @@ namespace TheWebSolver\Codegarage\Cli;
 
 use LogicException;
 use TheWebSolver\Codegarage\Cli\Console;
+use TheWebSolver\Codegarage\Cli\Data\EventTask;
 use TheWebSolver\Codegarage\Container\Container;
 use TheWebSolver\Codegarage\Cli\Event\AfterLoadEvent;
 use Symfony\Component\EventDispatcher\EventDispatcher;
@@ -51,11 +52,7 @@ class CommandLoader {
 	}
 
 	public static function subscribe(): self {
-		return new self(
-			container: Container::boot(),
-			registeredDirAndNamespace: array( self::COMMAND_DIRECTORY, Cli::NAMESPACE ),
-			dispatcher: new EventDispatcher()
-		);
+		return self::getInstance( self::COMMAND_DIRECTORY, Cli::NAMESPACE, event: true );
 	}
 
 	public function toLocation( string $directory, string $ns ): self {
@@ -64,7 +61,7 @@ class CommandLoader {
 		return $this;
 	}
 
-	/** @param callable(string $commandName, callable():Console $command, class-string<Console> $className): void $listener */
+	/** @param callable(EventTask): void $listener */
 	// phpcs:ignore Squiz.Commenting.FunctionComment.ParamNameNoMatch
 	public function withListener( callable $listener ): self {
 		if ( $this->dispatcher ) {
@@ -84,7 +81,7 @@ class CommandLoader {
 		string $ns = Cli::NAMESPACE,
 		/* bool $runApplication = true: Runs Symfony Application by default. */
 	): self {
-		$loader = new self( Container::boot(), array( $directory, $ns ) );
+		$loader = self::getInstance( $directory, $ns, event: false );
 
 		$loader->startScan();
 
@@ -95,11 +92,15 @@ class CommandLoader {
 		return $loader;
 	}
 
+	private static function getInstance( string $dir, string $ns, bool $event = false ): self {
+		return new self( Container::boot(), array( $dir, $ns ), dispatcher: $event ? new EventDispatcher() : null );
+	}
+
 	private function startScan(): void {
 		$this->scan( realpath( $this->registeredDirAndNamespace[0] ) ?: $this->throwInvalidDir() );
 
-		// By default, all lazy-loaded commands extending Console will use the Cli::app().
-		// By overriding Console::setCliApp(), different application may be used.
+		// By default, all lazy-loaded commands extending Console will use default "Cli".
+		// Different application maybe used with setter "Console::setApplication()".
 		$commands = array_combine( array_keys( $this->commands ), $this->classNames );
 
 		$this->container
@@ -119,29 +120,29 @@ class CommandLoader {
 		}
 
 		$this->classNames[] = $command;
-		$commandName        = $command::asCommandName();
+		$commandName        = $command::asCommandName( $this->container );
 		$lazyload           = array( $command, 'start' );
 
 		/**
 		 * Defer Symfony command instantiation until current command is ran.
 		 *
-		 * @see \Symfony\Component\Console\Application::setCommandLoader
 		 * @link https://symfony.com/doc/current/console/lazy_commands.html
 		 */
 		$this->commands[ $commandName ] = $lazyload;
+
 		$this->container->set( $command, $lazyload );
 
 		/**
-		 * Allow third-party to listen for resolved command file by the directory scanner.
-		 * It is the developer's responsibility to run the Symfony application by
-		 * themselves using the arguments passed to the "$loader".
+		 * Allow third-party to listen for resolved command by Command Loader.
+		 * It is the developer's responsibility to run the Application by
+		 * themselves using "$commandRunner" with "EventTask".
 		 */
 		if ( $commandRunner = $this->getCommandRunnerFromEvent() ) {
-			$commandRunner( $commandName, $lazyload, $command );
+			$commandRunner( new EventTask( $lazyload( ... ), $command, $commandName, $this->container ) );
 		}
 	}
 
-	/** @return ?callable(string, callable(): Console, class-string<Console>): void */
+	/** @return ?callable(EventTask): void */
 	private function getCommandRunnerFromEvent(): ?callable {
 		return $this->dispatcher?->dispatch( new AfterLoadEvent() )->getCommandRunner();
 	}
