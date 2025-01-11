@@ -10,8 +10,9 @@ use Symfony\Component\Console\Input\InputDefinition;
 use Symfony\Component\EventDispatcher\EventDispatcher;
 
 class Cli extends Application {
-	final public const ROOT      = __DIR__ . DIRECTORY_SEPARATOR . '..' . DIRECTORY_SEPARATOR;
-	final public const NAMESPACE = __NAMESPACE__;
+	final public const ROOT           = __DIR__ . DIRECTORY_SEPARATOR . '..' . DIRECTORY_SEPARATOR;
+	final public const NAMESPACE      = __NAMESPACE__;
+	final public const GLOBAL_OPTIONS = self::ROOT . 'globals.php';
 
 	private bool $shouldUseClassNameForCommand = true;
 	private EventDispatcher $eventDispatcher;
@@ -37,7 +38,7 @@ class Cli extends Application {
 		$definition = parent::getDefaultInputDefinition();
 
 		/** @var Associative[] */
-		$globalOptions = require_once \dirname( __DIR__ ) . '/GlobalOptions.php';
+		$globalOptions = require_once self::GLOBAL_OPTIONS;
 
 		foreach ( $globalOptions as $option ) {
 			$definition->addOption(

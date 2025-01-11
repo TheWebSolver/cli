@@ -62,7 +62,6 @@ class CommandLoader {
 	}
 
 	/** @param callable(EventTask): void $listener */
-	// phpcs:ignore Squiz.Commenting.FunctionComment.ParamNameNoMatch
 	public function withListener( callable $listener ): self {
 		if ( $this->dispatcher ) {
 			$this->dispatcher->addListener(
