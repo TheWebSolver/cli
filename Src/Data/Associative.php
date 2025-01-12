@@ -6,62 +6,82 @@ namespace TheWebSolver\Codegarage\Cli\Data;
 use Closure;
 use Attribute;
 use BackedEnum;
+use TheWebSolver\Codegarage\Cli\Helper\Parser;
 use Symfony\Component\Console\Input\InputOption;
+use Symfony\Component\Console\Completion\Suggestion;
+use Symfony\Component\Console\Completion\CompletionInput;
+use Symfony\Component\Console\Completion\CompletionSuggestions;
 
 #[Attribute( Attribute::TARGET_CLASS | Attribute::IS_REPEATABLE )]
-class Associative {
-	/** @var array{}|Closure The argument options. */
-	public array|Closure $suggestedValues;
-
+readonly class Associative {
 	/** @var int-mask-of<InputOption::*> */
 	public int $mode;
 
+	/** @var array<string|int>|(Closure(CompletionInput, CompletionSuggestions): list<string|Suggestion>) The option's suggested values. */
+	public array|Closure $suggestedValues;
+
+	/** @var null|string|bool|int|float|array{} */
+	public null|string|bool|int|float|array $default;
+
 	/**
-	 * @param string                             $name            The option name. Eg: "show".
-	 * @param string                             $desc            The short description about the option.
-	 * @param bool                               $isVariadic      Whether the option can be repeated or not. Eg:
-	 *                                                            `--path=some/dir/ --path=another/dir/`.
-	 * @param bool                               $valueOptional   Whether option's value can be omitted. Meaning it's value
-	 *                                                            or may not be passed. Eg: '--show` or `--show=yes".
-	 * @param null|string|bool|int|float|array{} $default         The option's default value. When `$valueOptional` is set
-	 *                                                            to `true`, the default value will be set to `false`.
-	 * @param null|string|array<string|callable> $shortcut        Shortcut. For eg: "-s" for "--show".
-	 * @param class-string<BackedEnum>|array{}   $suggestedValues The suggested values, if any.
+	 * @param string                                                                                                                 $name            The option name. Eg: "show".
+	 * @param string                                                                                                                 $desc            The short description about the option.
+	 * @param bool                                                                                                                   $isVariadic      Whether the option can be repeated or not.
+	 *                                                                                                                                                Eg: `--path=first/dir/ --path=next/dir/`.
+	 * @param bool                                                                                                                   $valueOptional   Whether the option's value can be omitted.
+	 *                                                                                                                                                Meaning, value may or may not be passed.
+	 *                                                                                                                                                Eg: '--show` or `--show=yes".
+	 * @param null|string|bool|int|float|array{}|class-string<BackedEnum>|(callable(): string|bool|int|float|array{})                $default         The option's default value.
+	 * @param null|string|array<string|callable>                                                                                     $shortcut        Shortcut. For eg: "-s" for "--show".
+	 * @param class-string<BackedEnum>|array<string|int>|(callable(CompletionInput, CompletionSuggestions): list<string|Suggestion>) $suggestedValues The option's suggested values.
 	 */
-	// phpcs:ignore Squiz.Commenting.FunctionComment.IncorrectTypeHint -- Int mask for mode OK.
 	public function __construct(
 		public string $name,
 		public string $desc,
 		public bool $isVariadic = false,
 		public bool $valueOptional = false,
-		public null|string|bool|int|float|array $default = null,
+		null|string|bool|int|float|array|callable $default = null,
 		public null|string|array $shortcut = null,
 		string|array|callable $suggestedValues = array(),
 	) {
 		$this->normalizeMode();
-		$this->normalizeSuggestion( $suggestedValues );
+
+		$this->default         = $this->normalizeDefault( $default );
+		$this->suggestedValues = Parser::parseInputSuggestion( $suggestedValues );
 	}
 
-	protected function normalizeMode(): void {
-		$this->mode = InputOption::VALUE_REQUIRED;
+	public function input(): InputOption {
+		return new InputOption(
+			$this->name,
+			$this->shortcut,
+			$this->mode,
+			$this->desc,
+			$this->default,
+			$this->suggestedValues
+		);
+	}
 
-		if ( $this->valueOptional ) {
-			$this->default = false;
-			$this->mode    = InputOption::VALUE_OPTIONAL;
-		}
+	private function normalizeMode(): void {
+		$mode = $this->valueOptional ? InputOption::VALUE_OPTIONAL : InputOption::VALUE_REQUIRED;
 
 		if ( $this->isVariadic ) {
-			$this->mode |= InputOption::VALUE_IS_ARRAY;
+			$mode |= InputOption::VALUE_IS_ARRAY;
 		}
+
+		$this->mode = $mode;
 	}
 
-	/** @param array{}|callable|string $value */
-	protected function normalizeSuggestion( array|callable|string $value ): void {
-		$this->suggestedValues = match ( true ) {
-			default                                 => array(),
-			is_array( $value )                      => $value,
-			is_callable( $value )                   => $value( ... ),
-			is_a( $value, BackedEnum::class, true ) => array_column( $value::cases(), 'value' )
+	/**
+	 * @param mixed $value
+	 * @return null|string|bool|int|float|array{}
+	 */
+	private function normalizeDefault( $value ): null|string|bool|int|float|array {
+		return match ( true ) {
+			default                                   => null,
+			is_callable( $value )                     => $this->normalizeDefault( $value() ),
+			$this->valueOptional && null === $value   => false,
+			$this->isVariadic && ! is_array( $value ) => array(),
+			is_string( $value )                        => Parser::parseBackedEnumValue( $value )
 		};
 	}
 }

@@ -5,6 +5,7 @@ namespace TheWebSolver\Codegarage\Cli\Enum;
 
 use Closure;
 use ValueError;
+use TheWebSolver\Codegarage\Cli\Helper\Parser;
 
 enum Synopsis: string {
 	// Top levels.
@@ -103,7 +104,7 @@ enum Synopsis: string {
 				? $value
 				: $this->throwInvalid(
 					given: $this->getDebugTypeFrom( $value ),
-					expectedType: "string => ['" . implode( separator: "' | '", array: InputVariant::toAssoc() ) . "']"
+					expectedType: "string => ['" . implode( separator: "' | '", array: Parser::parseBackedEnumValue( InputVariant::class, true ) ) . "']"
 				),
 
 			self::Variadic,

@@ -3,19 +3,23 @@ declare( strict_types = 1 );
 
 namespace TheWebSolver\Codegarage\Cli\Helper;
 
+use Closure;
 use Throwable;
+use BackedEnum;
 use ReflectionMethod;
 use InvalidArgumentException;
 use TheWebSolver\Codegarage\Cli\Console;
+use TheWebSolver\Codegarage\Cli\Data\Flag;
 use TheWebSolver\Codegarage\Cli\Enum\Synopsis;
 use Symfony\Component\Console\Input\InputOption;
 use TheWebSolver\Codegarage\Cli\Data\Positional;
 use TheWebSolver\Codegarage\Generator\DocParser;
 use TheWebSolver\Codegarage\Generator\Enum\Type;
 use TheWebSolver\Codegarage\Cli\Data\Associative;
-use Symfony\Component\Console\Input\InputArgument;
 use PHPStan\PhpDocParser\Ast\PhpDoc\PhpDocTextNode;
-use TheWebSolver\Codegarage\Cli\Data\Flag;
+use Symfony\Component\Console\Completion\Suggestion;
+use Symfony\Component\Console\Completion\CompletionInput;
+use Symfony\Component\Console\Completion\CompletionSuggestions;
 
 class Parser {
 	public const IS_VALUE_OPTIONAL = 'valueOptional';
@@ -31,6 +35,24 @@ class Parser {
 	public const ASSOCIATIVE_VALUE_PATTERN = '/^=<([a-zA-Z-_|,0-9]+)>$/';
 	public const ASSOCIATIVE_KEY_PATTERN   = '/^--(?:\\[no-\\])?([a-z-_0-9]+)/';
 	public const POSITIONAL_PATTERN        = '<([a-zA-Z-_|,0-9]+)>';
+
+	/** @return ($name is class-string<BackedEnum> ? array<($caseAsIndex is true ? string : int),string|int> : string)*/
+	public static function parseBackedEnumValue( string $name, bool $caseAsIndex = false ): string|array {
+		return is_a( $name, BackedEnum::class, allow_string: true )
+			? array_column( $name::cases(), 'value', index_key: $caseAsIndex ? 'name' : null )
+			: $name;
+	}
+
+	/**
+	 * @param class-string<BackedEnum>|array{}|callable(CompletionInput, CompletionSuggestions): list<string|Suggestion> $value
+	 * @return array<string|int>|Closure(CompletionInput, CompletionSuggestions): list<string|Suggestion> */
+	public static function parseInputSuggestion( $value ): array|Closure {
+		return match ( true ) {
+			is_callable( $value ) => $value( ... ),
+			is_array( $value )    => $value,
+			default               => (array) self::parseBackedEnumValue( $value )
+		};
+	}
 
 	/**
 	 * @param array<string,Positional>  $requiredVariadic The required variadic arg.

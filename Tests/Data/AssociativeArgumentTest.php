@@ -29,7 +29,7 @@ class AssociativeArgumentTest extends TestCase {
 		return array(
 			array( array( 1, 2, 3 ), array( 1, 2, 3 ) ),
 			array( $fn = fn() => array( 'a', 'b', 'c' ), null ),
-			array( InputVariant::class, array( 'positional', 'assoc', 'flag' ) ),
+			array( InputVariant::class, array( 'argument', 'option', 'flag' ) ),
 		);
 	}
 
@@ -63,7 +63,7 @@ class AssociativeArgumentTest extends TestCase {
 
 		$this->assertSame( '--test', $associative->name );
 		$this->assertSame( 'Using as attribute', $associative->desc );
-		$this->assertSame( array( 'positional', 'assoc', 'flag' ), $associative->suggestedValues );
+		$this->assertSame( array( 'argument', 'option', 'flag' ), $associative->suggestedValues );
 	}
 }
 
