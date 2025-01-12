@@ -77,12 +77,21 @@ readonly class Associative {
 	 */
 	private function normalizeDefault( $value ): null|string|bool|int|float|array {
 		return match ( true ) {
-			default                                 => $this->isVariadic ? array() : null,
-			$this->valueOptional && null === $value => $this->isVariadic ? array() : false,
-			is_callable( $value )                   => $this->normalizeDefault( $value() ),
-			$this->isVariadic                       => is_array( $value ) ? $value : ( Positional::variadicFromEnum( $value ) ?? array() ),
-			is_string( $value )                     => Parser::parseBackedEnumValue( $value ),
-			is_scalar( $value )                     =>  $value,
+			default                            => $this->isVariadic ? array() : null,
+			$this->isOptionalDefault( $value ) => $this->isVariadic ? array() : false,
+			is_callable( $value )              => $this->normalizeDefault( $value() ),
+			$this->isVariadic                  => $this->getVariadicDefault( $value ),
+			is_string( $value )                => Parser::parseBackedEnumValue( $value ),
+			is_scalar( $value )                =>  $value,
 		};
+	}
+
+	private function isOptionalDefault( mixed $value ): bool {
+		return $this->valueOptional && null === $value;
+	}
+
+	/** @return array{} */
+	private function getVariadicDefault( mixed $value ): array {
+		return is_array( $value ) ? $value : ( Positional::variadicFromEnum( $value ) ?? array() );
 	}
 }
