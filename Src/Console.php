@@ -4,10 +4,12 @@ declare( strict_types = 1 );
 namespace TheWebSolver\Codegarage\Cli;
 
 use ReflectionClass;
+use ReflectionAttribute;
 use InvalidArgumentException;
 use TheWebSolver\Codegarage\Cli\Cli;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\ArgvInput;
+use Symfony\Component\Console\Input\InputOption;
 use TheWebSolver\Codegarage\Cli\Data\Positional;
 use TheWebSolver\Codegarage\Container\Container;
 use Symfony\Component\Console\Style\SymfonyStyle;
@@ -42,15 +44,20 @@ class Console extends Command {
 		parent::__construct( $name );
 
 		$this->io = new SymfonyStyle( new ArgvInput(), new ConsoleOutput() );
+
+		$this->getDefinition()->addOptions( static::optionsFromAttribute( toInput: true ) ?? array() );
 	}
 
 	final public static function start( Container $container = null ): static {
-		$console = ( ! $attribute = self::getCommandAttribute() )
-			? new static( static::asCommandName( $container ) ?: null )
-			: ( new static( $attribute->commandName ) )
-				->setDescription( $attribute->description ?? '' )
-				->setAliases( $attribute->altNames )
-				->setHidden( $attribute->isInternal );
+		if ( ! $attribute = self::getCommandAttribute( CommandAttribute::class ) ) {
+			return new static( static::asCommandName( $container ) ?: null );
+		}
+
+		$command = $attribute[0]->newInstance();
+		$console = ( new static( $command->commandName ) )
+				->setDescription( $command->description ?? '' )
+				->setAliases( $command->altNames )
+				->setHidden( $command->isInternal );
 
 		$console->setApplication( $container?->get( Cli::class ) );
 
@@ -66,8 +73,8 @@ class Console extends Command {
 	final public static function asCommandName( Container $container = null ): string {
 		$ref = new ReflectionClass( static::class );
 
-		if ( $attribute = self::getCommandAttribute( $ref ) ) {
-			return $attribute->commandName;
+		if ( $attribute = self::getCommandAttribute( CommandAttribute::class, $ref ) ) {
+			return $attribute[0]->newInstance()->commandName;
 		}
 
 		if ( ! $container?->get( Cli::class )->shouldUseClassNameAsCommand() ) {
@@ -77,6 +84,18 @@ class Console extends Command {
 		$name = str_replace( search: '_', replace: '', subject: ucwords( $ref->getShortName(), separators: '_' ) );
 
 		return static::CLI_NAMESPACE . ':' . lcfirst( $name );
+	}
+
+	/** @return ($toInput is true ? InputOption[] : Associative[]) */
+	final public static function optionsFromAttribute( bool $toInput = false ): ?array {
+		if ( ! $attributes = self::getCommandAttribute( Associative::class ) ) {
+			return null;
+		}
+
+		return array_map(
+			static fn( ReflectionAttribute $attr ) => $toInput ? $attr->newInstance()->input() : $attr->newInstance(),
+			$attributes
+		);
 	}
 
 	/**
@@ -150,13 +169,15 @@ class Console extends Command {
 		exit;
 	}
 
-	/** @param ?ReflectionClass<static> $reflection */
-	// phpcs:ignore Squiz.Commenting.FunctionComment.IncorrectTypeHint
-	private static function getCommandAttribute( ?ReflectionClass $reflection = null ): ?CommandAttribute {
+	/**
+	 * @param class-string<T>          $attributeName
+	 * @param ?ReflectionClass<static> $reflection
+	 * @return ?array<ReflectionAttribute<T>>
+	 * @template T of object
+	 */
+	private static function getCommandAttribute( $attributeName, $reflection = null ): ?array {
 		$reflection ??= new ReflectionClass( static::class );
 
-		return ( $attribute = ( $reflection->getAttributes( CommandAttribute::class )[0] ?? false ) )
-			? $attribute->newInstance()
-			: null;
+		return empty( $attrs = $reflection->getAttributes( $attributeName ) ) ? null : $attrs;
 	}
 }
