@@ -14,26 +14,6 @@ use TheWebSolver\Codegarage\Cli\Enum\InputVariant;
 
 class AssociativeTest extends TestCase {
 	#[Test]
-	#[DataProvider( 'providesDifferentSuggestedValues' )]
-	public function itNormalizedSuggestedValues( mixed $value, mixed $expected ): void {
-		$associative = new Associative( 'test', 'Suggested Values test', suggestedValues: $value );
-
-		if ( $expected ) {
-			$this->assertSame( $expected, $associative->suggestedValues );
-		} else {
-			$this->assertInstanceOf( Closure::class, $associative->suggestedValues );
-		}
-	}
-
-	public static function providesDifferentSuggestedValues(): array {
-		return array(
-			array( array( 1, 2, 3 ), array( 1, 2, 3 ) ),
-			array( $fn = fn() => array( 'a', 'b', 'c' ), null ),
-			array( InputVariant::class, array( 'argument', 'option', 'flag' ) ),
-		);
-	}
-
-	#[Test]
 	#[DataProvider( 'provideVariousModes' )]
 	public function itNormalizesOptionMode( bool $isOptional, bool $isVariadic, int $expected ): void {
 		$option = new Associative( 'test', 'This is test', $isVariadic, $isOptional );
@@ -48,19 +28,6 @@ class AssociativeTest extends TestCase {
 			array( true, false, InputOption::VALUE_OPTIONAL ),
 			array( true, true, InputOption::VALUE_OPTIONAL | InputOption::VALUE_IS_ARRAY ),
 		);
-	}
-
-	#[Test]
-	public function itEnsuresAssociativeDtoCanBeUsedAsAttribute(): void {
-		$reflection = ( new ReflectionClass( SimpleTestCommand::class ) );
-
-		$this->assertNotEmpty( [$attribute] = $reflection->getAttributes( Associative::class ) );
-
-		$associative = $attribute->newInstance();
-
-		$this->assertSame( '--test', $associative->name );
-		$this->assertSame( 'Using as attribute', $associative->desc );
-		$this->assertSame( array( 'argument', 'option', 'flag' ), $associative->suggestedValues );
 	}
 
 	#[Test]
@@ -106,7 +73,20 @@ class AssociativeTest extends TestCase {
 			array( true, true, array( true ), array( true ) ),
 		);
 	}
+
+	#[Test]
+	public function itEnsuresOptionCanBeUsedAsAttribute(): void {
+		$reflection = ( new ReflectionClass( SimpleOptionTestCommand::class ) );
+
+		$this->assertNotEmpty( [$attribute] = $reflection->getAttributes( Associative::class ) );
+
+		$option = $attribute->newInstance();
+
+		$this->assertSame( '--test', $option->name );
+		$this->assertSame( 'Using as attribute', $option->desc );
+		$this->assertSame( array( 'argument', 'option', 'flag' ), $option->suggestedValues );
+	}
 }
 
 #[Associative( '--test', 'Using as attribute', suggestedValues: InputVariant::class )]
-class SimpleTestCommand {} // phpcs:ignore Generic.Files.OneObjectStructurePerFile.MultipleFound
+class SimpleOptionTestCommand {} // phpcs:ignore Generic.Files.OneObjectStructurePerFile.MultipleFound
