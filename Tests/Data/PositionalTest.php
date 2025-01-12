@@ -58,6 +58,12 @@ class PositionalTest extends TestCase {
 			array( true, false, fn() => fn() => fn() => InputVariant::class, array( 'argument', 'option', 'flag' ) ),
 			array( true, false, fn() => fn() => fn() => 'anything', 'anything' ),
 			array( true, true, fn() => fn() => fn() => 'mustBeArrayIfVariadic', array() ),
+			array( true, false, 1.23, 1.23 ),
+			array( true, true, array( 1.23 ), array( 1.23 ) ),
+			array( true, false, 8910, 8910 ),
+			array( true, true, array( 8910 ), array( 8910 ) ),
+			array( true, false, true, true ),
+			array( true, true, array( true ), array( true ) ),
 		);
 	}
 }

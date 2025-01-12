@@ -76,12 +76,13 @@ readonly class Positional {
 			! $this->isOptional   => null,
 			is_callable( $value ) => $this->normalizeDefault( $value() ),
 			$this->isVariadic     => is_array( $value ) ? $value : ( self::variadicFromEnum( $value ) ?? array() ),
-			is_string( $value )   => Parser::parseBackedEnumValue( $value )
+			is_string( $value )   => Parser::parseBackedEnumValue( $value ),
+			is_scalar( $value )   => $value
 		};
 	}
 
 	/** @return array<string|int> */
-	private static function variadicFromEnum( mixed $maybeBackedEnumClass ): ?array {
+	public static function variadicFromEnum( mixed $maybeBackedEnumClass ): ?array {
 		return is_string( $maybeBackedEnumClass )
 			? ( is_array( $cases = Parser::parseBackedEnumValue( $maybeBackedEnumClass ) ) ? $cases : null )
 			: null;
