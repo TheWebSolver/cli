@@ -3,6 +3,7 @@ declare( strict_types = 1 );
 
 namespace TheWebSolver\Codegarage\Test\Data;
 
+use ReflectionClass;
 use PHPUnit\Framework\TestCase;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -66,4 +67,22 @@ class PositionalTest extends TestCase {
 			array( true, true, array( true ), array( true ) ),
 		);
 	}
+
+	#[Test]
+	public function itEnsuresPositionalArgumentCanBeUsedAsAttribute(): void {
+		$reflection = ( new ReflectionClass( SimpleArgumentTestCommand::class ) );
+
+		$this->assertNotEmpty( [$attribute] = $reflection->getAttributes( Positional::class ) );
+
+		$argument = $attribute->newInstance();
+
+		$this->assertTrue( $argument->isVariadic );
+		$this->assertFalse( $argument->isOptional );
+		$this->assertSame( 'test', $argument->name );
+		$this->assertSame( 'Using as attribute', $argument->desc );
+		$this->assertSame( array( 'argument', 'option', 'flag' ), $argument->suggestedValues );
+	}
 }
+
+#[Positional( 'test', 'Using as attribute', true, false, suggestedValues: InputVariant::class )]
+class SimpleArgumentTestCommand {} // phpcs:ignore Generic.Files.OneObjectStructurePerFile.MultipleFound
