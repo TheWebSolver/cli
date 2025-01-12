@@ -72,11 +72,18 @@ readonly class Positional {
 	 */
 	private function normalizeDefault( $value ): null|string|bool|int|float|array {
 		return match ( true ) {
-			default                                   => null,
-			! $this->isOptional && null !== $value    => null,
-			$this->isVariadic && ! is_array( $value ) => array(),
-			is_callable( $value )                     => $this->normalizeDefault( $value() ),
-			is_string( $value )                       => Parser::parseBackedEnumValue( $value )
+			default               => $this->isVariadic ? array() : null,
+			! $this->isOptional   => null,
+			is_callable( $value ) => $this->normalizeDefault( $value() ),
+			$this->isVariadic     => is_array( $value ) ? $value : ( self::variadicFromEnum( $value ) ?? array() ),
+			is_string( $value )   => Parser::parseBackedEnumValue( $value )
 		};
+	}
+
+	/** @return array<string|int> */
+	private static function variadicFromEnum( mixed $maybeBackedEnumClass ): ?array {
+		return is_string( $maybeBackedEnumClass )
+			? ( is_array( $cases = Parser::parseBackedEnumValue( $maybeBackedEnumClass ) ) ? $cases : null )
+			: null;
 	}
 }
