@@ -9,6 +9,7 @@ use TheWebSolver\Codegarage\Cli\Data\EventTask;
 use TheWebSolver\Codegarage\Container\Container;
 use TheWebSolver\Codegarage\Cli\Event\AfterLoadEvent;
 use Symfony\Component\EventDispatcher\EventDispatcher;
+use TheWebSolver\Codegarage\Cli\Event\CommandSubscriber;
 use Symfony\Component\Console\CommandLoader\ContainerCommandLoader;
 
 class CommandLoader {
@@ -27,7 +28,7 @@ class CommandLoader {
 		private array $commands = array(),
 		private ?EventDispatcher $dispatcher = null
 	) {
-		// TODO: add subscriber for autocompletion.
+		$container->get( Cli::class )->eventDispatcher()->addSubscriber( new CommandSubscriber() );
 	}
 
 	public function getContainer(): Container {
