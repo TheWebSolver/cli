@@ -17,7 +17,11 @@ class PositionalTest extends TestCase {
 	public function itParsesModeUsingOptionalAndVariadicProp( bool $optional, bool $variadic, int $expected ): void {
 		$argument = new Positional( 'test', 'This is test', $variadic, $optional );
 
+		$this->assertSame( 'test', $argument->name );
 		$this->assertSame( $expected, $argument->mode );
+		$this->assertSame( 'This is test', $argument->desc );
+		$this->assertSame( $optional, $argument->isOptional );
+		$this->assertSame( $variadic, $argument->isVariadic );
 		$this->assertInstanceOf( InputArgument::class, $argument->input() );
 	}
 

@@ -14,17 +14,19 @@ class FlagTest extends TestCase {
 	public function itParsesModeUsingNegatableValue(): void {
 		$flag = new Flag( 'test', 'desc', isNegatable: false, shortcut: array( 's', 'h' ) );
 
-		$this->assertSame( InputOption::VALUE_NONE, $flag->mode );
+		$this->assertFalse( $flag->isNegatable );
 		$this->assertSame( array( 's', 'h' ), $flag->shortcut );
+		$this->assertSame( InputOption::VALUE_NONE, $flag->mode );
 		$this->assertInstanceOf( InputOption::class, $flag->input() );
 
 		$flag = new Flag( 'name', 'desc', isNegatable: true, shortcut: 'shortcut' );
 
-		$this->assertSame( InputOption::VALUE_NONE | InputOption::VALUE_NEGATABLE, $flag->mode );
-
 		foreach ( array( 'name', 'desc', 'shortcut' ) as $arg ) {
 			$this->assertSame( $arg, $flag->{$arg} );
 		}
+
+		$this->assertTrue( $flag->isNegatable );
+		$this->assertSame( InputOption::VALUE_NONE | InputOption::VALUE_NEGATABLE, $flag->mode );
 	}
 
 	#[Test]
@@ -35,9 +37,10 @@ class FlagTest extends TestCase {
 
 		$flag = $attribute->newInstance();
 
+		$this->assertTrue( $flag->isNegatable );
 		$this->assertSame( 'test', $flag->name );
-		$this->assertSame( 'Using as attribute', $flag->desc );
 		$this->assertSame( 't', $flag->shortcut );
+		$this->assertSame( 'Using as attribute', $flag->desc );
 	}
 }
 

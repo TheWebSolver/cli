@@ -17,7 +17,11 @@ class AssociativeTest extends TestCase {
 	public function itNormalizesOptionMode( bool $isOptional, bool $isVariadic, int $expected ): void {
 		$option = new Associative( 'test', 'This is test', $isVariadic, $isOptional );
 
+		$this->assertSame( 'test', $option->name );
 		$this->assertSame( $expected, $option->mode );
+		$this->assertSame( 'This is test', $option->desc );
+		$this->assertSame( $isVariadic, $option->isVariadic );
+		$this->assertSame( $isOptional, $option->valueOptional );
 		$this->assertInstanceOf( InputOption::class, $option->input() );
 	}
 
@@ -81,11 +85,14 @@ class AssociativeTest extends TestCase {
 
 		$option = $attribute->newInstance();
 
-		$this->assertSame( '--test', $option->name );
-		$this->assertSame( 'Using as attribute', $option->desc );
+		$this->assertTrue( $option->isVariadic );
+		$this->assertSame( 'test', $option->name );
+		$this->assertTrue( $option->valueOptional );
+		$this->assertSame( 'as Desc', $option->desc );
+		$this->assertSame( array( 's' ), $option->shortcut );
 		$this->assertSame( array( 'argument', 'option', 'flag' ), $option->suggestedValues );
 	}
 }
 
-#[Associative( '--test', 'Using as attribute', suggestedValues: InputVariant::class )]
+#[Associative( 'test', 'as Desc', true, true, suggestedValues: InputVariant::class, shortcut: array( 's' ) )]
 class SimpleOptionTestCommand {} // phpcs:ignore Generic.Files.OneObjectStructurePerFile.MultipleFound
