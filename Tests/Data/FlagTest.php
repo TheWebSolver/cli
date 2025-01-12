@@ -3,9 +3,9 @@ declare( strict_types = 1 );
 
 namespace TheWebSolver\Codegarage\Test;
 
+use ReflectionClass;
 use PHPUnit\Framework\TestCase;
 use PHPUnit\Framework\Attributes\Test;
-use ReflectionClass;
 use TheWebSolver\Codegarage\Cli\Data\Flag;
 use Symfony\Component\Console\Input\InputOption;
 
@@ -33,11 +33,11 @@ class FlagTest extends TestCase {
 
 		$this->assertNotEmpty( [$attribute] = $reflection->getAttributes( Flag::class ) );
 
-		$associative = $attribute->newInstance();
+		$flag = $attribute->newInstance();
 
-		$this->assertSame( 'test', $associative->name );
-		$this->assertSame( 'Using as attribute', $associative->desc );
-		$this->assertSame( 't', $associative->shortcut );
+		$this->assertSame( 'test', $flag->name );
+		$this->assertSame( 'Using as attribute', $flag->desc );
+		$this->assertSame( 't', $flag->shortcut );
 	}
 }
 
