@@ -12,11 +12,11 @@ readonly class Flag {
 	public int $mode;
 
 	/**
-	 * @param string                             $name        The option name. Eg: "show".
-	 * @param string                             $desc        The short description about the option.
-	 * @param bool                               $isNegatable Whether the option can be negated. Eg: if the flag
-	 *                                                        is `--show`, the negated flag'll be `--no-show`.
-	 * @param null|string|array<string|callable> $shortcut Shortcut. For eg: "-s" for "--show".
+	 * @param string               $name        The option name. Eg: "show".
+	 * @param string               $desc        The short description about the option.
+	 * @param bool                 $isNegatable Whether the option can be negated. Eg: if the flag
+	 *                                          is `--show`, the negated flag'll be `--no-show`.
+	 * @param null|string|string[] $shortcut Shortcut. For eg: "-s" for "--show".
 	 */
 	public function __construct(
 		public string $name,
