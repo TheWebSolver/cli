@@ -4,3 +4,18 @@ parameters:
 		- Src/
 	excludePaths:
 		- vendor/
+	ignoreErrors:
+		-
+			path: Src/CommandLoader.php
+			identifier: argument.type
+			count: 1
+		-
+			paths:
+				- Src/Data/Positional.php
+				- Src/Data/Associative.php
+				- Src/Data/Flag.php
+			identifier: property.readOnlyAssignNotInConstructor
+
+		-
+			path: Src/Helper/Parser.php
+			identifier: return.type # Parser::parseInputSuggestion() -> BackedEnum is never callable.
