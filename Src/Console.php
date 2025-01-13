@@ -24,7 +24,6 @@ use TheWebSolver\Codegarage\Cli\Attribute\Command as CommandAttribute;
 
 /** @phpstan-consistent-constructor */
 class Console extends Command {
-	protected InputInterface $input;
 	protected bool $printProgress;
 	private SymfonyStyle $io;
 	private bool $isDefined = false;
@@ -35,48 +34,20 @@ class Console extends Command {
 	public const COMMAND_VALUE_ERROR     = '[COMMAND_VALUE_ERROR]';
 	public const LONG_SEPARATOR_LINE     = '______________________________________________________________________________';
 	public const LONG_SEPARATOR          = '==============================================================================';
-	final public const DEFAULT_METHOD    = '__invoke';
 
-	/**
-	 * @param ?string $name
-	 * @param ?string $subcommand Subcommand is the method name that runs when command is run as the
-	 *                            `wp-cli` package. Must be ignored if class is invocable.
-	 * @throws InvalidArgumentException When command parsing fails.
-	 */
-	public function __construct( ?string $name = null, public readonly ?string $subcommand = null ) {
+	// phpcs:disable Generic.CodeAnalysis.UselessOverridingMethod.Found
+	public function __construct( ?string $name ) {
 		parent::__construct( $name );
-
-		$this->io = new SymfonyStyle( new ArgvInput(), new ConsoleOutput() );
 	}
 
 	final public static function start( Container $container = null ): static {
-		$reflection = new ReflectionClass( static::class );
-
-		if ( ! $attributes = Parser::parseClassAttribute( CommandAttribute::class, $reflection ) ) {
-			$command = new static( static::asCommandName( $container, $reflection ) ?: null );
-		} else {
-			$attribute = $attributes[0]->newInstance();
-			$command   = ( new static( $attribute->commandName ) )
-				->setDescription( $attribute->description ?? '' )
-				->setAliases( $attribute->altNames )
-				->setHidden( $attribute->isInternal );
-		}
-
-		if ( $command->isDefined() ) {
-			return $command;
-		}
-
-		$definition  = $command->getDefinition();
-		$positional  = Parser::parseInputAttribute( Positional::class, $reflection, toInput: true );
-		$associative = Parser::parseInputAttribute( Associative::class, $reflection, toInput: true );
-		$flag        = Parser::parseInputAttribute( Flag::class, $reflection, toInput: true );
-
-		$definition->addArguments( $positional );
-		$definition->addOptions( array( ...( $associative ?? array() ), ...( $flag ?? array() ) ) );
+		[ $command, $ref ] = static::getInstance( $container );
+		$command->io       = $container?->get( SymfonyStyle::class )
+			?? new SymfonyStyle( new ArgvInput(), new ConsoleOutput() );
 
 		$command->setApplication( $container?->get( Cli::class ) );
 
-		return $command->setDefined();
+		return $command->isDefined() ? $command : $command->withDefinitionsFromAttribute( $ref )->setDefined();
 	}
 
 	/**
@@ -106,6 +77,23 @@ class Console extends Command {
 		return static::CLI_NAMESPACE . ':' . lcfirst( $name );
 	}
 
+	/** @return array{0:static,1:ReflectionClass<static>} */
+	public static function getInstance( ?Container $container ): array {
+		$reflection = new ReflectionClass( static::class );
+
+		if ( ! $attributes = Parser::parseClassAttribute( CommandAttribute::class, $reflection ) ) {
+			$command = new static( static::asCommandName( $container, $reflection ) ?: null );
+		} else {
+			$attribute = $attributes[0]->newInstance();
+			$command   = ( new static( $attribute->commandName ) )
+				->setDescription( $attribute->description ?? '' )
+				->setAliases( $attribute->altNames )
+				->setHidden( $attribute->isInternal );
+		}
+
+		return array( $command, $reflection );
+	}
+
 	/** @return ($toInput is true ? ?InputArgument[] : ?Positional[]) */
 	final public static function argumentsFromAttribute( bool $toInput = false ): ?array {
 		return Parser::parseInputAttribute( Positional::class, static::class, $toInput );
@@ -119,6 +107,20 @@ class Console extends Command {
 	/** @return ($toInput is true ? ?InputOption[] : ?Flag[]) */
 	final public static function flagsFromAttribute( bool $toInput = false ): ?array {
 		return Parser::parseInputAttribute( Flag::class, static::class, $toInput );
+	}
+
+	/** @param ReflectionClass<static> $reflection */
+	// phpcs:ignore Squiz.Commenting.FunctionComment.IncorrectTypeHint
+	public function withDefinitionsFromAttribute( ReflectionClass $reflection ): static {
+		$definition    = $this->getDefinition();
+		$inputArgument = Parser::parseInputAttribute( Positional::class, $reflection, toInput: true );
+		$inputOption   = Parser::parseInputAttribute( Associative::class, $reflection, toInput: true );
+		$optionAsFlag  = Parser::parseInputAttribute( Flag::class, $reflection, toInput: true );
+
+		$definition->addArguments( $inputArgument );
+		$definition->addOptions( array( ...( $inputOption ?? array() ), ...( $optionAsFlag ?? array() ) ) );
+
+		return $this;
 	}
 
 	public function setDefined( bool $isDefined = true ): static {
@@ -137,7 +139,7 @@ class Console extends Command {
 	 * @phpstan-return HelperClass
 	 */
 	public function assistFrom( string $helperClass ): HelperInterface {
-		return ( $helper = $this->getHelperSet()?->get( name: $helperClass ) ) instanceof $helperClass
+		return ( $helper = $this->getHelperSet()?->get( $helperClass ) ) instanceof $helperClass
 			? $helper
 			: new $helperClass();
 	}
@@ -147,58 +149,12 @@ class Console extends Command {
 	}
 
 	protected function initialize( InputInterface $input, OutputInterface $output ) {
-		$this->io    = new SymfonyStyle( $input, $output );
-		$this->input = $input;
+		$this->io = new SymfonyStyle( $input, $output );
 
 		try {
-			$this->printProgress = true === $input->getOption( name: 'progress' );
+			$this->printProgress = true === $input->getOption( 'progress' );
 		} catch ( InvalidArgumentException ) {
 			$this->printProgress = false;
 		}
-	}
-
-	protected function registerArgument( Positional $command ): void {
-		$this->addArgument(
-			description: $command->desc,
-			default: $command->default,
-			name: $command->name,
-			mode: $command->mode
-		);
-	}
-
-	/**
-	 * @param array<string,Positional> $commands The commands.
-	 * @return array<int,string>
-	 */
-	public static function convertForResponse( array $commands ): array {
-		return array_values(
-			array: array_map(
-				callback: static fn( Positional $c ): string => $c->name . ' => ' . $c->desc,
-				array: $commands
-			)
-		);
-	}
-
-	/** @param array<string,Positional> $commands */
-	protected function validatePositionalIfMoreThanOne( array $commands, string $type ): ?Positional {
-		if ( count( value: $commands ) <= 1 ) {
-			return array_shift( array: $commands );
-		}
-
-		$this->io->error(
-			message: array(
-				static::COMMAND_ARGUMENTS_ERROR,
-				"Positional $type Arg cannot be registered more than \"1\".",
-				static::LONG_SEPARATOR,
-				"Registered Positional $type Args are:",
-				...static::convertForResponse( $commands ),
-				static::LONG_SEPARATOR,
-				'SOLUTION:',
-				static::LONG_SEPARATOR_LINE,
-				"Keep only one Positional $type Arg and convert others to Optional Associative Args.",
-			)
-		);
-
-		exit;
 	}
 }
