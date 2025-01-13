@@ -8,8 +8,9 @@ use PHPUnit\Framework\TestCase;
 use PHPUnit\Framework\Attributes\Test;
 use TheWebSolver\Codegarage\Cli\Console;
 use Symfony\Component\Console\Application;
+use TheWebSolver\Codegarage\Cli\Data\Positional;
 use TheWebSolver\Codegarage\Cli\Data\Associative;
-use Symfony\Component\Console\Attribute\AsCommand;
+use TheWebSolver\Codegarage\Cli\Attribute\Command;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\EventDispatcher\EventDispatcher;
@@ -23,39 +24,56 @@ class CommandSubscriberTest extends TestCase {
 
 		$app->setDispatcher( $dispatcher = new EventDispatcher() );
 		$app->setAutoExit( false );
+		$app->setCatchExceptions( false );
 		$dispatcher->addSubscriber( $subscriber = new CommandSubscriber() );
 
 		$command = TestCommand::start();
 
 		$app->add( $command )
-			->setCode( static fn( InputInterface $i, OutputInterface $o ) => $o->write( 1 . ' option!' ) );
+			->setCode(
+				static fn( InputInterface $i, OutputInterface $o ) => $o->write( $i->getOption( 'option' ) . ' option!' )
+			);
 
-		$validInput = array(
-			'command'  => 'test:command',
-			'--option' => 1,
+		$result = $tester->run(
+			array(
+				'command'  => 'app:command',
+				'--option' => 1,
+			)
 		);
-
-		$invalidInput = array(
-			'command'  => 'test:command',
-			'--option' => 2,
-		);
-
-		$result = $tester->run( $validInput, array( 'verbosity' => OutputInterface::VERBOSITY_VERY_VERBOSE ) );
 
 		$tester->assertCommandIsSuccessful();
 
 		$this->assertSame( Console::SUCCESS, $result );
 		$this->assertStringContainsString( $tester->getDisplay(), '1 option!' );
 
-		$app->setCatchExceptions( false );
+		$command->setCode(
+			fn( InputInterface $i, OutputInterface $o ) => $o->write( $i->getArgument( 'number' ) . ' number' )
+		);
+
+		$tester->run(
+			array(
+				'command' => 'app:command',
+				'number'  => 'three',
+			)
+		);
+
+		$tester->assertCommandIsSuccessful();
+		$this->assertStringContainsString( 'three number', $tester->getDisplay() );
+
 		$this->expectException( OutOfBoundsException::class );
 
-		$tester->run( $invalidInput );
+		$tester->run(
+			array(
+				'command'  => 'app:command',
+				'--option' => 2,
+			)
+		);
 	}
 }
 
 // phpcs:disable Generic.Files.OneObjectStructurePerFile.MultipleFound
 
-#[AsCommand( 'test:command' )]
-#[Associative( 'option', 'desc', default: 'nine', suggestedValues: array( 1, 'two', 'nine' ) )]
+#[Command( namespace: 'app', name: 'command', description: 'Must validate suggested values' )]
+#[Positional( 'number', 'validate number', suggestedValues: array( 'one', 2, 'three' ) )]
+#[Associative( 'option', 'validate option', default: 'nine', suggestedValues: array( 1, 'two', 'nine' ) )]
 class TestCommand extends Console {}
