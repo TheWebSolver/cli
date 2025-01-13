@@ -10,30 +10,29 @@ use TheWebSolver\Codegarage\Cli\Helper\Parser;
 use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Completion\Suggestion;
 use Symfony\Component\Console\Completion\CompletionInput;
-use Symfony\Component\Console\Completion\CompletionSuggestions;
 
 #[Attribute( Attribute::TARGET_CLASS | Attribute::IS_REPEATABLE )]
 readonly class Associative {
 	/** @var int-mask-of<InputOption::*> */
 	public int $mode;
 
-	/** @var array<string|int>|(Closure(CompletionInput, CompletionSuggestions): list<string|Suggestion>) The option's suggested values. */
+	/** @var array<string|int>|(Closure(CompletionInput): list<string|Suggestion>) The option's suggested values. */
 	public array|Closure $suggestedValues;
 
 	/** @var null|string|bool|int|float|array{} */
 	public null|string|bool|int|float|array $default;
 
 	/**
-	 * @param string                                                                                                                 $name            The option name. Eg: "show".
-	 * @param string                                                                                                                 $desc            The short description about the option.
-	 * @param bool                                                                                                                   $isVariadic      Whether the option can be repeated or not.
-	 *                                                                                                                                                Eg: `--path=first/dir/ --path=next/dir/`.
-	 * @param bool                                                                                                                   $valueOptional   Whether the option's value can be omitted.
-	 *                                                                                                                                                Meaning, value may or may not be passed.
-	 *                                                                                                                                                Eg: '--show` or `--show=yes".
-	 * @param null|string|bool|int|float|array{}|class-string<BackedEnum>|(callable(): string|bool|int|float|array{})                $default         The option's default value.
-	 * @param null|string|array<string|callable>                                                                                     $shortcut        Shortcut. For eg: "-s" for "--show".
-	 * @param class-string<BackedEnum>|array<string|int>|(callable(CompletionInput, CompletionSuggestions): list<string|Suggestion>) $suggestedValues The option's suggested values.
+	 * @param string                                                                                                  $name            The option name. Eg: "show".
+	 * @param string                                                                                                  $desc            The short description about the option.
+	 * @param bool                                                                                                    $isVariadic      Whether the option can be repeated or not.
+	 *                                                                                                                                 Eg: `--path=first/dir/ --path=next/dir/`.
+	 * @param bool                                                                                                    $valueOptional   Whether the option's value can be omitted.
+	 *                                                                                                                                 Meaning, value may or may not be passed.
+	 *                                                                                                                                 Eg: '--show` or `--show=yes".
+	 * @param null|string|bool|int|float|array{}|class-string<BackedEnum>|(callable(): string|bool|int|float|array{}) $default         The option's default value.
+	 * @param null|string|array<string|callable>                                                                      $shortcut        Shortcut. For eg: "-s" for "--show".
+	 * @param class-string<BackedEnum>|array<string|int>|(callable(CompletionInput): list<string|Suggestion>)         $suggestedValues The option's suggested values.
 	 */
 	public function __construct(
 		public string $name,

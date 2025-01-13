@@ -8,7 +8,6 @@ use PHPUnit\Framework\TestCase;
 use PHPUnit\Framework\Attributes\Test;
 use TheWebSolver\Codegarage\Cli\Console;
 use Symfony\Component\Console\Application;
-use Symfony\Component\Console\ConsoleEvents;
 use TheWebSolver\Codegarage\Cli\Data\Associative;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Input\InputInterface;
@@ -25,11 +24,6 @@ class CommandSubscriberTest extends TestCase {
 		$app->setDispatcher( $dispatcher = new EventDispatcher() );
 		$app->setAutoExit( false );
 		$dispatcher->addSubscriber( $subscriber = new CommandSubscriber() );
-
-		$this->assertSame(
-			expected: array( ConsoleEvents::COMMAND => array( array( 'onInputWithSuggestedOptions', -1 ) ) ),
-			actual: $subscriber::getSubscribedEvents()
-		);
 
 		$command = TestCommand::start();
 

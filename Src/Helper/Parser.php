@@ -14,7 +14,6 @@ use TheWebSolver\Codegarage\Cli\Data\Associative;
 use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Completion\Suggestion;
 use Symfony\Component\Console\Completion\CompletionInput;
-use Symfony\Component\Console\Completion\CompletionSuggestions;
 
 class Parser {
 	/** @return ($name is class-string<BackedEnum> ? array<($caseAsIndex is true ? string : int),string|int> : string)*/
@@ -25,13 +24,16 @@ class Parser {
 	}
 
 	/**
-	 * @param class-string<BackedEnum>|array{}|callable(CompletionInput, CompletionSuggestions): list<string|Suggestion> $value
-	 * @return array<string|int>|Closure(CompletionInput, CompletionSuggestions): list<string|Suggestion> */
-	public static function parseInputSuggestion( $value ): array|Closure {
+	 * @param class-string<BackedEnum>|array{}|callable(CompletionInput): list<string|Suggestion> $value
+	 * @return array<string|int>|Closure(CompletionInput): list<string|Suggestion>
+	 */
+	public static function parseInputSuggestion( string|callable|array $value ): array|Closure {
+		$isCallable = is_callable( $value );
+
 		return match ( true ) {
-			is_callable( $value ) => $value( ... ),
-			is_array( $value )    => $value,
-			default               => (array) self::parseBackedEnumValue( $value )
+			is_string( $value ) => $isCallable ? $value( ... ) : (array) self::parseBackedEnumValue( $value ),
+			$isCallable         => $value( ... ),
+			default             => $value
 		};
 	}
 

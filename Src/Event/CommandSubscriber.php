@@ -14,7 +14,6 @@ use TheWebSolver\Codegarage\Cli\Data\Positional;
 use TheWebSolver\Codegarage\Cli\Data\Associative;
 use Symfony\Component\Console\Completion\Suggestion;
 use Symfony\Component\Console\Completion\CompletionInput;
-use Symfony\Component\Console\Completion\CompletionSuggestions;
 use Symfony\Component\EventDispatcher\EventSubscriberInterface;
 use Symfony\Component\Console\Event\ConsoleCommandEvent as Event;
 
@@ -22,20 +21,20 @@ class CommandSubscriber implements EventSubscriberInterface {
 	public static function getSubscribedEvents() {
 		return array(
 			ConsoleEvents::COMMAND => array(
-				array( 'onInputWithSuggestedOptions', -1 ),
+				array( 'validateWithAutoComplete', -1 ),
 			),
 		);
 	}
 
 	/** @throws OutOfBoundsException When input does not have suggested values. */
-	public static function onInputWithSuggestedOptions( Event $event ): void {
+	public static function validateWithAutoComplete( Event $event ): void {
 		$tokens = ( $argv = $event->getInput() ) instanceof ArgvInput ? $argv->getRawTokens( true ) : null;
 
 		foreach ( self::getAttributeWithSuggestion( $event ) ?? array() as $attribute ) {
 			$input           = $attribute->newInstance();
 			$suggestions     = $input->suggestedValues;
 			$suggestedValues = $suggestions instanceof Closure
-				? $suggestions( new CompletionInput( $tokens ), new CompletionSuggestions() )
+				? $suggestions( new CompletionInput( $tokens ) )
 				: $suggestions;
 
 			if ( ! empty( $suggestedValues ) ) {

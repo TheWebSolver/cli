@@ -10,27 +10,26 @@ use TheWebSolver\Codegarage\Cli\Helper\Parser;
 use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Completion\Suggestion;
 use Symfony\Component\Console\Completion\CompletionInput;
-use Symfony\Component\Console\Completion\CompletionSuggestions;
 
 #[Attribute( Attribute::TARGET_CLASS | Attribute::IS_REPEATABLE )]
 readonly class Positional {
 	/** @var int-mask-of<InputArgument::*> The input mode. */
 	public int $mode;
 
-	/** @var array<string|int>|Closure(CompletionInput, CompletionSuggestions): list<string|Suggestion> The argument's suggested values. */
+	/** @var array<string|int>|Closure(CompletionInput): list<string|Suggestion> The argument's suggested values. */
 	public array|Closure $suggestedValues;
 
 	/** @var null|string|bool|int|float|array{} */
 	public null|string|bool|int|float|array $default;
 
 	/**
-	 * @param string                                                                                                               $name            The argument name.
-	 * @param string                                                                                                               $desc            The short description about the argument.
-	 * @param bool                                                                                                                 $isVariadic      Whether the argument can be repeated or not.
-	 *                                                                                                                                              Repeated args'll be converted to an array.
-	 * @param bool                                                                                                                 $isOptional      Whether the argument can be omitted.
-	 * @param null|string|class-string<BackedEnum>|bool|int|float|array{}|(callable(): string|bool|int|float|array{})              $default         The argument's default value.
-	 * @param class-string<BackedEnum>|array<string|int>|callable(CompletionInput, CompletionSuggestions): list<string|Suggestion> $suggestedValues The argument's suggested values.
+	 * @param string                                                                                                  $name            The argument name.
+	 * @param string                                                                                                  $desc            The short description about the argument.
+	 * @param bool                                                                                                    $isVariadic      Whether the argument can be repeated or not.
+	 *                                                                                                                                 Repeated args'll be converted to an array.
+	 * @param bool                                                                                                    $isOptional      Whether the argument can be omitted.
+	 * @param null|string|class-string<BackedEnum>|bool|int|float|array{}|(callable(): string|bool|int|float|array{}) $default         The argument's default value.
+	 * @param class-string<BackedEnum>|array<string|int>|callable(CompletionInput): list<string|Suggestion>           $suggestedValues The argument's suggested values.
 	 */
 	public function __construct(
 		public string $name,
