@@ -16,10 +16,15 @@ use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\EventDispatcher\EventDispatcher;
 use Symfony\Component\Console\Tester\ApplicationTester;
 use TheWebSolver\Codegarage\Cli\Event\CommandSubscriber;
+use TheWebSolver\Codegarage\Cli\Attribute\DoNotValidateSuggestedValues;
 
 class CommandSubscriberTest extends TestCase {
-	/** @return array{0:ApplicationTester,1:Application,2:TestCommand} */
-	private static function getApplicationTester(): array {
+	/**
+	 * @param class-string<Console> $className
+	 * @return array{0:ApplicationTester,1:Console2:Application,2:TestCommand}
+	 */
+	// phpcs:ignore quiz.Commenting.FunctionComment.IncorrectTypeHint
+	private static function getApplicationTester( string $className = TestCommand::class ): array {
 		$tester = new ApplicationTester( $app = new Application() );
 
 		$app->setDispatcher( $dispatcher = new EventDispatcher() );
@@ -27,16 +32,16 @@ class CommandSubscriberTest extends TestCase {
 		$app->setCatchExceptions( false );
 		$dispatcher->addSubscriber( new CommandSubscriber() );
 
-		$app->add( $command = TestCommand::start() );
+		$app->add( $command = $className::start() );
 
-		return array( $tester, $app, $command );
+		return array( $tester, $command, $app );
 	}
 
 	#[Test]
 	public function itAddsExternalSubscribingMethod(): void {
-		[$tester, $app, $command] = $this->getApplicationTester();
+		[$tester, $command] = $this->getApplicationTester();
 
-		$app->add( $command )->setCode(
+		$command->setCode(
 			static fn( InputInterface $i, OutputInterface $o ) => $o->write( $i->getArgument( 'number' ) . ' number' )
 		);
 
@@ -60,11 +65,11 @@ class CommandSubscriberTest extends TestCase {
 
 	#[Test]
 	public function itSubscribesToTheSuggestedValues(): void {
-		[$tester, $app, $command] = $this->getApplicationTester();
+		[$tester, $command] = $this->getApplicationTester();
 
 		CommandSubscriber::disableSuggestionValidation( false );
 
-		$app->add( $command )->setCode(
+		$command->setCode(
 			static fn( InputInterface $i, OutputInterface $o ) => $o->write( $i->getOption( 'option' ) . ' option!' )
 		);
 
@@ -103,6 +108,25 @@ class CommandSubscriberTest extends TestCase {
 			)
 		);
 	}
+
+	#[Test]
+	public function itDoesNotValidateSuggestedValuesBasedOnAttribute(): void {
+		[$tester, $command] = $this->getApplicationTester( TestNoValidate::class );
+
+		$command->setCode(
+			static fn( InputInterface $i, OutputInterface $o ) => $o->write( $i->getArgument( 'number' ) )
+		);
+
+		$tester->run(
+			array(
+				'command' => 'no:validate',
+				'number'  => 'invalid but will not be validated',
+			)
+		);
+
+		$tester->assertCommandIsSuccessful();
+		$this->assertStringContainsString( 'invalid but will not be validated', $tester->getDisplay() );
+	}
 }
 
 // phpcs:disable Generic.Files.OneObjectStructurePerFile.MultipleFound
@@ -111,3 +135,8 @@ class CommandSubscriberTest extends TestCase {
 #[Positional( 'number', 'validate number', suggestedValues: array( 'one', 2, 'three' ) )]
 #[Associative( 'option', 'validate option', default: 'nine', suggestedValues: array( 1, 'two', 'nine' ) )]
 class TestCommand extends Console {}
+
+#[Command( namespace: 'no', name: 'validate', description: 'Must not validate suggested values' )]
+#[Positional( 'number', 'skip number validation', suggestedValues: array( 'one', 2, 'three' ) )]
+#[DoNotValidateSuggestedValues]
+class TestNoValidate extends Console {}

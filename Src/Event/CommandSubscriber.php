@@ -16,6 +16,7 @@ use Symfony\Component\Console\Completion\Suggestion;
 use Symfony\Component\Console\Completion\CompletionInput;
 use Symfony\Component\EventDispatcher\EventSubscriberInterface;
 use Symfony\Component\Console\Event\ConsoleCommandEvent as Event;
+use TheWebSolver\Codegarage\Cli\Attribute\DoNotValidateSuggestedValues;
 
 class CommandSubscriber implements EventSubscriberInterface {
 	private static bool $disableValidation = false;
@@ -61,10 +62,13 @@ class CommandSubscriber implements EventSubscriberInterface {
 
 		$reflection = new ReflectionClass( $command );
 
-		return array(
-			...$reflection->getAttributes( Positional::class ),
-			...$reflection->getAttributes( Associative::class ),
-		);
+		return ! ! $reflection->getAttributes( DoNotValidateSuggestedValues::class )
+			? null
+			: array(
+				...$reflection->getAttributes( Positional::class ),
+				...$reflection->getAttributes( Associative::class ),
+				// Flags do not have (need) suggested values.
+			);
 	}
 
 	/** @param array<string|int|Suggestion> $suggestions */
