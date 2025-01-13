@@ -4,16 +4,18 @@ declare( strict_types = 1 );
 namespace TheWebSolver\Codegarage\Cli;
 
 use ReflectionClass;
-use ReflectionAttribute;
 use InvalidArgumentException;
 use TheWebSolver\Codegarage\Cli\Cli;
+use TheWebSolver\Codegarage\Cli\Data\Flag;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\ArgvInput;
+use TheWebSolver\Codegarage\Cli\Helper\Parser;
 use Symfony\Component\Console\Input\InputOption;
 use TheWebSolver\Codegarage\Cli\Data\Positional;
 use TheWebSolver\Codegarage\Container\Container;
 use Symfony\Component\Console\Style\SymfonyStyle;
 use TheWebSolver\Codegarage\Cli\Data\Associative;
+use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\ConsoleOutput;
 use Symfony\Component\Console\Helper\HelperInterface;
@@ -25,6 +27,7 @@ class Console extends Command {
 	protected InputInterface $input;
 	protected bool $printProgress;
 	private SymfonyStyle $io;
+	private bool $isDefined = false;
 
 	/** @var string */
 	public const CLI_NAMESPACE           = 'app';
@@ -44,36 +47,53 @@ class Console extends Command {
 		parent::__construct( $name );
 
 		$this->io = new SymfonyStyle( new ArgvInput(), new ConsoleOutput() );
-
-		$this->getDefinition()->addOptions( static::optionsFromAttribute( toInput: true ) ?? array() );
 	}
 
 	final public static function start( Container $container = null ): static {
-		if ( ! $attribute = self::getCommandAttribute( CommandAttribute::class ) ) {
-			return new static( static::asCommandName( $container ) ?: null );
+		$reflection = new ReflectionClass( static::class );
+
+		if ( ! $attributes = Parser::parseClassAttribute( CommandAttribute::class, $reflection ) ) {
+			$command = new static( static::asCommandName( $container, $reflection ) ?: null );
+		} else {
+			$attribute = $attributes[0]->newInstance();
+			$command   = ( new static( $attribute->commandName ) )
+				->setDescription( $attribute->description ?? '' )
+				->setAliases( $attribute->altNames )
+				->setHidden( $attribute->isInternal );
 		}
 
-		$command = $attribute[0]->newInstance();
-		$console = ( new static( $command->commandName ) )
-				->setDescription( $command->description ?? '' )
-				->setAliases( $command->altNames )
-				->setHidden( $command->isInternal );
+		if ( $command->isDefined() ) {
+			return $command;
+		}
 
-		$console->setApplication( $container?->get( Cli::class ) );
+		$definition  = $command->getDefinition();
+		$positional  = Parser::parseInputAttribute( Positional::class, $reflection, toInput: true );
+		$associative = Parser::parseInputAttribute( Associative::class, $reflection, toInput: true );
+		$flag        = Parser::parseInputAttribute( Flag::class, $reflection, toInput: true );
 
-		return $console;
+		$definition->addArguments( $positional );
+		$definition->addOptions( array( ...( $associative ?? array() ), ...( $flag ?? array() ) ) );
+
+		$command->setApplication( $container?->get( Cli::class ) );
+
+		return $command->setDefined();
 	}
 
 	/**
+	 * @param Container               $container The container instance.
+	 * @param ReflectionClass<static> $ref       The reflection class, if any.
 	 * @return string Possible return values:
 	 * - **_non-empty-string:_** If class has attribute: `TheWebSolver\Codegarage\Cli\Attribute\Command`,
 	 * - **_non-empty-string:_** Using classname itself: `static::CLI_NAMESPACE` . **':camelCaseClassName'**, or
 	 * - **_empty-string:_**     If command name from classname is disabled: `Cli::app()->useClassNameAsCommand(false)`.
 	 */
-	final public static function asCommandName( Container $container = null ): string {
-		$ref = new ReflectionClass( static::class );
+	final public static function asCommandName( // phpcs:ignore Squiz.Commenting.FunctionComment.IncorrectTypeHint
+		Container $container = null,
+		ReflectionClass $ref = null
+	): string {
+		$ref ??= new ReflectionClass( static::class );
 
-		if ( $attribute = self::getCommandAttribute( CommandAttribute::class, $ref ) ) {
+		if ( $attribute = Parser::parseClassAttribute( CommandAttribute::class, $ref ) ) {
 			return $attribute[0]->newInstance()->commandName;
 		}
 
@@ -86,16 +106,29 @@ class Console extends Command {
 		return static::CLI_NAMESPACE . ':' . lcfirst( $name );
 	}
 
-	/** @return ($toInput is true ? InputOption[] : Associative[]) */
-	final public static function optionsFromAttribute( bool $toInput = false ): ?array {
-		if ( ! $attributes = self::getCommandAttribute( Associative::class ) ) {
-			return null;
-		}
+	/** @return ($toInput is true ? ?InputArgument[] : ?Positional[]) */
+	final public static function argumentsFromAttribute( bool $toInput = false ): ?array {
+		return Parser::parseInputAttribute( Positional::class, static::class, $toInput );
+	}
 
-		return array_map(
-			static fn( ReflectionAttribute $attr ) => $toInput ? $attr->newInstance()->input() : $attr->newInstance(),
-			$attributes
-		);
+	/** @return ($toInput is true ? ?InputOption[] : ?Associative[]) */
+	final public static function optionsFromAttribute( bool $toInput = false ): ?array {
+		return Parser::parseInputAttribute( Associative::class, static::class, $toInput );
+	}
+
+	/** @return ($toInput is true ? ?InputOption[] : ?Flag[]) */
+	final public static function flagsFromAttribute( bool $toInput = false ): ?array {
+		return Parser::parseInputAttribute( Flag::class, static::class, $toInput );
+	}
+
+	public function setDefined( bool $isDefined = true ): static {
+		$this->isDefined = $isDefined;
+
+		return $this;
+	}
+
+	public function isDefined(): bool {
+		return $this->isDefined;
 	}
 
 	/**
@@ -167,17 +200,5 @@ class Console extends Command {
 		);
 
 		exit;
-	}
-
-	/**
-	 * @param class-string<T>          $attributeName
-	 * @param ?ReflectionClass<static> $reflection
-	 * @return ?array<ReflectionAttribute<T>>
-	 * @template T of object
-	 */
-	private static function getCommandAttribute( $attributeName, $reflection = null ): ?array {
-		$reflection ??= new ReflectionClass( static::class );
-
-		return empty( $attrs = $reflection->getAttributes( $attributeName ) ) ? null : $attrs;
 	}
 }
