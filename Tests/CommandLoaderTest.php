@@ -8,6 +8,7 @@ use TheWebSolver\Codegarage\Cli\Cli;
 use PHPUnit\Framework\Attributes\Test;
 use TheWebSolver\Codegarage\Cli\CommandLoader;
 use TheWebSolver\Codegarage\Cli\Data\EventTask;
+use TheWebSolver\Codegarage\Container\Container;
 use TheWebSolver\Codegarage\Test\Stub\TestCommand;
 use TheWebSolver\Codegarage\Test\Stub\AnotherScannedCommand;
 
@@ -15,6 +16,7 @@ class CommandLoaderTest extends TestCase {
 	private const LOCATION = array(
 		Cli::ROOT . 'Tests' . DIRECTORY_SEPARATOR . 'Stub',
 		__NAMESPACE__ . '\\Stub',
+		null,
 		false,
 	);
 
@@ -73,5 +75,12 @@ class CommandLoaderTest extends TestCase {
 		foreach ( self::EXPECTED_COMMANDS as $name => $class ) {
 			$this->assertInstanceOf( $class, $cli->get( $name ) );
 		}
+	}
+
+	#[Test]
+	public function itEnsuresCommandLoaderIsInstantiatedWithContainer(): void {
+		$loader = CommandLoader::run( self::LOCATION[0], self::LOCATION[1], $c = new Container(), false );
+
+		$this->assertSame( $c, $loader->getContainer() );
 	}
 }

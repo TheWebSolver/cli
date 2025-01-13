@@ -45,8 +45,8 @@ class CommandLoader {
 		return $this->commands;
 	}
 
-	public static function subscribe(): self {
-		return self::getInstance( self::COMMAND_DIRECTORY, Cli::NAMESPACE, event: true );
+	public static function subscribe( ?Container $container = null ): self {
+		return self::getInstance( self::COMMAND_DIRECTORY, Cli::NAMESPACE, $container, event: true );
 	}
 
 	public function toLocation( string $directory, string $ns ): self {
@@ -72,21 +72,24 @@ class CommandLoader {
 	public static function run(
 		string $directory = self::COMMAND_DIRECTORY,
 		string $ns = Cli::NAMESPACE,
+		?Container $container = null
 		/* bool $runApplication = true: Runs Symfony Application by default. */
 	): self {
-		$loader = self::getInstance( $directory, $ns, event: false );
+		$loader = self::getInstance( $directory, $ns, $container, event: false );
 
 		$loader->startScan();
 
-		if ( true === ( func_num_args() >= 3 ? func_get_arg( position: 2 ) : true ) ) {
+		if ( true === ( func_num_args() >= 4 ? func_get_arg( position: 3 ) : true ) ) {
 			$loader->container->get( Cli::class )->run();
 		}
 
 		return $loader;
 	}
 
-	private static function getInstance( string $dir, string $ns, bool $event = false ): self {
-		return new self( Container::boot(), array( $dir, $ns ), dispatcher: $event ? new EventDispatcher() : null );
+	private static function getInstance( string $dir, string $ns, ?Container $c, bool $event = false ): self {
+		$c ??= Container::boot();
+
+		return new self( $c, array( $dir, $ns ), dispatcher: $event ? new EventDispatcher() : null );
 	}
 
 	private function startScan(): void {
