@@ -18,6 +18,12 @@ use Symfony\Component\EventDispatcher\EventSubscriberInterface;
 use Symfony\Component\Console\Event\ConsoleCommandEvent as Event;
 
 class CommandSubscriber implements EventSubscriberInterface {
+	private static bool $disableValidation = false;
+
+	public static function disableSuggestionValidation( bool $disable = true ): void {
+		self::$disableValidation = $disable;
+	}
+
 	public static function getSubscribedEvents() {
 		return array(
 			ConsoleEvents::COMMAND => array(
@@ -28,6 +34,10 @@ class CommandSubscriber implements EventSubscriberInterface {
 
 	/** @throws OutOfBoundsException When input does not have suggested values. */
 	public static function validateWithAutoComplete( Event $event ): void {
+		if ( self::$disableValidation ) {
+			return;
+		}
+
 		$tokens = ( $argv = $event->getInput() ) instanceof ArgvInput ? $argv->getRawTokens( true ) : null;
 
 		foreach ( self::getAttributeWithSuggestion( $event ) ?? array() as $attribute ) {

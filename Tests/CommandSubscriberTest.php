@@ -18,21 +18,55 @@ use Symfony\Component\Console\Tester\ApplicationTester;
 use TheWebSolver\Codegarage\Cli\Event\CommandSubscriber;
 
 class CommandSubscriberTest extends TestCase {
-	#[Test]
-	public function itSubscribesToTheSuggestedValues(): void {
+	/** @return array{0:ApplicationTester,1:Application,2:TestCommand} */
+	private static function getApplicationTester(): array {
 		$tester = new ApplicationTester( $app = new Application() );
 
 		$app->setDispatcher( $dispatcher = new EventDispatcher() );
 		$app->setAutoExit( false );
 		$app->setCatchExceptions( false );
-		$dispatcher->addSubscriber( $subscriber = new CommandSubscriber() );
+		$dispatcher->addSubscriber( new CommandSubscriber() );
 
-		$command = TestCommand::start();
+		$app->add( $command = TestCommand::start() );
 
-		$app->add( $command )
-			->setCode(
-				static fn( InputInterface $i, OutputInterface $o ) => $o->write( $i->getOption( 'option' ) . ' option!' )
-			);
+		return array( $tester, $app, $command );
+	}
+
+	#[Test]
+	public function itAddsExternalSubscribingMethod(): void {
+		[$tester, $app, $command] = $this->getApplicationTester();
+
+		$app->add( $command )->setCode(
+			static fn( InputInterface $i, OutputInterface $o ) => $o->write( $i->getArgument( 'number' ) . ' number' )
+		);
+
+		CommandSubscriber::disableSuggestionValidation();
+
+		$tester->run(
+			$input = array(
+				'command'  => 'app:command',
+				'--option' => 'not a suggested value but validation is suppressed',
+			)
+		);
+
+		$tester->assertCommandIsSuccessful();
+
+		CommandSubscriber::disableSuggestionValidation( false );
+
+		$this->expectException( OutOfBoundsException::class );
+
+		$tester->run( $input );
+	}
+
+	#[Test]
+	public function itSubscribesToTheSuggestedValues(): void {
+		[$tester, $app, $command] = $this->getApplicationTester();
+
+		CommandSubscriber::disableSuggestionValidation( false );
+
+		$app->add( $command )->setCode(
+			static fn( InputInterface $i, OutputInterface $o ) => $o->write( $i->getOption( 'option' ) . ' option!' )
+		);
 
 		$result = $tester->run(
 			array(
@@ -47,7 +81,7 @@ class CommandSubscriberTest extends TestCase {
 		$this->assertStringContainsString( $tester->getDisplay(), '1 option!' );
 
 		$command->setCode(
-			fn( InputInterface $i, OutputInterface $o ) => $o->write( $i->getArgument( 'number' ) . ' number' )
+			static fn( InputInterface $i, OutputInterface $o ) => $o->write( $i->getArgument( 'number' ) . ' number' )
 		);
 
 		$tester->run(
