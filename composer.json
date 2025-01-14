@@ -21,10 +21,7 @@
   "autoload": {
     "psr-4": {
       "TheWebSolver\\Codegarage\\Cli\\": "Src/"
-    },
-    "files": [
-      "bootstrap.php"
-    ]
+    }
   },
   "autoload-dev": {
     "psr-4": {
