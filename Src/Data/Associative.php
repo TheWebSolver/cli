@@ -77,7 +77,7 @@ readonly class Associative {
 	private function normalizeDefault( $value ): null|string|bool|int|float|array {
 		return match ( true ) {
 			default                            => $this->isVariadic ? array() : null,
-			$this->isOptionalDefault( $value ) => $this->isVariadic ? array() : false,
+			$this->isOptionalDefault( $value ) => $this->isVariadic ? array() : '',
 			is_callable( $value )              => $this->normalizeDefault( $value() ),
 			$this->isVariadic                  => $this->getVariadicDefault( $value ),
 			is_string( $value )                => Parser::parseBackedEnumValue( $value ),
