@@ -21,7 +21,7 @@ readonly class Flag {
 	public function __construct(
 		public string $name,
 		public string $desc,
-		public bool $isNegatable,
+		public bool $isNegatable = false,
 		public null|string|array $shortcut = null
 	) {
 		$this->normalizeMode();
