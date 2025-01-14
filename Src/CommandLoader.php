@@ -114,7 +114,7 @@ class CommandLoader {
 		}
 
 		$lazyload                       = array( $command, 'start' );
-		$commandName                    = $command::asCommandName( $this->container );
+		$commandName                    = $command::asCommandName();
 		$this->commands[ $commandName ] = $command;
 
 		$this->handleResolved( $command, $lazyload, $commandName );

@@ -42,34 +42,28 @@ class Console extends Command {
 
 	final public static function start( Container $container = null ): static {
 		[ $command, $ref ] = static::getInstance( $container );
-		$command->io       = $container?->get( SymfonyStyle::class )
-			?? new SymfonyStyle( new ArgvInput(), new ConsoleOutput() );
+		$command->io       = $container?->has( SymfonyStyle::class )
+			? $container->get( SymfonyStyle::class )
+			: new SymfonyStyle( new ArgvInput(), new ConsoleOutput() );
 
 		$command->setApplication( $container?->get( Cli::class ) );
 
-		return $command->isDefined() ? $command : $command->withDefinitionsFromAttribute( $ref )->setDefined();
+		return $command->isDefined() ? $command : $command->withDefinitionsFromAttribute( $ref );
 	}
 
 	/**
-	 * @param Container               $container The container instance.
-	 * @param ReflectionClass<static> $ref       The reflection class, if any.
+	 * @param ReflectionClass<static> $ref The reflection class, if any.
 	 * @return string Possible return values:
 	 * - **_non-empty-string:_** If class has attribute: `TheWebSolver\Codegarage\Cli\Attribute\Command`,
 	 * - **_non-empty-string:_** Using classname itself: `static::CLI_NAMESPACE` . **':camelCaseClassName'**, or
-	 * - **_empty-string:_**     If command name from classname is disabled: `Cli::app()->useClassNameAsCommand(false)`.
+	 * - **_empty-string:_**     If command name from classname is disabled: `Cli::useClassNameAsCommand(false)`.
 	 */
-	final public static function asCommandName( // phpcs:ignore Squiz.Commenting.FunctionComment.IncorrectTypeHint
-		Container $container = null,
-		ReflectionClass $ref = null
-	): string {
+	// phpcs:ignore Squiz.Commenting.FunctionComment.IncorrectTypeHint
+	final public static function asCommandName( ReflectionClass $ref = null ): string {
 		$ref ??= new ReflectionClass( static::class );
 
 		if ( $attribute = Parser::parseClassAttribute( CommandAttribute::class, $ref ) ) {
 			return $attribute[0]->newInstance()->commandName;
-		}
-
-		if ( ! $container?->get( Cli::class )->shouldUseClassNameAsCommand() ) {
-			return '';
 		}
 
 		$name = str_replace( search: '_', replace: '', subject: ucwords( $ref->getShortName(), separators: '_' ) );
@@ -79,27 +73,33 @@ class Console extends Command {
 
 	/** @return array{0:static,1:ReflectionClass<static>} */
 	protected static function getInstance( ?Container $container ): array {
-		// Clear CommandLoader binding with $command::start() to prevent infinite loop.
-		$container?->offsetUnset( static::class );
-
 		$ref = new ReflectionClass( static::class );
-		$cli = $container?->resolve( static::class, array(), true, $ref ) ?? new static();
+
+		// If container provides a shared instance, use that (if not it will be converted).
+		if ( $container?->isInstance( static::class ) ) {
+			return array( $container->get( static::class ), $ref );
+		}
+
+		// Clear container binding. (Hint: in CommandLoader [static::class => static::start()]).
+		$container?->offsetUnset( static::class );
+		// Only then use Container for DI. This is to prevent infinite loop.
+		$command = $container?->resolve( static::class, array(), true, $ref ) ?? new static();
 
 		if ( ! $attributes = Parser::parseClassAttribute( CommandAttribute::class, $ref ) ) {
-			$args = array( $cli->setName( static::asCommandName( $container, $ref ) ), $ref );
+			$args = array( $command->setName( static::asCommandName( $ref ) ), $ref );
 		} else {
 			$attribute = $attributes[0]->newInstance();
 
-			$cli->setName( $attribute->commandName )
+			$command->setName( $attribute->commandName )
 				->setDescription( $attribute->description ?? '' )
 				->setAliases( $attribute->altNames )
 				->setHidden( $attribute->isInternal );
 
-			$args = array( $cli, $ref );
+			$args = array( $command, $ref );
 		}
 
-		// Rebind with the instantiated command for Symfony to resolve it when command is ran.
-		$container?->set( static::class, static fn(): static => $cli );
+		// Convert as singleton next time same command is requested to prevent recomputation.
+		$container?->setInstance( static::class, $command );
 
 		return $args;
 	}
@@ -121,16 +121,17 @@ class Console extends Command {
 
 	/** @param ReflectionClass<static> $reflection */
 	// phpcs:ignore Squiz.Commenting.FunctionComment.IncorrectTypeHint
-	public function withDefinitionsFromAttribute( ReflectionClass $reflection ): static {
-		$definition    = $this->getDefinition();
-		$inputArgument = Parser::parseInputAttribute( Positional::class, $reflection, toInput: true );
-		$inputOption   = Parser::parseInputAttribute( Associative::class, $reflection, toInput: true );
-		$optionAsFlag  = Parser::parseInputAttribute( Flag::class, $reflection, toInput: true );
+	public function withDefinitionsFromAttribute( ?ReflectionClass $reflection = null ): static {
+		$ref        = $reflection ?? static::class;
+		$definition = $this->getDefinition();
+		$arguments  = Parser::parseInputAttribute( Positional::class, $ref, toInput: true );
+		$options    = Parser::parseInputAttribute( Associative::class, $ref, toInput: true );
+		$flags      = Parser::parseInputAttribute( Flag::class, $ref, toInput: true );
 
-		$definition->addArguments( $inputArgument );
-		$definition->addOptions( array( ...( $inputOption ?? array() ), ...( $optionAsFlag ?? array() ) ) );
+		$definition->addArguments( $arguments );
+		$definition->addOptions( array( ...( $options ?? array() ), ...( $flags ?? array() ) ) );
 
-		return $this;
+		return $this->setDefined();
 	}
 
 	public function setDefined( bool $isDefined = true ): static {

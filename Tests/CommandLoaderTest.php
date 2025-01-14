@@ -57,10 +57,14 @@ class CommandLoaderTest extends TestCase {
 
 	#[Test]
 	public function itEnsuresCommandsAreLazyLoadedToContainer(): void {
-		$loader = CommandLoader::run( ...self::LOCATION );
+		$loader = CommandLoader::run( self::LOCATION[0], self::LOCATION[1], new Container(), false );
+		$this->assertTrue( true );
 
 		foreach ( self::EXPECTED_COMMANDS as $class ) {
+			// The command is registered to container as a closure by CommandLoader.
 			$this->assertEquals( $class::start( ... ), $loader->getContainer()->getBinding( $class )->material );
+			// But once the command is resolved by container, it becomes a singleton.
+			$this->assertSame( $loader->getContainer()->get( $class ), $loader->getContainer()->get( $class ) );
 		}
 	}
 
