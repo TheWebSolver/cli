@@ -36,7 +36,7 @@ class Console extends Command {
 	public const LONG_SEPARATOR          = '==============================================================================';
 
 	// phpcs:disable Generic.CodeAnalysis.UselessOverridingMethod.Found
-	public function __construct( ?string $name ) {
+	public function __construct( ?string $name = null ) {
 		parent::__construct( $name );
 	}
 
@@ -78,20 +78,30 @@ class Console extends Command {
 	}
 
 	/** @return array{0:static,1:ReflectionClass<static>} */
-	public static function getInstance( ?Container $container ): array {
-		$reflection = new ReflectionClass( static::class );
+	protected static function getInstance( ?Container $container ): array {
+		// Clear CommandLoader binding with $command::start() to prevent infinite loop.
+		$container?->offsetUnset( static::class );
 
-		if ( ! $attributes = Parser::parseClassAttribute( CommandAttribute::class, $reflection ) ) {
-			$command = new static( static::asCommandName( $container, $reflection ) ?: null );
+		$ref = new ReflectionClass( static::class );
+		$cli = $container?->resolve( static::class, array(), true, $ref ) ?? new static();
+
+		if ( ! $attributes = Parser::parseClassAttribute( CommandAttribute::class, $ref ) ) {
+			$args = array( $cli->setName( static::asCommandName( $container, $ref ) ), $ref );
 		} else {
 			$attribute = $attributes[0]->newInstance();
-			$command   = ( new static( $attribute->commandName ) )
+
+			$cli->setName( $attribute->commandName )
 				->setDescription( $attribute->description ?? '' )
 				->setAliases( $attribute->altNames )
 				->setHidden( $attribute->isInternal );
+
+			$args = array( $cli, $ref );
 		}
 
-		return array( $command, $reflection );
+		// Rebind with the instantiated command for Symfony to resolve it when command is ran.
+		$container?->set( static::class, static fn(): static => $cli );
+
+		return $args;
 	}
 
 	/** @return ($toInput is true ? ?InputArgument[] : ?Positional[]) */
