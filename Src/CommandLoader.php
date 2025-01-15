@@ -22,7 +22,7 @@ class CommandLoader {
 	 * @param array{0:string,1:string}            $registeredDirAndNamespace
 	 * @param array<string,class-string<Console>> $commands
 	 */
-	private function __construct(
+	final private function __construct(
 		private Container $container,
 		private array $registeredDirAndNamespace,
 		private array $commands = array(),
@@ -45,18 +45,18 @@ class CommandLoader {
 		return $this->commands;
 	}
 
-	public static function subscribe( ?Container $container = null ): self {
+	public static function subscribe( ?Container $container = null ): static {
 		return self::getInstance( self::COMMAND_DIRECTORY, Cli::NAMESPACE, $container, event: true );
 	}
 
-	public function toLocation( string $directory, string $ns ): self {
+	public function toLocation( string $directory, string $ns ): static {
 		$this->registeredDirAndNamespace = array( $directory, $ns );
 
 		return $this;
 	}
 
 	/** @param callable(EventTask): void $listener */
-	public function withListener( callable $listener ): self {
+	public function withListener( callable $listener ): static {
 		if ( $this->dispatcher ) {
 			$this->dispatcher->addListener(
 				AfterLoadEvent::class,
@@ -69,30 +69,21 @@ class CommandLoader {
 		return $this;
 	}
 
-	public static function run(
+	public static function load(
 		string $directory = self::COMMAND_DIRECTORY,
 		string $ns = Cli::NAMESPACE,
 		?Container $container = null
-		/* bool $runApplication = true: Runs Symfony Application by default. */
-	): self {
-		$loader = self::getInstance( $directory, $ns, $container, event: false );
-
-		$loader->startScan();
-
-		if ( true === ( func_num_args() >= 4 ? func_get_arg( position: 3 ) : true ) ) {
-			$loader->container->get( Cli::class )->run();
-		}
-
-		return $loader;
+	): static {
+		return self::getInstance( $directory, $ns, $container, event: false )->startScan();
 	}
 
-	private static function getInstance( string $dir, string $ns, ?Container $c, bool $event = false ): self {
+	private static function getInstance( string $dir, string $ns, ?Container $c, bool $event = false ): static {
 		$c ??= Container::boot();
 
-		return new self( $c, array( $dir, $ns ), dispatcher: $event ? new EventDispatcher() : null );
+		return new static( $c, array( $dir, $ns ), dispatcher: $event ? new EventDispatcher() : null );
 	}
 
-	private function startScan(): void {
+	private function startScan(): static {
 		$this->scan( realpath( $this->registeredDirAndNamespace[0] ) ?: $this->throwInvalidDir() );
 
 		// By default, all lazy-loaded commands extending Console will use default "Cli".
@@ -100,6 +91,8 @@ class CommandLoader {
 		$this->container
 			->get( Cli::class )
 			->setCommandLoader( new ContainerCommandLoader( $this->container, $this->commands ) );
+
+		return $this;
 	}
 
 	protected function isIgnored( string $filename ): bool {
@@ -119,11 +112,7 @@ class CommandLoader {
 
 		$this->handleResolved( $command, $lazyload, $commandName );
 
-		/**
-		 * Allow third-party to listen for resolved command by Command Loader.
-		 * It is the developer's responsibility to run the Application by
-		 * themselves using "$commandRunner" with "EventTask".
-		 */
+		// Allow third-party to listen for resolved command by Command Loader  with the "EventTask".
 		if ( $commandRunner = $this->getCommandRunnerFromEvent() ) {
 			$commandRunner( new EventTask( $lazyload( ... ), $command, $commandName, $this->container ) );
 		}

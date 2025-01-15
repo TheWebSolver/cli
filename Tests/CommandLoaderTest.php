@@ -17,7 +17,6 @@ class CommandLoaderTest extends TestCase {
 		Cli::ROOT . 'Tests' . DIRECTORY_SEPARATOR . 'Stub',
 		__NAMESPACE__ . '\\Stub',
 		null,
-		false,
 	);
 
 	private const EXPECTED_FILENAMES = array( 'TestCommand', 'AnotherScannedCommand' );
@@ -28,7 +27,7 @@ class CommandLoaderTest extends TestCase {
 
 	#[Test]
 	public function itScansAndLazyloadCommandFromGivenLocation(): void {
-		$loader = CommandLoader::run( ...self::LOCATION );
+		$loader = CommandLoader::load( ...self::LOCATION );
 
 		$this->assertEmpty( array_diff( self::EXPECTED_COMMANDS, $loader->getCommands() ) );
 		$this->assertEmpty( array_diff_key( self::EXPECTED_COMMANDS, $loader->getCommands() ) );
@@ -57,7 +56,7 @@ class CommandLoaderTest extends TestCase {
 
 	#[Test]
 	public function itEnsuresCommandsAreLazyLoadedToContainer(): void {
-		$loader = CommandLoader::run( self::LOCATION[0], self::LOCATION[1], new Container(), false );
+		$loader = CommandLoader::load( self::LOCATION[0], self::LOCATION[1], new Container() );
 		$this->assertTrue( true );
 
 		foreach ( self::EXPECTED_COMMANDS as $class ) {
@@ -70,7 +69,7 @@ class CommandLoaderTest extends TestCase {
 
 	#[Test]
 	public function itProvidesLazyLoadedCommandsToCli(): void {
-		$loader = CommandLoader::run( ...self::LOCATION );
+		$loader = CommandLoader::load( ...self::LOCATION );
 		$cli    = $loader->getContainer()->get( Cli::class );
 
 		$this->assertCount( 1, $cli->all( 'app' ) );
@@ -83,7 +82,7 @@ class CommandLoaderTest extends TestCase {
 
 	#[Test]
 	public function itEnsuresCommandLoaderIsInstantiatedWithContainer(): void {
-		$loader = CommandLoader::run( self::LOCATION[0], self::LOCATION[1], $c = new Container(), false );
+		$loader = CommandLoader::load( self::LOCATION[0], self::LOCATION[1], $c = new Container() );
 
 		$this->assertSame( $c, $loader->getContainer() );
 	}
