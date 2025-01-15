@@ -22,6 +22,9 @@ readonly class Positional {
 	/** @var null|string|bool|int|float|array{} */
 	public null|string|bool|int|float|array $default;
 
+	/** @var null|string|class-string<BackedEnum>|bool|int|float|array{}|(callable(): string|bool|int|float|array{}) */
+	private mixed $userDefault;
+
 	/**
 	 * @param string                                                                                                  $name            The argument name.
 	 * @param string                                                                                                  $desc            The short description about the argument.
@@ -33,7 +36,7 @@ readonly class Positional {
 	 */
 	public function __construct(
 		public string $name,
-		public string $desc,
+		public string $desc = '',
 		public bool $isVariadic = false,
 		public bool $isOptional = true,
 		null|string|bool|int|float|array|callable $default = null,
@@ -42,7 +45,40 @@ readonly class Positional {
 		$this->resolveMode();
 
 		$this->default         = $this->normalizeDefault( $default );
+		$this->userDefault     = $default;
 		$this->suggestedValues = Parser::parseInputSuggestion( $suggestedValues );
+	}
+
+	/** @return null|string|class-string<BackedEnum>|bool|int|float|array{}|(callable(): string|bool|int|float|array{}) */
+	public function getUserDefault(): null|string|bool|int|float|array|callable {
+		return $this->userDefault;
+	}
+
+	public function __toString() {
+		return $this->name;
+	}
+
+	// phpcs:disable Squiz.Commenting.FunctionComment.MissingParamName
+	/**
+	 * @param array{
+	 *  name:string,
+	 *  desc?:string,
+	 *  isVariadic?:bool,
+	 *  isOptional?:bool,
+	 *  default?:string,
+	 *  suggestedValues?: class-string<BackedEnum>|array<string|int,string|int>|callable(CompletionInput): list<string|Suggestion>
+	 * } $args
+	 */
+	// phpcs:enable
+	public function with( array $args ): self {
+		return new self(
+			name: $args['name'],
+			desc: $args['desc'] ?? $this->desc,
+			isVariadic: $args['isVariadic'] ?? $this->isVariadic,
+			isOptional: $args['isOptional'] ?? $this->isOptional,
+			default: $args['default'] ?? $this->default,
+			suggestedValues: $args['suggestedValues'] ?? $this->suggestedValues
+		);
 	}
 
 	public function input(): InputArgument {

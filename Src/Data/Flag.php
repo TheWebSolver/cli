@@ -20,11 +20,25 @@ readonly class Flag {
 	 */
 	public function __construct(
 		public string $name,
-		public string $desc,
+		public string $desc = '',
 		public bool $isNegatable = false,
 		public null|string|array $shortcut = null
 	) {
 		$this->normalizeMode();
+	}
+
+	public function __toString() {
+		return $this->name;
+	}
+
+	/** @param array{name:string,desc?:string,isNegatable?:bool,shortcut?:null|string|array{}} $args */
+	public function with( array $args ): self {
+		return new self(
+			name: $args['name'],
+			desc: $args['desc'] ?? $this->desc,
+			isNegatable: $args['isNegatable'] ?? $this->isNegatable,
+			shortcut: $args['shortcut'] ?? $this->shortcut
+		);
 	}
 
 	public function input(): InputOption {

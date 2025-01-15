@@ -22,6 +22,9 @@ readonly class Associative {
 	/** @var null|string|bool|int|float|array{} */
 	public null|string|bool|int|float|array $default;
 
+	/** @var null|string|bool|int|float|array{}|class-string<BackedEnum>|(callable(): string|bool|int|float|array{}) */
+	private mixed $userDefault;
+
 	/**
 	 * @param string                                                                                                  $name            The option name. Eg: "show".
 	 * @param string                                                                                                  $desc            The short description about the option.
@@ -36,7 +39,7 @@ readonly class Associative {
 	 */
 	public function __construct(
 		public string $name,
-		public string $desc,
+		public string $desc = '',
 		public bool $isVariadic = false,
 		public bool $valueOptional = false,
 		null|string|bool|int|float|array|callable $default = null,
@@ -46,7 +49,42 @@ readonly class Associative {
 		$this->normalizeMode();
 
 		$this->default         = $this->normalizeDefault( $default );
+		$this->userDefault     = $default;
 		$this->suggestedValues = Parser::parseInputSuggestion( $suggestedValues );
+	}
+
+	/** @return null|string|bool|int|float|array{}|class-string<BackedEnum>|(callable(): string|bool|int|float|array{}) */
+	public function getUserDefault(): null|string|bool|int|float|array|callable {
+		return $this->userDefault;
+	}
+
+	public function __toString() {
+		return $this->name;
+	}
+
+	// phpcs:disable Squiz.Commenting.FunctionComment.MissingParamName
+	/**
+	 * @param array{
+	 *  name:string,
+	 *  desc?:string,
+	 *  isVariadic?:bool,
+	 *  valueOptional?:bool,
+	 *  default?:string,
+	 *  shortcut?:string|string[],
+	 *  suggestedValues?: class-string<BackedEnum>|array<string|int,string|int>|callable(CompletionInput): list<string|Suggestion>
+	 * } $args
+	 */
+	// phpcs:enable
+	public function with( array $args ): self {
+		return new self(
+			name: $args['name'],
+			desc: $args['desc'] ?? $this->desc,
+			isVariadic: $args['isVariadic'] ?? $this->isVariadic,
+			valueOptional: $args['valueOptional'] ?? $this->valueOptional,
+			default: $args['default'] ?? $this->default,
+			shortcut: $args['shortcut'] ?? $this->shortcut,
+			suggestedValues: $args['suggestedValues'] ?? $this->suggestedValues
+		);
 	}
 
 	public function input(): InputOption {
@@ -76,12 +114,12 @@ readonly class Associative {
 	 */
 	private function normalizeDefault( $value ): null|string|bool|int|float|array {
 		return match ( true ) {
-			default                            => $this->isVariadic ? array() : null,
-			$this->isOptionalDefault( $value ) => $this->isVariadic ? array() : '',
-			is_callable( $value )              => $this->normalizeDefault( $value() ),
-			$this->isVariadic                  => $this->getVariadicDefault( $value ),
-			is_string( $value )                => Parser::parseBackedEnumValue( $value ),
-			is_scalar( $value )                =>  $value,
+			default                                 => $this->isVariadic ? array() : null,
+			$this->isOptionalDefault( $value )      => $this->isVariadic ? array() : '',
+			is_callable( $value )                   => $this->normalizeDefault( $value() ),
+			$this->isVariadic                       => $this->getVariadicDefault( $value ),
+			is_string( $value )                     => Parser::parseBackedEnumValue( $value ),
+			is_scalar( $value ), is_array( $value ) =>  $value,
 		};
 	}
 
