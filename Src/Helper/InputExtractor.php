@@ -4,8 +4,10 @@ declare( strict_types = 1 );
 namespace TheWebSolver\Codegarage\Cli\Helper;
 
 use ReflectionClass;
+use ReflectionAttribute;
 use TheWebSolver\Codegarage\Cli\Console;
 use TheWebSolver\Codegarage\Cli\Data\Flag;
+use TheWebSolver\Codegarage\Cli\Enum\InputVariant;
 use TheWebSolver\Codegarage\Cli\Data\Positional as Pos;
 use TheWebSolver\Codegarage\Cli\Data\Associative as Assoc;
 
@@ -29,6 +31,9 @@ class InputExtractor {
 
 	/** @var class-string<Console> */
 	private string $currentConsoleClass;
+
+	/** @var array<class-string<Pos|Assoc|Flag>> */
+	private array $inputClassNames;
 
 	/** @var array{0:Pos|Assoc|Flag,1:int|string} */
 	private array $inputAndProperty;
@@ -67,8 +72,23 @@ class InputExtractor {
 		return $this;
 	}
 
-	public function extractAssociative(): self {
-		$this->extractFrom( $this->target, Assoc::class );
+	/**
+	 * Extracts inputs from the given `InputVariant`.
+	 *
+	 * If none of the `InputVariant` given, then all `InputVariant` types will be extracted.
+	 */
+	public function extract( InputVariant ...$inputs ): self {
+		return $this->extractInputVariants( ...( $inputs ?: InputVariant::cases() ) );
+	}
+
+	private function extractInputVariants( InputVariant ...$variants ): self {
+		$this->inputClassNames = array_map( static fn( InputVariant $v ) => $v->getClassName(), $variants );
+
+		return $this->performExtraction();
+	}
+
+	private function performExtraction(): self {
+		$this->extractFrom( $this->target );
 
 		if ( ! $parent = $this->targetParentClass() ) {
 			return $this;
@@ -78,16 +98,16 @@ class InputExtractor {
 			$this->currentConsoleClass = $parent->getName();
 
 			if ( $this->shouldUpdate() ) {
-				$this->extractAndUpdateFrom( $parent, Assoc::class );
+				$this->extractAndUpdateFrom( $parent );
 			} else {
-				$this->extractFrom( $parent, Assoc::class );
+				$this->extractFrom( $parent );
 			}
 
 			$parent = $parent->getParentClass();
 		}
 
 		if ( $this->shouldUpdate() ) {
-			$this->updateCollectionOf( Assoc::class );
+			$this->toCollectionWithUpdatedInputs();
 		}
 
 		$this->reset();
@@ -95,15 +115,24 @@ class InputExtractor {
 		return $this;
 	}
 
-	/**
-	 * @param ReflectionClass<Console>     $reflection
-	 * @param class-string<Pos|Assoc|Flag> $attributeName
-	 */
-	private function extractFrom( ReflectionClass $reflection, string $attributeName ): void {
-		foreach ( $reflection->getAttributes( $attributeName ) as $attribute ) {
-			$input                  = $attribute->newInstance();
-			$this->inputAndProperty = array( $input, '' );
-			$this->currentArguments = $attribute->getArguments();
+	/** @param ReflectionAttribute<Pos|Assoc|Flag> $attribute */
+	private function prepareExtractionFrom( ReflectionAttribute $attribute ): Pos|Assoc|Flag {
+		$input                  = $attribute->newInstance();
+		$this->currentArguments = $attribute->getArguments();
+		$this->inputAndProperty = array( $input, '' );
+
+		return $input;
+	}
+
+	/** @param ReflectionClass<Console> $reflection */
+	private function extractFrom( ReflectionClass $reflection ): void {
+		foreach ( $reflection->getAttributes() as $attribute ) {
+			if ( ! $this->isOfInputVariant( $attribute ) ) {
+				continue;
+			}
+
+			$input = $this->prepareExtractionFrom( $attribute );
+			$name  = $input->name;
 
 			if ( $this->currentInputInCollectionQueue() ) {
 				continue;
@@ -112,23 +141,20 @@ class InputExtractor {
 			$this->pushCurrentInputToCollectionQueue();
 
 			if ( $this->shouldUpdate() ) {
-				$this->update[ $input::class ][ $input->name ] = array(
-					'name' => $input->name,
-					...$this->onlyNamedArguments(),
-				);
+				$propertiesWithNamedArguments           = array( ...compact( 'name' ), ...$this->onlyNamedArguments() );
+				$this->update[ $input::class ][ $name ] = $propertiesWithNamedArguments;
 			}
 		}
 	}
 
-	/**
-	 * @param ReflectionClass<Console>     $reflection
-	 * @param class-string<Pos|Assoc|Flag> $attributeName
-	 */
-	private function extractAndUpdateFrom( ReflectionClass $reflection, string $attributeName ): void {
-		foreach ( $reflection->getAttributes( $attributeName ) as $attribute ) {
-			$input                  = $attribute->newInstance();
-			$this->currentArguments = $attribute->getArguments();
-			$this->inputAndProperty = array( $input, '' );
+	/** @param ReflectionClass<Console> $reflection */
+	private function extractAndUpdateFrom( ReflectionClass $reflection ): void {
+		foreach ( $reflection->getAttributes() as $attribute ) {
+			if ( ! $this->isOfInputVariant( $attribute ) ) {
+				continue;
+			}
+
+			$this->prepareExtractionFrom( $attribute );
 
 			if ( ! $this->currentInputInCollectionQueue() ) {
 				$this->pushCurrentInputToCollectionQueue();
@@ -140,15 +166,12 @@ class InputExtractor {
 		}
 	}
 
-	/** @param class-string<Pos|Assoc|Flag> $attributeName */
-	private function updateCollectionOf( string $attributeName ): void {
-		if ( ! $updatesInQueue = ( $this->update[ $attributeName ] ?? false ) ) {
-			return;
-		}
-
-		foreach ( $updatesInQueue as $inputName => $updates ) {
-			if ( $input = $this->currentInputInCollectionQueue( $inputName ) ) {
-				$this->collect[ $attributeName ][ $inputName ] = $input->with( $updates );
+	private function toCollectionWithUpdatedInputs(): void {
+		foreach ( $this->update as $attributeName => $updatesInQueue ) {
+			foreach ( $updatesInQueue as $inputName => $updates ) {
+				if ( $input = $this->currentInputInCollectionQueue( $inputName ) ) {
+					$this->collect[ $attributeName ][ $inputName ] = $input->with( $updates );
+				}
 			}
 		}
 	}
@@ -180,10 +203,20 @@ class InputExtractor {
 	}
 
 	private function reset(): void {
+		$this->currentConsoleClass = $this->target->name;
 		$this->currentArguments    = array();
 		$this->inputAndProperty    = array();
+		$this->inputClassNames     = array();
 		$this->update              = array();
-		$this->currentConsoleClass = $this->target->name;
+	}
+
+	/**
+	 * @param ReflectionAttribute<T> $reflection
+	 * @template T of object
+	 * @phpstan-assert-if-true ReflectionAttribute<Pos|Assoc|Flag> $reflection
+	 */
+	private function isOfInputVariant( ReflectionAttribute $reflection ): bool {
+		return in_array( $reflection->getName(), $this->inputClassNames, true );
 	}
 
 	private function currentInputInCollectionQueue(): Pos|Assoc|Flag|null {
