@@ -55,7 +55,7 @@ class InputExtractor {
 
 	/** @param class-string<Console>|ReflectionClass<Console> $target */
 	public function __construct( string|ReflectionClass $target ) {
-		$this->target              = $target instanceof ReflectionClass ? $target : new ReflectionClass( $target );
+		$this->target              = is_string( $target ) ? new ReflectionClass( $target ) : $target;
 		$this->currentConsoleClass = $this->target->name;
 	}
 
@@ -65,7 +65,7 @@ class InputExtractor {
 	}
 
 	/** @return array<class-string<Console>,array<class-string<Pos|Assoc|Flag>,array<string,array<int|string>>>> */
-	public function getUpdateSource(): array {
+	public function getSource(): array {
 		return $this->source;
 	}
 
@@ -97,21 +97,12 @@ class InputExtractor {
 
 	/** @return array<class-string<Pos|Assoc|Flag>,(InputArgument|InputOption)[]> */
 	public function toInput( ?InputDefinition $definition = null ): array {
-		$converted = array();
+		$collection = $this->getCollection();
 
-		foreach ( $this->getCollection() as $attributeName => $inputs ) {
-			if ( Pos::class === $attributeName ) {
-				$converted[ $attributeName ] = array_map( $this->convertToInput( ... ), $inputs );
+		array_walk( $collection, self::walkCollectionToSymfonyInputs( ... ), $definition );
 
-				$definition?->addArguments( $converted[ $attributeName ] );
-			} else {
-				$converted[ $attributeName ] = array_map( $this->convertToInput( ... ), $inputs );
-
-				$definition?->addOptions( $converted[ $attributeName ] );
-			}
-		}
-
-		return $converted;
+		/** @var array<class-string<Pos|Assoc|Flag>,(InputArgument|InputOption)[]> */
+		return $collection;
 	}
 
 	/** @return array<Pos|Assoc|Flag> */
@@ -145,7 +136,7 @@ class InputExtractor {
 		}
 
 		if ( $this->shouldUpdate() ) {
-			$this->toCollectionWithUpdatedInputs();
+			$this->walkCollectionWithUpdatedInputProperties();
 		}
 
 		$this->reset();
@@ -204,11 +195,11 @@ class InputExtractor {
 		}
 	}
 
-	private function toCollectionWithUpdatedInputs(): void {
+	private function walkCollectionWithUpdatedInputProperties(): void {
 		foreach ( $this->update as $attributeName => $updatesInQueue ) {
-			foreach ( $updatesInQueue as $inputName => $updates ) {
+			foreach ( $updatesInQueue as $inputName => $updatedProperties ) {
 				if ( $input = $this->currentInputInCollectionQueue( $inputName ) ) {
-					$this->collect[ $attributeName ][ $inputName ] = $input->with( $updates );
+					$this->collect[ $attributeName ][ $inputName ] = $input->with( $updatedProperties );
 
 					$this->collectSuggestedValuesFrom( $input );
 				}
@@ -229,7 +220,7 @@ class InputExtractor {
 
 	private function pushCurrentInputPropertiesToUpdateQueue(): void {
 		foreach ( get_object_vars( $this->inputAndProperty[0] ) as $this->inputAndProperty[1] => $value ) {
-			if ( ! $this->currentPropertyIsInUpdateQueue() && $this->currentPropertyIsNamedArgument() ) {
+			if ( ! $this->updateQueueContainsCurrentProperty() && $this->isCurrentPropertyNamedArgument() ) {
 				$this->pushCurrentPropertyValueToUpdateQueue( $value );
 			}
 		}
@@ -268,13 +259,13 @@ class InputExtractor {
 		return $this->collect[ $input::class ][ $inputName ] ?? null;
 	}
 
-	private function currentPropertyIsInUpdateQueue(): bool {
+	private function updateQueueContainsCurrentProperty(): bool {
 		[$input, $property] = $this->inputAndProperty;
 
 		return isset( $this->update[ $input::class ][ $input->name ][ $property ] );
 	}
 
-	private function currentPropertyIsNamedArgument(): bool {
+	private function isCurrentPropertyNamedArgument(): bool {
 		[, $property] = $this->inputAndProperty;
 
 		return $this->isCollectable( $property ) && array_key_exists( $property, $this->currentArguments );
@@ -320,8 +311,25 @@ class InputExtractor {
 		return array( ...$carry, ...array_values( $inputs ) );
 	}
 
-	/** @return ($attribute is Pos ? InputArgument : InputOption) */
-	private static function convertToInput( Pos|Assoc|Flag $attribute ): InputArgument|InputOption {
-		return $attribute->input();
+	/**
+	 * @param array<string,Pos|Assoc|Flag> $inputs
+	 * @param class-string<Pos|Assoc|Flag> $key
+	 * @param-out array<string,InputArgument|InputOption> $inputs
+	 */
+	private static function walkCollectionToSymfonyInputs( array &$inputs, string $key, ?InputDefinition $definition ): void {
+		$inputs = array_map(
+			static function ( Pos|Assoc|Flag $attribute ) use ( $definition ) {
+				$input = $attribute->input();
+
+				if ( $input instanceof InputArgument ) {
+					$definition?->addArgument( $input );
+				} else {
+					$definition?->addOption( $input );
+				}
+
+				return $input;
+			},
+			$inputs
+		);
 	}
 }
