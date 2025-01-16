@@ -20,6 +20,7 @@ use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\ConsoleOutput;
 use Symfony\Component\Console\Helper\HelperInterface;
 use Symfony\Component\Console\Output\OutputInterface;
+use TheWebSolver\Codegarage\Cli\Helper\InputExtractor;
 use TheWebSolver\Codegarage\Cli\Attribute\Command as CommandAttribute;
 
 /** @phpstan-consistent-constructor */
@@ -122,14 +123,12 @@ class Console extends Command {
 	/** @param ReflectionClass<static> $reflection */
 	// phpcs:ignore Squiz.Commenting.FunctionComment.IncorrectTypeHint
 	public function withDefinitionsFromAttribute( ?ReflectionClass $reflection = null ): static {
-		$ref        = $reflection ?? static::class;
-		$definition = $this->getDefinition();
-		$arguments  = Parser::parseInputAttribute( Positional::class, $ref, toInput: true );
-		$options    = Parser::parseInputAttribute( Associative::class, $ref, toInput: true );
-		$flags      = Parser::parseInputAttribute( Flag::class, $ref, toInput: true );
+		$reflection ??= static::class;
 
-		$definition->addArguments( $arguments );
-		$definition->addOptions( array( ...( $options ?? array() ), ...( $flags ?? array() ) ) );
+		InputExtractor::when( $reflection )
+			->needsTo( InputExtractor::EXTRACT_AND_UPDATE )
+			->extract()
+			->toInput( $this->getDefinition() );
 
 		return $this->setDefined();
 	}

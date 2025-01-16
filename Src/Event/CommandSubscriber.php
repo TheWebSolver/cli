@@ -5,18 +5,17 @@ namespace TheWebSolver\Codegarage\Cli\Event;
 
 use Closure;
 use ReflectionClass;
-use ReflectionAttribute;
 use OutOfBoundsException;
 use TheWebSolver\Codegarage\Cli\Console;
 use Symfony\Component\Console\ConsoleEvents;
 use Symfony\Component\Console\Input\ArgvInput;
-use TheWebSolver\Codegarage\Cli\Data\Positional;
-use TheWebSolver\Codegarage\Cli\Data\Associative;
 use Symfony\Component\Console\Completion\Suggestion;
 use Symfony\Component\Console\Completion\CompletionInput;
 use Symfony\Component\EventDispatcher\EventSubscriberInterface;
 use Symfony\Component\Console\Event\ConsoleCommandEvent as Event;
 use TheWebSolver\Codegarage\Cli\Attribute\DoNotValidateSuggestedValues;
+use TheWebSolver\Codegarage\Cli\Enum\InputVariant;
+use TheWebSolver\Codegarage\Cli\Helper\InputExtractor;
 
 class CommandSubscriber implements EventSubscriberInterface {
 	private static bool $disableValidation = false;
@@ -41,46 +40,41 @@ class CommandSubscriber implements EventSubscriberInterface {
 
 		$tokens = ( $argv = $event->getInput() ) instanceof ArgvInput ? $argv->getRawTokens( true ) : null;
 
-		foreach ( self::getAttributeWithSuggestion( $event ) ?? array() as $attribute ) {
-			$input           = $attribute->newInstance();
-			$suggestions     = $input->suggestedValues;
-			$suggestedValues = $suggestions instanceof Closure
-				? $suggestions( new CompletionInput( $tokens ) )
-				: $suggestions;
+		foreach ( self::getSuggestedValues( $event ) ?? array() as $inputName => $suggestions ) {
+			$values = $suggestions instanceof Closure ? $suggestions( new CompletionInput( $tokens ) ) : $suggestions;
 
-			if ( ! empty( $suggestedValues ) ) {
-				self::validateInput( $suggestedValues, $input, $event );
+			if ( ! empty( $values ) ) {
+				self::validateInput( $values, $inputName, $event );
 			}
 		}
 	}
 
-	/** @return ?ReflectionAttribute<Positional|Associative>[] */
-	private static function getAttributeWithSuggestion( Event $event ): ?array {
-		if ( ! $command = $event->getCommand() ) {
+	/** @return array<string,array<string|int>|(Closure(CompletionInput): list<string|Suggestion>)> */
+	private static function getSuggestedValues( Event $event ): ?array {
+		if ( ! ( $command = $event->getCommand() ) || ! $command instanceof Console ) {
 			return null;
 		}
 
-		$reflection = new ReflectionClass( $command );
+		$commandReflection = new ReflectionClass( $command );
 
-		return ! ! $reflection->getAttributes( DoNotValidateSuggestedValues::class )
-			? null
-			: array(
-				...$reflection->getAttributes( Positional::class ),
-				...$reflection->getAttributes( Associative::class ),
-				// Flags do not have (need) suggested values.
-			);
+		if ( ! ! $commandReflection->getAttributes( DoNotValidateSuggestedValues::class ) ) {
+			return null;
+		}
+
+		return InputExtractor::when( $commandReflection )
+			->needsTo( InputExtractor::EXTRACT_AND_UPDATE )
+			->extract( InputVariant::Associative, InputVariant::Positional )
+			->getSuggestions();
 	}
 
 	/** @param array<string|int|Suggestion> $suggestions */
-	private static function validateInput( array $suggestions, Positional|Associative $input, Event $event ): true {
-		$value = $input instanceof Associative
-			? $event->getInput()->getOption( $input->name )
-			: $event->getInput()->getArgument( $input->name );
+	private static function validateInput( array $suggestions, string $inputName, Event $event ): true {
+		$input = $event->getInput();
+		$value = $input->hasOption( $inputName ) ? $input->getOption( $inputName ) : $input->getArgument( $inputName );
 
-		// phpcs:ignore WordPress.PHP.StrictInArray.FoundNonStrictFalse -- Not all suggestions are given in string.
-		return null === $value || in_array( $value, $suggestions, strict: false )
+		return ! is_array( $value ) || empty( array_diff( $value, $suggestions ) )
 			? true
-			: self::throwInvalidValue( $suggestions, $event, $input->name );
+			: self::throwInvalidValue( $suggestions, $event, $inputName );
 	}
 
 	/**

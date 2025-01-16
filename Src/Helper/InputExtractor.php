@@ -3,12 +3,18 @@ declare( strict_types = 1 );
 
 namespace TheWebSolver\Codegarage\Cli\Helper;
 
+use Closure;
 use ReflectionClass;
 use ReflectionAttribute;
 use TheWebSolver\Codegarage\Cli\Console;
 use TheWebSolver\Codegarage\Cli\Data\Flag;
+use Symfony\Component\Console\Input\InputOption;
+use Symfony\Component\Console\Input\InputArgument;
 use TheWebSolver\Codegarage\Cli\Enum\InputVariant;
+use Symfony\Component\Console\Completion\Suggestion;
+use Symfony\Component\Console\Input\InputDefinition;
 use TheWebSolver\Codegarage\Cli\Data\Positional as Pos;
+use Symfony\Component\Console\Completion\CompletionInput;
 use TheWebSolver\Codegarage\Cli\Data\Associative as Assoc;
 
 class InputExtractor {
@@ -44,13 +50,16 @@ class InputExtractor {
 	/** @var array<class-string<Pos|Assoc|Flag>,array<string,array<array-key,mixed>>> */
 	private array $update;
 
+	/** @var array<string,array<string|int>|(Closure(CompletionInput): list<string|Suggestion>)> */
+	private array $suggestions;
+
 	/** @param class-string<Console>|ReflectionClass<Console> $target */
 	public function __construct( string|ReflectionClass $target ) {
 		$this->target              = $target instanceof ReflectionClass ? $target : new ReflectionClass( $target );
 		$this->currentConsoleClass = $this->target->name;
 	}
 
-	/** @return array<string,array<string,Pos|Assoc|Flag>> */
+	/** @return array<class-string<Pos|Assoc|Flag>,array<string,Pos|Assoc|Flag>> */
 	public function getCollection(): array {
 		return $this->collect;
 	}
@@ -58,6 +67,11 @@ class InputExtractor {
 	/** @return array<class-string<Console>,array<class-string<Pos|Assoc|Flag>,array<string,array<int|string>>>> */
 	public function getUpdateSource(): array {
 		return $this->source;
+	}
+
+	/** @return array<string,array<string|int>|(Closure(CompletionInput): list<string|Suggestion>)> */
+	public function getSuggestions(): array {
+		return $this->suggestions;
 	}
 
 	/** @param class-string<Console>|ReflectionClass<Console> $targetClass */
@@ -79,6 +93,30 @@ class InputExtractor {
 	 */
 	public function extract( InputVariant ...$inputs ): self {
 		return $this->extractInputVariants( ...( $inputs ?: InputVariant::cases() ) );
+	}
+
+	/** @return array<class-string<Pos|Assoc|Flag>,(InputArgument|InputOption)[]> */
+	public function toInput( ?InputDefinition $definition = null ): array {
+		$converted = array();
+
+		foreach ( $this->getCollection() as $attributeName => $inputs ) {
+			if ( Pos::class === $attributeName ) {
+				$converted[ $attributeName ] = array_map( $this->convertToInput( ... ), $inputs );
+
+				$definition?->addArguments( $converted[ $attributeName ] );
+			} else {
+				$converted[ $attributeName ] = array_map( $this->convertToInput( ... ), $inputs );
+
+				$definition?->addOptions( $converted[ $attributeName ] );
+			}
+		}
+
+		return $converted;
+	}
+
+	/** @return array<Pos|Assoc|Flag> */
+	public function toFlattenedArray(): array {
+		return array_reduce( $this->collect, $this->reduceToSingleArray( ... ), array() );
 	}
 
 	private function extractInputVariants( InputVariant ...$variants ): self {
@@ -171,6 +209,8 @@ class InputExtractor {
 			foreach ( $updatesInQueue as $inputName => $updates ) {
 				if ( $input = $this->currentInputInCollectionQueue( $inputName ) ) {
 					$this->collect[ $attributeName ][ $inputName ] = $input->with( $updates );
+
+					$this->collectSuggestedValuesFrom( $input );
 				}
 			}
 		}
@@ -181,6 +221,8 @@ class InputExtractor {
 
 		[$input]                                        = $this->inputAndProperty;
 		$this->collect[ $input::class ][ $input->name ] = $input;
+
+		$this->collectSuggestedValuesFrom( $input );
 
 		$this->source[ $this->currentConsoleClass ][ $input::class ][ $input->name ] = array_keys( $args );
 	}
@@ -261,5 +303,25 @@ class InputExtractor {
 		[$input, $property] = $this->inputAndProperty;
 
 		return 'default' === $property && method_exists( $input, 'getUserDefault' ) ? $input->getUserDefault() : null;
+	}
+
+	private function collectSuggestedValuesFrom( Pos|Assoc|Flag $input ): void {
+		if ( ! $input instanceof Flag && ( $value = $input->suggestedValues ) ) {
+			$this->suggestions[ $input->name ] = $value;
+		}
+	}
+
+	/**
+	 * @param array<Pos|Assoc|Flag>        $carry
+	 * @param array<string,Pos|Assoc|Flag> $inputs
+	 * @return array<Pos|Assoc|Flag>
+	 */
+	private function reduceToSingleArray( array $carry, array $inputs ): array {
+		return array( ...$carry, ...array_values( $inputs ) );
+	}
+
+	/** @return ($attribute is Pos ? InputArgument : InputOption) */
+	private static function convertToInput( Pos|Assoc|Flag $attribute ): InputArgument|InputOption {
+		return $attribute->input();
 	}
 }

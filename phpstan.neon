@@ -26,4 +26,4 @@ parameters:
 		-
 			path: Src/Helper/InputExtractor.php
 			identifier: argument.type
-			count: 1
+			count: 3 # Two for when converting to ::input(), 1 for Associative::with().
