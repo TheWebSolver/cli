@@ -174,15 +174,13 @@ class InputExtractor {
 				continue;
 			}
 
-			if ( ! $this->currentPropertyIsNamedArgument() ) {
-				continue;
+			if ( $this->currentPropertyIsNamedArgument() ) {
+				$this->pushCurrentPropertyValueToUpdateQueue( $value );
 			}
-
-			$this->pushCurrentPropertyToUpdateQueue( $value );
 		}
 	}
 
-	private function pushCurrentPropertyToUpdateQueue( mixed $value ): void {
+	private function pushCurrentPropertyValueToUpdateQueue( mixed $value ): void {
 		[$input, $property] = $this->inputAndProperty;
 		$defaultPropValue   = $this->defaultPropertyValueAssigned();
 
@@ -199,11 +197,10 @@ class InputExtractor {
 	}
 
 	private function isCurrentInputInCollectionQueue(): Pos|Assoc|Flag|null {
-		[$input]       = $this->inputAndProperty;
-		$attributeName = $input::class;
-		$inputName     = func_num_args() !== 1 ? $input->name : func_get_arg( 0 );
+		[$input]   = $this->inputAndProperty;
+		$inputName = func_num_args() === 1 ? func_get_arg( 0 ) : $input->name;
 
-		return $this->collect[ $attributeName ][ $inputName ] ?? null;
+		return $this->collect[ $input::class ][ $inputName ] ?? null;
 	}
 
 	private function isCurrentPropertyInUpdateQueue(): bool {
