@@ -18,9 +18,6 @@ class InputExtractor {
 	/** @var self::EXTRACT_AND* */
 	private int $flag = self::EXTRACT_AND_REPLACE;
 
-	/** @var array{0:Pos|Assoc|Flag,1:int|string} */
-	private array $inputAndProperty;
-
 	/** @var array<class-string<Pos|Assoc|Flag>,array<string,Pos|Assoc|Flag>> */
 	private array $collect;
 
@@ -32,6 +29,9 @@ class InputExtractor {
 
 	/** @var class-string<Console> */
 	private string $currentConsoleClass;
+
+	/** @var array{0:Pos|Assoc|Flag,1:int|string} */
+	private array $inputAndProperty;
 
 	/** @var mixed[] */
 	private array $currentArguments;
@@ -105,7 +105,7 @@ class InputExtractor {
 			$this->inputAndProperty = array( $input, '' );
 			$this->currentArguments = $attribute->getArguments();
 
-			if ( $this->isCurrentInputInCollectionQueue() ) {
+			if ( $this->currentInputInCollectionQueue() ) {
 				continue;
 			}
 
@@ -130,13 +130,13 @@ class InputExtractor {
 			$this->currentArguments = $attribute->getArguments();
 			$this->inputAndProperty = array( $input, '' );
 
-			if ( ! $this->isCurrentInputInCollectionQueue() ) {
+			if ( ! $this->currentInputInCollectionQueue() ) {
 				$this->pushCurrentInputToCollectionQueue();
 
 				continue;
 			}
 
-			$this->updateCollectionFromCurrentInput();
+			$this->pushCurrentInputPropertiesToUpdateQueue();
 		}
 	}
 
@@ -147,18 +147,14 @@ class InputExtractor {
 		}
 
 		foreach ( $updatesInQueue as $inputName => $updates ) {
-			if ( $input = $this->isCurrentInputInCollectionQueue( $inputName ) ) {
+			if ( $input = $this->currentInputInCollectionQueue( $inputName ) ) {
 				$this->collect[ $attributeName ][ $inputName ] = $input->with( $updates );
 			}
 		}
 	}
 
 	private function pushCurrentInputToCollectionQueue(): void {
-		$args = $this->currentArguments;
-
-		if ( $this->shouldUpdate() ) {
-			$args = $this->onlyNamedArguments();
-		}
+		$args = $this->shouldUpdate() ? $this->onlyNamedArguments() : $this->currentArguments;
 
 		[$input]                                        = $this->inputAndProperty;
 		$this->collect[ $input::class ][ $input->name ] = $input;
@@ -166,15 +162,9 @@ class InputExtractor {
 		$this->source[ $this->currentConsoleClass ][ $input::class ][ $input->name ] = array_keys( $args );
 	}
 
-	private function updateCollectionFromCurrentInput(): void {
-		foreach ( get_object_vars( $this->inputAndProperty[0] ) as $property => $value ) {
-			$this->inputAndProperty[1] = $property;
-
-			if ( $this->isCurrentPropertyInUpdateQueue() ) {
-				continue;
-			}
-
-			if ( $this->currentPropertyIsNamedArgument() ) {
+	private function pushCurrentInputPropertiesToUpdateQueue(): void {
+		foreach ( get_object_vars( $this->inputAndProperty[0] ) as $this->inputAndProperty[1] => $value ) {
+			if ( ! $this->currentPropertyIsInUpdateQueue() && $this->currentPropertyIsNamedArgument() ) {
 				$this->pushCurrentPropertyValueToUpdateQueue( $value );
 			}
 		}
@@ -196,14 +186,14 @@ class InputExtractor {
 		$this->currentConsoleClass = $this->target->name;
 	}
 
-	private function isCurrentInputInCollectionQueue(): Pos|Assoc|Flag|null {
+	private function currentInputInCollectionQueue(): Pos|Assoc|Flag|null {
 		[$input]   = $this->inputAndProperty;
 		$inputName = func_num_args() === 1 ? func_get_arg( 0 ) : $input->name;
 
 		return $this->collect[ $input::class ][ $inputName ] ?? null;
 	}
 
-	private function isCurrentPropertyInUpdateQueue(): bool {
+	private function currentPropertyIsInUpdateQueue(): bool {
 		[$input, $property] = $this->inputAndProperty;
 
 		return isset( $this->update[ $input::class ][ $input->name ][ $property ] );
@@ -237,8 +227,6 @@ class InputExtractor {
 	private function defaultPropertyValueAssigned(): mixed {
 		[$input, $property] = $this->inputAndProperty;
 
-		return 'default' === $property && method_exists( $input, 'getUserDefault' )
-			? $input->getUserDefault()
-			: null;
+		return 'default' === $property && method_exists( $input, 'getUserDefault' ) ? $input->getUserDefault() : null;
 	}
 }
