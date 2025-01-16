@@ -19,3 +19,11 @@ parameters:
 		-
 			path: Src/Helper/Parser.php
 			identifier: return.type # Parser::parseInputSuggestion() -> BackedEnum is never callable.
+		-
+			path: Src/Helper/InputExtractor.php
+			identifier: assign.propertyType
+			count: 2
+		-
+			path: Src/Helper/InputExtractor.php
+			identifier: argument.type
+			count: 1
