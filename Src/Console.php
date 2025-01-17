@@ -29,6 +29,7 @@ class Console extends Command {
 	protected bool $printProgress;
 	private SymfonyStyle $io;
 	private bool $isDefined = false;
+	private InputAttribute $inputAttribute;
 
 	/** @var string */
 	public const CLI_NAMESPACE           = 'app';
@@ -40,6 +41,10 @@ class Console extends Command {
 	// phpcs:disable Generic.CodeAnalysis.UselessOverridingMethod.Found
 	public function __construct( ?string $name = null ) {
 		parent::__construct( $name );
+	}
+
+	final public function getInputAttribute(): ?InputAttribute {
+		return $this->inputAttribute ?? null;
 	}
 
 	final public static function start( Container $container = null ): static {
@@ -71,6 +76,66 @@ class Console extends Command {
 		$name = str_replace( search: '_', replace: '', subject: ucwords( $ref->getShortName(), separators: '_' ) );
 
 		return static::CLI_NAMESPACE . ':' . lcfirst( $name );
+	}
+
+	/** @return ($toInput is true ? array<class-string<Pos>,array<string,InputArgument>> : array<class-string<Pos>,array<string,Pos>>) */
+	final public static function positionalInputs( bool $replaceParent = false, bool $toInput = false ): array {
+		return self::getInputs( $replaceParent, $toInput, InputVariant::Positional );
+	}
+
+	/** @return ($toInput is true ? array<class-string<Assoc>,array<string,InputOption>> : array<class-string<Assoc>,array<string,Assoc>>) */
+	final public static function associativeInputs( bool $replaceParent = false, bool $toInput = false ): array {
+		return self::getInputs( $replaceParent, $toInput, InputVariant::Associative );
+	}
+
+	/** @return ($toInput is true ? array<class-string<Flag>,array<string,InputOption>> : array<class-string<Flag>,array<string,Flag>>) */
+	final public static function flagInputs( bool $replaceParent = false, bool $toInput = false ): array {
+		return self::getInputs( $replaceParent, $toInput, InputVariant::Flag );
+	}
+
+	/** @return array<class-string<Pos|Assoc|Flag>,array<string,Pos|Assoc|Flag|InputArgument|InputOption>> */
+	final public static function getInputs( bool $replace = false, bool $toInput = false, InputVariant ...$variant ): array {
+		$attributes = InputAttribute::from( static::class )->do(
+			$replace ? InputAttribute::EXTRACT_AND_REPLACE : InputAttribute::EXTRACT_AND_UPDATE,
+			...$variant
+		);
+
+		return $toInput ? $attributes->toInput() : $attributes->getCollection();
+	}
+
+	final public function setDefined( bool $isDefined = true ): static {
+		$this->isDefined = $isDefined;
+
+		return $this;
+	}
+
+	final public function isDefined(): bool {
+		return $this->isDefined;
+	}
+
+	/**
+	 * @template HelperClass of HelperInterface
+	 * @phpstan-param class-string<HelperClass> $helperClass
+	 * @phpstan-return HelperClass
+	 */
+	public function assistFrom( string $helperClass ): HelperInterface {
+		return ( $helper = $this->getHelperSet()?->get( $helperClass ) ) instanceof $helperClass
+			? $helper
+			: new $helperClass();
+	}
+
+	public function io(): SymfonyStyle {
+		return $this->io;
+	}
+
+	protected function initialize( InputInterface $input, OutputInterface $output ) {
+		$this->io = new SymfonyStyle( $input, $output );
+
+		try {
+			$this->printProgress = true === $input->getOption( 'progress' );
+		} catch ( InvalidArgumentException ) {
+			$this->printProgress = false;
+		}
 	}
 
 	/** @return array{0:static,1:ReflectionClass<static>} */
@@ -106,73 +171,31 @@ class Console extends Command {
 		return $args;
 	}
 
-	/** @return ($toInput is true ? array<class-string<Pos>,array<string,InputArgument>> : array<class-string<Pos>,array<string,Pos>>) */
-	final public static function positionalInputs( bool $replaceParent = false, bool $toInput = false ): array {
-		return self::getInputs( $replaceParent, $toInput, InputVariant::Positional );
-	}
-
-	/** @return ($toInput is true ? array<class-string<Assoc>,array<string,InputOption>> : array<class-string<Assoc>,array<string,Assoc>>) */
-	final public static function associativeInputs( bool $replaceParent = false, bool $toInput = false ): array {
-		return self::getInputs( $replaceParent, $toInput, InputVariant::Associative );
-	}
-
-	/** @return ($toInput is true ? array<class-string<Flag>,array<string,InputOption>> : array<class-string<Flag>,array<string,Flag>>) */
-	final public static function flagInputs( bool $replaceParent = false, bool $toInput = false ): array {
-		return self::getInputs( $replaceParent, $toInput, InputVariant::Flag );
-	}
-
-	/** @return array<class-string<Pos|Assoc|Flag>,array<string,Pos|Assoc|Flag|InputArgument|InputOption>> */
-	final public static function getInputs( bool $replace = false, bool $toInput = false, InputVariant ...$variant ): array {
-		$attributes = InputAttribute::from( static::class )->do(
-			$replace ? InputAttribute::EXTRACT_AND_REPLACE : InputAttribute::EXTRACT_AND_UPDATE,
-			...$variant
-		);
-
-		return $toInput ? $attributes->toInput() : $attributes->getCollection();
-	}
-
-	/** @param ReflectionClass<static> $reflection */
+	/**
+	 * Sets input definitions using Positional|Associative|Flag attributes.
+	 *
+	 * This method may be overridden to handle attribute extraction. Make sure
+	 * to update `InputAttribute` property by using respective setter method:
+	 * ```php
+	 * $inputAttribute = InputAttribute::from(static::class)->do(InputAttribute::EXTRACT_AND_UPDATE);
+	 * $this->setInputAttribute($inputAttribute);
+	 * ```
+	 *
+	 * @param ReflectionClass<static> $reflection
+	 */
 	// phpcs:ignore Squiz.Commenting.FunctionComment.IncorrectTypeHint
-	public function withDefinitionsFromAttribute( ?ReflectionClass $reflection = null ): static {
-		InputAttribute::from( $reflection ?? static::class )
-			->do( InputAttribute::EXTRACT_AND_UPDATE )
-			->toInput( $this->getDefinition() );
+	protected function withDefinitionsFromAttribute( ?ReflectionClass $reflection = null ): static {
+		$inputAttribute = InputAttribute::from( $reflection ?? static::class )
+			->do( InputAttribute::EXTRACT_AND_UPDATE );
 
-		return $this->setDefined();
+		$inputAttribute->toInput( $this->getDefinition() );
+
+		return $this->setInputAttribute( $inputAttribute )->setDefined();
 	}
 
-	public function setDefined( bool $isDefined = true ): static {
-		$this->isDefined = $isDefined;
+	final protected function setInputAttribute( InputAttribute $instance ): static {
+		$this->inputAttribute = $instance;
 
 		return $this;
-	}
-
-	public function isDefined(): bool {
-		return $this->isDefined;
-	}
-
-	/**
-	 * @template HelperClass of HelperInterface
-	 * @phpstan-param class-string<HelperClass> $helperClass
-	 * @phpstan-return HelperClass
-	 */
-	public function assistFrom( string $helperClass ): HelperInterface {
-		return ( $helper = $this->getHelperSet()?->get( $helperClass ) ) instanceof $helperClass
-			? $helper
-			: new $helperClass();
-	}
-
-	public function io(): SymfonyStyle {
-		return $this->io;
-	}
-
-	protected function initialize( InputInterface $input, OutputInterface $output ) {
-		$this->io = new SymfonyStyle( $input, $output );
-
-		try {
-			$this->printProgress = true === $input->getOption( 'progress' );
-		} catch ( InvalidArgumentException ) {
-			$this->printProgress = false;
-		}
 	}
 }
