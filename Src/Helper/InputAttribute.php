@@ -61,17 +61,17 @@ class InputAttribute {
 
 	/** @return array<class-string<Pos|Assoc|Flag>,array<string,Pos|Assoc|Flag>> */
 	public function getCollection(): array {
-		return $this->collect;
+		return $this->collect ?? array();
 	}
 
 	/** @return array<class-string<Console>,array<class-string<Pos|Assoc|Flag>,array<string,array<int|string>>>> */
 	public function getSource(): array {
-		return $this->source;
+		return $this->source ?? array();
 	}
 
 	/** @return array<string,array<string|int>|(Closure(CompletionInput): list<string|Suggestion>)> */
 	public function getSuggestions(): array {
-		return $this->suggestions;
+		return $this->suggestions ?? array();
 	}
 
 	/** @param class-string<Console>|ReflectionClass<Console> $target */
@@ -92,13 +92,13 @@ class InputAttribute {
 		return $this->extractInputVariants( ...( $inputs ?: InputVariant::cases() ) );
 	}
 
-	/** @return array<class-string<Pos|Assoc|Flag>,(InputArgument|InputOption)[]> */
+	/** @return array<class-string<Pos|Assoc|Flag>,array<string,InputArgument|InputOption>> */
 	public function toInput( ?InputDefinition $definition = null ): array {
 		$collection = $this->getCollection();
 
 		array_walk( $collection, self::walkCollectionToSymfonyInputs( ... ), $definition );
 
-		/** @var array<class-string<Pos|Assoc|Flag>,(InputArgument|InputOption)[]> */
+		/** @var array<class-string<Pos|Assoc|Flag>,array<string,InputArgument|InputOption>> */
 		return $collection;
 	}
 
@@ -193,6 +193,10 @@ class InputAttribute {
 	}
 
 	private function walkCollectionWithUpdatedInputProperties(): void {
+		if ( empty( $this->update ) ) {
+			return;
+		}
+
 		foreach ( $this->update as $attributeName => $updatesInQueue ) {
 			foreach ( $updatesInQueue as $inputName => $updatedProperties ) {
 				if ( ! $input = $this->currentInputInCollectionQueue( $inputName ) ) {
