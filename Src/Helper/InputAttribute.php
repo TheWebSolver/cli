@@ -199,7 +199,7 @@ class InputAttribute {
 
 		foreach ( $this->update as $attributeName => $updatesInQueue ) {
 			foreach ( $updatesInQueue as $inputName => $updatedProperties ) {
-				if ( ! $input = $this->currentInputInCollectionQueue( $inputName ) ) {
+				if ( ! $input = $this->currentInputInCollectionQueue( $attributeName, $inputName ) ) {
 					continue;
 				}
 
@@ -260,10 +260,16 @@ class InputAttribute {
 	}
 
 	private function currentInputInCollectionQueue(): Pos|Assoc|Flag|null {
-		[$input]   = $this->inputAndProperty;
-		$inputName = func_num_args() === 1 ? func_get_arg( 0 ) : $input->name;
+		[$input]       = $this->inputAndProperty;
+		$attributeName = $input::class;
+		$inputName     = $input->name;
 
-		return $this->collect[ $input::class ][ $inputName ] ?? null;
+		/** @see self::walkCollectionWithUpdatedInputProperties() */
+		if ( func_num_args() === 2 ) {
+			[$attributeName, $inputName] = func_get_args();
+		}
+
+		return $this->collect[ $attributeName ][ $inputName ] ?? null;
 	}
 
 	private function updateQueueContainsCurrentProperty(): bool {
