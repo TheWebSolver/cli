@@ -96,7 +96,7 @@ class Console extends Command {
 	/** @return array<class-string<Pos|Assoc|Flag>,array<string,Pos|Assoc|Flag|InputArgument|InputOption>> */
 	final public static function getInputs( bool $replace = false, bool $toInput = false, InputVariant ...$variant ): array {
 		$attributes = InputAttribute::from( static::class )->do(
-			$replace ? InputAttribute::EXTRACT_AND_REPLACE : InputAttribute::EXTRACT_AND_UPDATE,
+			$replace ? InputAttribute::INFER_AND_REPLACE : InputAttribute::INFER_AND_UPDATE,
 			...$variant
 		);
 
@@ -177,7 +177,7 @@ class Console extends Command {
 	 * This method may be overridden to handle attribute extraction. Make sure
 	 * to update `InputAttribute` property by using respective setter method:
 	 * ```php
-	 * $inputAttribute = InputAttribute::from(static::class)->do(InputAttribute::EXTRACT_AND_UPDATE);
+	 * $inputAttribute = InputAttribute::from(static::class)->do(InputAttribute::INFER_AND_UPDATE);
 	 * $this->setInputAttribute($inputAttribute);
 	 * ```
 	 *
@@ -186,7 +186,7 @@ class Console extends Command {
 	// phpcs:ignore Squiz.Commenting.FunctionComment.IncorrectTypeHint
 	protected function withDefinitionsFromAttribute( ?ReflectionClass $reflection = null ): static {
 		$inputAttribute = InputAttribute::from( $reflection ?? static::class )
-			->do( InputAttribute::EXTRACT_AND_UPDATE );
+			->do( InputAttribute::INFER_AND_UPDATE );
 
 		$inputAttribute->toInput( $this->getDefinition() );
 

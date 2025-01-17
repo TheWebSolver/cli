@@ -18,13 +18,19 @@ use Symfony\Component\Console\Completion\CompletionInput;
 use TheWebSolver\Codegarage\Cli\Data\Associative as Assoc;
 
 class InputAttribute {
-	final public const EXTRACT_AND_REPLACE = 1;
-	final public const EXTRACT_AND_UPDATE  = 2;
+	/** Infers attributes recursively and overrides parent class attribute with same name. */
+	final public const INFER_AND_REPLACE = 1;
+
+	/**
+	 * Infers attributes recursively and only updates parent class attribute's with same name. But,
+	 * only attribute values passed as named argument will replace attribute values of parent class.
+	 */
+	final public const INFER_AND_UPDATE = 2;
 
 	final public const IMMUTABLE_INPUT_PROPERTIES = array( 'name', 'mode' );
 
-	/** @var self::EXTRACT_AND* */
-	private int $flag = self::EXTRACT_AND_REPLACE;
+	/** @var self::INFER_AND* */
+	private int $flag = self::INFER_AND_REPLACE;
 
 	/** @var array<class-string<Pos|Assoc|Flag>,array<string,Pos|Assoc|Flag>> */
 	private array $collect;
@@ -59,6 +65,11 @@ class InputAttribute {
 		$this->currentConsoleClass = $this->target->name;
 	}
 
+	/** @return ReflectionClass<Console> */
+	public function getTargetReflection(): ReflectionClass {
+		return $this->target;
+	}
+
 	/** @return array<class-string<Pos|Assoc|Flag>,array<string,Pos|Assoc|Flag>> */
 	public function getCollection(): array {
 		return $this->collect ?? array();
@@ -80,16 +91,20 @@ class InputAttribute {
 	}
 
 	/**
-	 * Extracts inputs from the given `InputVariant`.
+	 * Infers inputs from the given `InputVariant`.
 	 *
-	 * If none of the `InputVariant` given, then all `InputVariant` types will be extracted.
+	 * If none of the `InputVariant` given, then all `InputVariant` types will be inferred.
 	 *
-	 * @param self::EXTRACT_AND* $mode
+	 * @param self::INFER_AND* $mode
 	 */
 	public function do( int $mode, InputVariant ...$inputs ): self {
-		$this->flag = $mode;
+		$this->flag            = $mode;
+		$this->inputClassNames = array_map(
+			callback: static fn( InputVariant $v ) => $v->getClassName(),
+			array: $inputs ?: InputVariant::cases()
+		);
 
-		return $this->extractInputVariants( ...( $inputs ?: InputVariant::cases() ) );
+		return $this->infer();
 	}
 
 	/** @return array<class-string<Pos|Assoc|Flag>,array<string,InputArgument|InputOption>> */
@@ -107,14 +122,8 @@ class InputAttribute {
 		return array_reduce( $this->collect, $this->reduceToSingleArray( ... ), array() );
 	}
 
-	private function extractInputVariants( InputVariant ...$variants ): self {
-		$this->inputClassNames = array_map( static fn( InputVariant $v ) => $v->getClassName(), $variants );
-
-		return $this->performExtraction();
-	}
-
-	private function performExtraction(): self {
-		$this->extractFrom( $this->target );
+	private function infer(): self {
+		$this->inferFrom( $this->target );
 
 		if ( ! $parent = $this->targetParentClass() ) {
 			return $this;
@@ -124,9 +133,9 @@ class InputAttribute {
 			$this->currentConsoleClass = $parent->getName();
 
 			if ( $this->shouldUpdate() ) {
-				$this->extractAndUpdateFrom( $parent );
+				$this->inferAndUpdateFrom( $parent );
 			} else {
-				$this->extractFrom( $parent );
+				$this->inferFrom( $parent );
 			}
 
 			$parent = $parent->getParentClass();
@@ -142,7 +151,7 @@ class InputAttribute {
 	}
 
 	/** @param ReflectionAttribute<Pos|Assoc|Flag> $attribute */
-	private function prepareExtractionFrom( ReflectionAttribute $attribute ): Pos|Assoc|Flag {
+	private function useCurrent( ReflectionAttribute $attribute ): Pos|Assoc|Flag {
 		$input                  = $attribute->newInstance();
 		$this->currentArguments = $attribute->getArguments();
 		$this->inputAndProperty = array( $input, '' );
@@ -151,13 +160,13 @@ class InputAttribute {
 	}
 
 	/** @param ReflectionClass<Console> $reflection */
-	private function extractFrom( ReflectionClass $reflection ): void {
+	private function inferFrom( ReflectionClass $reflection ): void {
 		foreach ( $reflection->getAttributes() as $attribute ) {
 			if ( ! $this->isInputVariant( $attribute ) ) {
 				continue;
 			}
 
-			$input = $this->prepareExtractionFrom( $attribute );
+			$input = $this->useCurrent( $attribute );
 			$name  = $input->name;
 
 			if ( $this->currentInputInCollectionQueue() ) {
@@ -174,13 +183,13 @@ class InputAttribute {
 	}
 
 	/** @param ReflectionClass<Console> $reflection */
-	private function extractAndUpdateFrom( ReflectionClass $reflection ): void {
+	private function inferAndUpdateFrom( ReflectionClass $reflection ): void {
 		foreach ( $reflection->getAttributes() as $attribute ) {
 			if ( ! $this->isInputVariant( $attribute ) ) {
 				continue;
 			}
 
-			$this->prepareExtractionFrom( $attribute );
+			$this->useCurrent( $attribute );
 
 			if ( ! $this->currentInputInCollectionQueue() ) {
 				$this->pushCurrentInputToCollectionQueue();
@@ -234,9 +243,9 @@ class InputAttribute {
 	}
 
 	private function pushCurrentPropertyValueToUpdateQueue( mixed $value ): void {
-		[$input, $property]           = $this->inputAndProperty;
-		[$hasValue, $defaultProperty] = $this->getDefaultPropertyValueAssigned();
-		$value                        = $hasValue ? $defaultProperty : $value;
+		[$isDefaultProperty, $propertyValue] = $this->getCurrentInputDefaultPropertyValueAssigned();
+		$value                               = $isDefaultProperty ? $propertyValue : $value;
+		[$input, $property]                  = $this->inputAndProperty;
 
 		$this->update[ $input::class ][ $input->name ][ $property ]                    = $value;
 		$this->source[ $this->currentConsoleClass ][ $input::class ][ $input->name ][] = $property;
@@ -286,7 +295,7 @@ class InputAttribute {
 	}
 
 	private function shouldUpdate(): bool {
-		return self::EXTRACT_AND_UPDATE === $this->flag;
+		return self::INFER_AND_UPDATE === $this->flag;
 	}
 
 	/** @phpstan-assert-if-true =string $property */
@@ -306,7 +315,7 @@ class InputAttribute {
 
 
 	/** @return array{0:bool,1:null|string|class-string<BackedEnum>|bool|int|float|array{}|(callable(): string|bool|int|float|array{})} */
-	private function getDefaultPropertyValueAssigned(): array {
+	private function getCurrentInputDefaultPropertyValueAssigned(): array {
 		[$input, $property] = $this->inputAndProperty;
 
 		return 'default' === $property && ! $input instanceof Flag

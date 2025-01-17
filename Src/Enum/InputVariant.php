@@ -35,8 +35,8 @@ enum InputVariant: string {
 			->do( self::perform( $overrideParent ) );
 	}
 
-	/** @return InputAttribute::EXTRACT_AND_* */
+	/** @return InputAttribute::INFER_AND_* */
 	private static function perform( bool $override ): int {
-		return $override ? InputAttribute::EXTRACT_AND_REPLACE : InputAttribute::EXTRACT_AND_UPDATE;
+		return $override ? InputAttribute::INFER_AND_REPLACE : InputAttribute::INFER_AND_UPDATE;
 	}
 }
