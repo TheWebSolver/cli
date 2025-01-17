@@ -74,24 +74,21 @@ class InputExtractor {
 		return $this->suggestions;
 	}
 
-	/** @param class-string<Console>|ReflectionClass<Console> $targetClass */
-	public static function when( string|ReflectionClass $targetClass ): self {
-		return new self( $targetClass );
-	}
-
-	/** @param self::EXTRACT_AND* $perform */
-	public function needsTo( int $perform ): self {
-		$this->flag = $perform;
-
-		return $this;
+	/** @param class-string<Console>|ReflectionClass<Console> $target */
+	public static function from( string|ReflectionClass $target ): self {
+		return new self( $target );
 	}
 
 	/**
 	 * Extracts inputs from the given `InputVariant`.
 	 *
 	 * If none of the `InputVariant` given, then all `InputVariant` types will be extracted.
+	 *
+	 * @param self::EXTRACT_AND* $mode
 	 */
-	public function extract( InputVariant ...$inputs ): self {
+	public function do( int $mode, InputVariant ...$inputs ): self {
+		$this->flag = $mode;
+
 		return $this->extractInputVariants( ...( $inputs ?: InputVariant::cases() ) );
 	}
 
@@ -156,7 +153,7 @@ class InputExtractor {
 	/** @param ReflectionClass<Console> $reflection */
 	private function extractFrom( ReflectionClass $reflection ): void {
 		foreach ( $reflection->getAttributes() as $attribute ) {
-			if ( ! $this->isOfInputVariant( $attribute ) ) {
+			if ( ! $this->isInputVariant( $attribute ) ) {
 				continue;
 			}
 
@@ -179,7 +176,7 @@ class InputExtractor {
 	/** @param ReflectionClass<Console> $reflection */
 	private function extractAndUpdateFrom( ReflectionClass $reflection ): void {
 		foreach ( $reflection->getAttributes() as $attribute ) {
-			if ( ! $this->isOfInputVariant( $attribute ) ) {
+			if ( ! $this->isInputVariant( $attribute ) ) {
 				continue;
 			}
 
@@ -198,11 +195,13 @@ class InputExtractor {
 	private function walkCollectionWithUpdatedInputProperties(): void {
 		foreach ( $this->update as $attributeName => $updatesInQueue ) {
 			foreach ( $updatesInQueue as $inputName => $updatedProperties ) {
-				if ( $input = $this->currentInputInCollectionQueue( $inputName ) ) {
-					$this->collect[ $attributeName ][ $inputName ] = $input->with( $updatedProperties );
-
-					$this->collectSuggestedValuesFrom( $input );
+				if ( ! $input = $this->currentInputInCollectionQueue( $inputName ) ) {
+					continue;
 				}
+
+				$this->collect[ $attributeName ][ $inputName ] = $input->with( $updatedProperties );
+
+				$this->collectSuggestedValuesFrom( $input );
 			}
 		}
 	}
@@ -220,18 +219,22 @@ class InputExtractor {
 
 	private function pushCurrentInputPropertiesToUpdateQueue(): void {
 		foreach ( get_object_vars( $this->inputAndProperty[0] ) as $this->inputAndProperty[1] => $value ) {
-			if ( ! $this->updateQueueContainsCurrentProperty() && $this->isCurrentPropertyNamedArgument() ) {
+			if ( $this->updateQueueContainsCurrentProperty() ) {
+				continue;
+			}
+
+			if ( $this->isCurrentPropertyNamedArgument() ) {
 				$this->pushCurrentPropertyValueToUpdateQueue( $value );
 			}
 		}
 	}
 
 	private function pushCurrentPropertyValueToUpdateQueue( mixed $value ): void {
-		[$input, $property] = $this->inputAndProperty;
-		$defaultPropValue   = $this->defaultPropertyValueAssigned();
+		[$input, $property]           = $this->inputAndProperty;
+		[$hasValue, $defaultProperty] = $this->getDefaultPropertyValueAssigned();
+		$value                        = $hasValue ? $defaultProperty : $value;
 
-		$this->update[ $input::class ][ $input->name ][ $property ] = $defaultPropValue ?? $value;
-
+		$this->update[ $input::class ][ $input->name ][ $property ]                    = $value;
 		$this->source[ $this->currentConsoleClass ][ $input::class ][ $input->name ][] = $property;
 	}
 
@@ -248,7 +251,7 @@ class InputExtractor {
 	 * @template T of object
 	 * @phpstan-assert-if-true ReflectionAttribute<Pos|Assoc|Flag> $reflection
 	 */
-	private function isOfInputVariant( ReflectionAttribute $reflection ): bool {
+	private function isInputVariant( ReflectionAttribute $reflection ): bool {
 		return in_array( $reflection->getName(), $this->inputClassNames, true );
 	}
 
@@ -261,8 +264,9 @@ class InputExtractor {
 
 	private function updateQueueContainsCurrentProperty(): bool {
 		[$input, $property] = $this->inputAndProperty;
+		$propertiesInQueue  = $this->update[ $input::class ][ $input->name ] ?? array();
 
-		return isset( $this->update[ $input::class ][ $input->name ][ $property ] );
+		return $propertiesInQueue && array_key_exists( $property, $propertiesInQueue );
 	}
 
 	private function isCurrentPropertyNamedArgument(): bool {
@@ -290,10 +294,14 @@ class InputExtractor {
 		return array_filter( $this->currentArguments, $this->isCollectable( ... ), mode: ARRAY_FILTER_USE_KEY );
 	}
 
-	private function defaultPropertyValueAssigned(): mixed {
+
+	/** @return array{0:bool,1:null|string|class-string<BackedEnum>|bool|int|float|array{}|(callable(): string|bool|int|float|array{})} */
+	private function getDefaultPropertyValueAssigned(): array {
 		[$input, $property] = $this->inputAndProperty;
 
-		return 'default' === $property && method_exists( $input, 'getUserDefault' ) ? $input->getUserDefault() : null;
+		return 'default' === $property && ! $input instanceof Flag
+			? array( true, $input->getUserDefault() )
+			: array( false, null );
 	}
 
 	private function collectSuggestedValuesFrom( Pos|Assoc|Flag $input ): void {
@@ -313,10 +321,14 @@ class InputExtractor {
 
 	/**
 	 * @param array<string,Pos|Assoc|Flag> $inputs
-	 * @param class-string<Pos|Assoc|Flag> $key
+	 * @param class-string<Pos|Assoc|Flag> $targetClass
 	 * @param-out array<string,InputArgument|InputOption> $inputs
 	 */
-	private static function walkCollectionToSymfonyInputs( array &$inputs, string $key, ?InputDefinition $definition ): void {
+	private static function walkCollectionToSymfonyInputs(
+		array &$inputs,
+		string $targetClass,
+		?InputDefinition $definition
+	): void {
 		$inputs = array_map(
 			static function ( Pos|Assoc|Flag $attribute ) use ( $definition ) {
 				$input = $attribute->input();
