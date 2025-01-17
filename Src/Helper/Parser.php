@@ -7,11 +7,6 @@ use Closure;
 use BackedEnum;
 use ReflectionClass;
 use ReflectionAttribute;
-use TheWebSolver\Codegarage\Cli\Data\Flag;
-use Symfony\Component\Console\Input\InputOption;
-use TheWebSolver\Codegarage\Cli\Data\Positional;
-use TheWebSolver\Codegarage\Cli\Data\Associative;
-use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Completion\Suggestion;
 use Symfony\Component\Console\Completion\CompletionInput;
 
@@ -51,31 +46,5 @@ class Parser {
 		$reflection = $target instanceof ReflectionClass ? $target : new ReflectionClass( $target );
 
 		return empty( $attrs = $reflection->getAttributes( $attributeName ) ) ? null : $attrs;
-	}
-
-	/**
-	 * @param class-string<TAttribute>                       $attributeName
-	 * @param class-string<TTarget>|ReflectionClass<TTarget> $target
-	 * @return (
-	 *   $toInput is true
-	 *     ? ($attributeName is class-string<Positional> ? ?InputArgument[] : ?InputOption[])
-	 *     : ?TAttribute[]
-	 * )
-	 * @template TAttribute of Positional|Associative|Flag
-	 * @template TTarget of object
-	 */
-	public static function parseInputAttribute(
-		string $attributeName,
-		string|ReflectionClass $target,
-		bool $toInput
-	): ?array {
-		if ( ! $attributes = self::parseClassAttribute( $attributeName, $target ) ) {
-			return null;
-		}
-
-		return array_map(
-			static fn( ReflectionAttribute $a ) => $toInput ? $a->newInstance()->input() : $a->newInstance(),
-			$attributes
-		);
 	}
 }
