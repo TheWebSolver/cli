@@ -9,13 +9,13 @@ use OutOfBoundsException;
 use TheWebSolver\Codegarage\Cli\Console;
 use Symfony\Component\Console\ConsoleEvents;
 use Symfony\Component\Console\Input\ArgvInput;
+use TheWebSolver\Codegarage\Cli\Enum\InputVariant;
 use Symfony\Component\Console\Completion\Suggestion;
+use TheWebSolver\Codegarage\Cli\Helper\InputAttribute;
 use Symfony\Component\Console\Completion\CompletionInput;
 use Symfony\Component\EventDispatcher\EventSubscriberInterface;
 use Symfony\Component\Console\Event\ConsoleCommandEvent as Event;
 use TheWebSolver\Codegarage\Cli\Attribute\DoNotValidateSuggestedValues;
-use TheWebSolver\Codegarage\Cli\Enum\InputVariant;
-use TheWebSolver\Codegarage\Cli\Helper\InputExtractor;
 
 class CommandSubscriber implements EventSubscriberInterface {
 	private static bool $disableValidation = false;
@@ -61,9 +61,8 @@ class CommandSubscriber implements EventSubscriberInterface {
 			return null;
 		}
 
-		return InputExtractor::when( $commandReflection )
-			->needsTo( InputExtractor::EXTRACT_AND_UPDATE )
-			->extract( InputVariant::Associative, InputVariant::Positional )
+		return InputAttribute::from( $commandReflection )
+			->do( InputAttribute::EXTRACT_AND_UPDATE, InputVariant::Associative, InputVariant::Positional )
 			->getSuggestions();
 	}
 

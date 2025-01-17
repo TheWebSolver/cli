@@ -17,7 +17,7 @@ use TheWebSolver\Codegarage\Cli\Data\Positional as Pos;
 use Symfony\Component\Console\Completion\CompletionInput;
 use TheWebSolver\Codegarage\Cli\Data\Associative as Assoc;
 
-class InputExtractor {
+class InputAttribute {
 	final public const EXTRACT_AND_REPLACE = 1;
 	final public const EXTRACT_AND_UPDATE  = 2;
 
