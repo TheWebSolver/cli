@@ -9,9 +9,7 @@ use OutOfBoundsException;
 use TheWebSolver\Codegarage\Cli\Console;
 use Symfony\Component\Console\ConsoleEvents;
 use Symfony\Component\Console\Input\ArgvInput;
-use TheWebSolver\Codegarage\Cli\Enum\InputVariant;
 use Symfony\Component\Console\Completion\Suggestion;
-use TheWebSolver\Codegarage\Cli\Helper\InputAttribute;
 use Symfony\Component\Console\Completion\CompletionInput;
 use Symfony\Component\EventDispatcher\EventSubscriberInterface;
 use Symfony\Component\Console\Event\ConsoleCommandEvent as Event;
@@ -40,40 +38,41 @@ class CommandSubscriber implements EventSubscriberInterface {
 
 		$tokens = ( $argv = $event->getInput() ) instanceof ArgvInput ? $argv->getRawTokens( true ) : null;
 
-		foreach ( self::getSuggestedValues( $event ) ?? array() as $inputName => $suggestions ) {
-			$values = $suggestions instanceof Closure ? $suggestions( new CompletionInput( $tokens ) ) : $suggestions;
+		foreach ( self::getSuggestions( $event ) ?? array() as $inputName => $suggestions ) {
+			$suggestedValues = $suggestions instanceof Closure
+				? $suggestions( new CompletionInput( $tokens ) )
+				: $suggestions;
 
-			if ( ! empty( $values ) ) {
-				self::validateInput( $values, $inputName, $event );
+			if ( ! empty( $suggestedValues ) ) {
+				self::validateInput( $suggestedValues, $inputName, $event );
 			}
 		}
 	}
 
-	/** @return array<string,array<string|int>|(Closure(CompletionInput): list<string|Suggestion>)> */
-	private static function getSuggestedValues( Event $event ): ?array {
+	/** @return ?array<string,array<string|int>|(Closure(CompletionInput): list<string|Suggestion>)> */
+	private static function getSuggestions( Event $event ): ?array {
 		if ( ! ( $command = $event->getCommand() ) || ! $command instanceof Console ) {
 			return null;
 		}
 
-		$commandReflection = new ReflectionClass( $command );
+		$commandReflection  = new ReflectionClass( $command );
+		$suppressValidation = $commandReflection->getAttributes( DoNotValidateSuggestedValues::class );
 
-		if ( ! ! $commandReflection->getAttributes( DoNotValidateSuggestedValues::class ) ) {
-			return null;
-		}
-
-		return InputAttribute::from( $commandReflection )
-			->do( InputAttribute::EXTRACT_AND_UPDATE, InputVariant::Associative, InputVariant::Positional )
-			->getSuggestions();
+		return $suppressValidation ? null : $command->getInputAttribute()?->getSuggestions();
 	}
 
 	/** @param array<string|int|Suggestion> $suggestions */
-	private static function validateInput( array $suggestions, string $inputName, Event $event ): true {
-		$input = $event->getInput();
-		$value = $input->hasOption( $inputName ) ? $input->getOption( $inputName ) : $input->getArgument( $inputName );
+	private static function validateInput( array $suggestions, string $name, Event $event ): true {
+		$input   = $event->getInput();
+		$value   = $input->hasOption( $name ) ? $input->getOption( $name ) : $input->getArgument( $name );
+		$isValid = match ( true ) {
+			// phpcs:ignore -- Strict comparison not required. Value may not always be string.
+			default            => in_array( $value, $suggestions ),
+			is_array( $value ) => empty( array_diff( $value, $suggestions ) ),
+			is_null( $value )  => true,
+		};
 
-		return ! is_array( $value ) || empty( array_diff( $value, $suggestions ) )
-			? true
-			: self::throwInvalidValue( $suggestions, $event, $inputName );
+		return $isValid ? true : self::throwInvalidValue( $suggestions, $event, $name );
 	}
 
 	/**

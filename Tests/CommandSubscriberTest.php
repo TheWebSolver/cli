@@ -49,8 +49,8 @@ class CommandSubscriberTest extends TestCase {
 
 		$tester->run(
 			$input = array(
-				'command'  => 'app:command',
-				'--option' => 'not a suggested value but validation is suppressed',
+				'command' => 'app:command',
+				'number'  => 'not a suggested value but validation is suppressed',
 			)
 		);
 
