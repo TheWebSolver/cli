@@ -11,16 +11,17 @@ use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\ArgvInput;
 use TheWebSolver\Codegarage\Cli\Helper\Parser;
 use Symfony\Component\Console\Input\InputOption;
-use TheWebSolver\Codegarage\Cli\Data\Positional;
 use TheWebSolver\Codegarage\Container\Container;
 use Symfony\Component\Console\Style\SymfonyStyle;
-use TheWebSolver\Codegarage\Cli\Data\Associative;
 use Symfony\Component\Console\Input\InputArgument;
+use TheWebSolver\Codegarage\Cli\Enum\InputVariant;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\ConsoleOutput;
 use Symfony\Component\Console\Helper\HelperInterface;
 use Symfony\Component\Console\Output\OutputInterface;
 use TheWebSolver\Codegarage\Cli\Helper\InputAttribute;
+use TheWebSolver\Codegarage\Cli\Data\Positional as Pos;
+use TheWebSolver\Codegarage\Cli\Data\Associative as Assoc;
 use TheWebSolver\Codegarage\Cli\Attribute\Command as CommandAttribute;
 
 /** @phpstan-consistent-constructor */
@@ -105,19 +106,29 @@ class Console extends Command {
 		return $args;
 	}
 
-	/** @return ($toInput is true ? ?InputArgument[] : ?Positional[]) */
-	final public static function argumentsFromAttribute( bool $toInput = false ): ?array {
-		return Parser::parseInputAttribute( Positional::class, static::class, $toInput );
+	/** @return ($toInput is true ? array<class-string<Pos>,array<string,InputArgument>> : array<class-string<Pos>,array<string,Pos>>) */
+	final public static function positionalInputs( bool $replaceParent = false, bool $toInput = false ): array {
+		return self::getInputs( $replaceParent, $toInput, InputVariant::Positional );
 	}
 
-	/** @return ($toInput is true ? ?InputOption[] : ?Associative[]) */
-	final public static function optionsFromAttribute( bool $toInput = false ): ?array {
-		return Parser::parseInputAttribute( Associative::class, static::class, $toInput );
+	/** @return ($toInput is true ? array<class-string<Assoc>,array<string,InputOption>> : array<class-string<Assoc>,array<string,Assoc>>) */
+	final public static function associativeInputs( bool $replaceParent = false, bool $toInput = false ): array {
+		return self::getInputs( $replaceParent, $toInput, InputVariant::Associative );
 	}
 
-	/** @return ($toInput is true ? ?InputOption[] : ?Flag[]) */
-	final public static function flagsFromAttribute( bool $toInput = false ): ?array {
-		return Parser::parseInputAttribute( Flag::class, static::class, $toInput );
+	/** @return ($toInput is true ? array<class-string<Flag>,array<string,InputOption>> : array<class-string<Flag>,array<string,Flag>>) */
+	final public static function flagInputs( bool $replaceParent = false, bool $toInput = false ): array {
+		return self::getInputs( $replaceParent, $toInput, InputVariant::Flag );
+	}
+
+	/** @return array<class-string<Pos|Assoc|Flag>,array<string,Pos|Assoc|Flag|InputArgument|InputOption>> */
+	final public static function getInputs( bool $replace = false, bool $toInput = false, InputVariant ...$variant ): array {
+		$attributes = InputAttribute::from( static::class )->do(
+			$replace ? InputAttribute::EXTRACT_AND_REPLACE : InputAttribute::EXTRACT_AND_UPDATE,
+			...$variant
+		);
+
+		return $toInput ? $attributes->toInput() : $attributes->getCollection();
 	}
 
 	/** @param ReflectionClass<static> $reflection */

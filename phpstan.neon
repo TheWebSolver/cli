@@ -27,3 +27,7 @@ parameters:
 			path: Src/Helper/InputAttribute.php
 			identifier: argument.type
 			count: 1 # For Associative::with().
+		-
+			path: Src/Console.php
+			identifier: return.type
+			count: 3 # For each input extracting static methods.
