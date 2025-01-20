@@ -42,7 +42,7 @@ class InputAttribute {
 	private ReflectionClass $target;
 
 	/** @var class-string<Console> */
-	private string $currentConsoleClass;
+	private string $currentClass;
 
 	/** @var array<class-string<Pos|Assoc|Flag>> */
 	private array $inputClassNames;
@@ -61,8 +61,8 @@ class InputAttribute {
 
 	/** @param class-string<Console>|ReflectionClass<Console> $target */
 	public function __construct( string|ReflectionClass $target ) {
-		$this->target              = is_string( $target ) ? new ReflectionClass( $target ) : $target;
-		$this->currentConsoleClass = $this->target->name;
+		$this->target       = is_string( $target ) ? new ReflectionClass( $target ) : $target;
+		$this->currentClass = $this->target->name;
 	}
 
 	/** @return ReflectionClass<Console> */
@@ -130,7 +130,7 @@ class InputAttribute {
 		}
 
 		while ( $parent ) {
-			$this->currentConsoleClass = $parent->getName();
+			$this->currentClass = $parent->name;
 
 			if ( $this->shouldUpdate() ) {
 				$this->inferAndUpdateFrom( $parent );
@@ -221,8 +221,8 @@ class InputAttribute {
 			$this->update[ $input::class ][ $name ] = array( ...compact( 'name' ), ...$args );
 		}
 
-		$this->collect[ $input::class ][ $name ]                              = $input;
-		$this->source[ $this->currentConsoleClass ][ $input::class ][ $name ] = array_keys( $args );
+		$this->collect[ $input::class ][ $name ]                       = $input;
+		$this->source[ $this->currentClass ][ $input::class ][ $name ] = array_keys( $args );
 
 		$this->collectSuggestedValuesFrom( $input );
 	}
@@ -244,16 +244,16 @@ class InputAttribute {
 		$value                               = $isDefaultProperty ? $propertyValue : $value;
 		[$input, $property]                  = $this->inputAndProperty;
 
-		$this->update[ $input::class ][ $input->name ][ $property ]                    = $value;
-		$this->source[ $this->currentConsoleClass ][ $input::class ][ $input->name ][] = $property;
+		$this->update[ $input::class ][ $input->name ][ $property ]             = $value;
+		$this->source[ $this->currentClass ][ $input::class ][ $input->name ][] = $property;
 	}
 
 	private function reset(): self {
-		$this->currentConsoleClass = $this->target->name;
-		$this->currentArguments    = array();
-		$this->inputAndProperty    = array();
-		$this->inputClassNames     = array();
-		$this->update              = array();
+		$this->currentClass     = $this->target->name;
+		$this->currentArguments = array();
+		$this->inputAndProperty = array();
+		$this->inputClassNames  = array();
+		$this->update           = array();
 
 		return $this;
 	}
