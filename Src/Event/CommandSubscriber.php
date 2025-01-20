@@ -30,6 +30,10 @@ class CommandSubscriber implements EventSubscriberInterface {
 		);
 	}
 
+	public static function suggestionToString( string|int|Suggestion $suggestion ): string|int {
+		return $suggestion instanceof Suggestion ? (string) $suggestion : $suggestion;
+	}
+
 	/** @throws OutOfBoundsException When input does not have suggested values. */
 	public static function validateWithAutoComplete( Event $event ): void {
 		if ( self::$disableValidation ) {
@@ -63,9 +67,10 @@ class CommandSubscriber implements EventSubscriberInterface {
 
 	/** @param array<string|int|Suggestion> $suggestions */
 	private static function validateInput( array $suggestions, string $name, Event $event ): true {
-		$input   = $event->getInput();
-		$value   = $input->hasOption( $name ) ? $input->getOption( $name ) : $input->getArgument( $name );
-		$isValid = match ( true ) {
+		$input       = $event->getInput();
+		$value       = $input->hasOption( $name ) ? $input->getOption( $name ) : $input->getArgument( $name );
+		$suggestions = array_map( self::suggestionToString( ... ), $suggestions );
+		$isValid     = match ( true ) {
 			// phpcs:ignore -- Strict comparison not required. Value may not always be string.
 			default            => in_array( $value, $suggestions ),
 			is_array( $value ) => empty( array_diff( $value, $suggestions ) ),
