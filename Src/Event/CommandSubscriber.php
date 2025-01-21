@@ -4,12 +4,13 @@ declare( strict_types = 1 );
 namespace TheWebSolver\Codegarage\Cli\Event;
 
 use Closure;
-use ReflectionClass;
 use OutOfBoundsException;
 use TheWebSolver\Codegarage\Cli\Console;
 use Symfony\Component\Console\ConsoleEvents;
 use Symfony\Component\Console\Input\ArgvInput;
+use TheWebSolver\Codegarage\Cli\Enum\InputVariant;
 use Symfony\Component\Console\Completion\Suggestion;
+use TheWebSolver\Codegarage\Cli\Helper\InputAttribute;
 use Symfony\Component\Console\Completion\CompletionInput;
 use Symfony\Component\EventDispatcher\EventSubscriberInterface;
 use Symfony\Component\Console\Event\ConsoleCommandEvent as Event;
@@ -55,14 +56,13 @@ class CommandSubscriber implements EventSubscriberInterface {
 
 	/** @return ?array<string,array<string|int>|(Closure(CompletionInput): list<string|Suggestion>)> */
 	private static function getSuggestions( Event $event ): ?array {
-		if ( ! ( $command = $event->getCommand() ) || ! $command instanceof Console ) {
+		if ( ! $parser = self::getInputAttributeParserFrom( $event ) ) {
 			return null;
 		}
 
-		$commandReflection  = new ReflectionClass( $command );
-		$suppressValidation = $commandReflection->getAttributes( DoNotValidateSuggestedValues::class );
-
-		return $suppressValidation ? null : $command->getInputAttribute()?->getSuggestions();
+		return ! $parser->getTargetReflection()->getAttributes( DoNotValidateSuggestedValues::class )
+			? $parser->getSuggestions()
+			: null;
 	}
 
 	/** @param array<string|int|Suggestion> $suggestions */
@@ -90,10 +90,13 @@ class CommandSubscriber implements EventSubscriberInterface {
 		// And, prevent any other event listeners to be able to execute the command.
 		$event->stopPropagation();
 
-		$msg = array(
+		$attribute = self::getCommandFrom( $event )?->getInputAttribute()?->by( $inputName );
+		$variant   = $attribute ? InputVariant::fromAttribute( $attribute::class )?->value : null;
+		$input     = 'input' . ( $variant ? " {$variant}" : '' );
+		$msg       = array(
 			Console::COMMAND_VALUE_ERROR,
 			Console::LONG_SEPARATOR,
-			sprintf( 'Value does not match any of the suggested values provided for option "%s".', $inputName ),
+			sprintf( 'Value does not match any of the suggested values provided for %1$s "%2$s".', $input, $inputName ),
 			Console::LONG_SEPARATOR_LINE,
 			'Use one of the below suggested values and try again.',
 			Console::LONG_SEPARATOR_LINE,
@@ -101,5 +104,13 @@ class CommandSubscriber implements EventSubscriberInterface {
 		);
 
 		throw new OutOfBoundsException( implode( separator: PHP_EOL, array: $msg ) );
+	}
+
+	private static function getInputAttributeParserFrom( Event $event ): ?InputAttribute {
+		return ( $command = self::getCommandFrom( $event ) ) ? $command->getInputAttribute() : null;
+	}
+
+	private static function getCommandFrom( Event $event ): ?Console {
+		return ( $command = $event->getCommand() ) && $command instanceof Console ? $command : null;
 	}
 }
