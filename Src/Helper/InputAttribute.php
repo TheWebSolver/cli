@@ -85,6 +85,25 @@ class InputAttribute {
 		return $this->suggestions ?? array();
 	}
 
+	/**
+	 * @param string                        $name          The input name.
+	 * @param ?class-string<Pos|Assoc|Flag> $attributeName The attribute classname.
+	 */
+	public function by( string $name, string $attributeName = null ): Pos|Assoc|Flag|null {
+		if ( ! $inputs = $this->getCollection() ) {
+			return null;
+		}
+
+		if ( $attributeName ) {
+			return $inputs[ $attributeName ][ $name ] ?? null;
+		}
+
+		return $inputs[ Assoc::class ][ $name ]
+			?? $inputs[ Flag::class ][ $name ]
+			?? $inputs[ Pos::class ][ $name ]
+			?? null;
+	}
+
 	/** @param class-string<Console>|ReflectionClass<Console> $target */
 	public static function from( string|ReflectionClass $target ): self {
 		return new self( $target );
