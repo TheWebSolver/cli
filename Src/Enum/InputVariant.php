@@ -35,6 +35,11 @@ enum InputVariant: string {
 			->do( self::perform( $overrideParent ) );
 	}
 
+	/** @param class-string<Positional|Associative|Flag> $className */
+	public static function fromAttribute( string $className ): ?self {
+		return array_filter( self::cases(), static fn( self $v ) => $v->getClassName() === $className )[0] ?? null;
+	}
+
 	/** @return InputAttribute::INFER_AND_* */
 	private static function perform( bool $override ): int {
 		return $override ? InputAttribute::INFER_AND_REPLACE : InputAttribute::INFER_AND_UPDATE;
