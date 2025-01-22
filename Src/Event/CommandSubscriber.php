@@ -35,6 +35,18 @@ class CommandSubscriber implements EventSubscriberInterface {
 		return $suggestion instanceof Suggestion ? (string) $suggestion : $suggestion;
 	}
 
+	/**
+	 * @param Closure(CompletionInput): array<string|int, string|Suggestion>|array<string|int, string|int> $given
+	 * @param ?list<string>                                                                                $argv
+	 * @return array<string|int>
+	 */
+	// phpcs:ignore Squiz.Commenting.FunctionComment.IncorrectTypeHint
+	public static function inputSuggestedValues( Closure|array $given, ?array $argv ): array {
+		$suggestedValue = $given instanceof Closure ? $given( new CompletionInput( $argv ) ) : $given;
+
+		return array_map( self::suggestionToString( ... ), $suggestedValue );
+	}
+
 	/** @throws OutOfBoundsException When input does not have suggested values. */
 	public static function validateWithAutoComplete( Event $event ): void {
 		if ( self::$disableValidation ) {
@@ -44,9 +56,7 @@ class CommandSubscriber implements EventSubscriberInterface {
 		$tokens = ( $argv = $event->getInput() ) instanceof ArgvInput ? $argv->getRawTokens( true ) : null;
 
 		foreach ( self::getSuggestions( $event ) ?? array() as $inputName => $suggestions ) {
-			$suggestedValues = $suggestions instanceof Closure
-				? $suggestions( new CompletionInput( $tokens ) )
-				: $suggestions;
+			$suggestedValues = self::inputSuggestedValues( $suggestions, $tokens );
 
 			if ( ! empty( $suggestedValues ) ) {
 				self::validateInput( $suggestedValues, $inputName, $event );
@@ -65,12 +75,11 @@ class CommandSubscriber implements EventSubscriberInterface {
 			: null;
 	}
 
-	/** @param array<string|int|Suggestion> $suggestions */
+	/** @param array<string|int> $suggestions */
 	private static function validateInput( array $suggestions, string $name, Event $event ): true {
-		$input       = $event->getInput();
-		$value       = $input->hasOption( $name ) ? $input->getOption( $name ) : $input->getArgument( $name );
-		$suggestions = array_map( self::suggestionToString( ... ), $suggestions );
-		$isValid     = match ( true ) {
+		$input   = $event->getInput();
+		$value   = $input->hasOption( $name ) ? $input->getOption( $name ) : $input->getArgument( $name );
+		$isValid = match ( true ) {
 			// phpcs:ignore -- Strict comparison not required. Value may not always be string.
 			default            => in_array( $value, $suggestions ),
 			is_array( $value ) => empty( array_diff( $value, $suggestions ) ),
