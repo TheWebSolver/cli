@@ -86,10 +86,12 @@ class InputAttribute {
 	}
 
 	/**
-	 * @param string                        $name          The input name.
-	 * @param ?class-string<Pos|Assoc|Flag> $attributeName The attribute classname.
+	 * @param string                    $name          The input name.
+	 * @param ?class-string<TAttribute> $attributeName The attribute classname.
+	 * @return ($attributeName is null ? Pos|Assoc|Flag|null : TAttribute|null)
+	 * @template TAttribute of Pos|Assoc|Flag
 	 */
-	public function by( string $name, string $attributeName = null ): Pos|Assoc|Flag|null {
+	public function by( string $name, ?string $attributeName = null ): Pos|Assoc|Flag|null {
 		if ( ! $inputs = $this->getCollection() ) {
 			return null;
 		}
