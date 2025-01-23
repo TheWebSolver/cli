@@ -1,7 +1,7 @@
 <?php
 declare( strict_types = 1 );
 
-namespace TheWebSolver\Codegarage\ISO;
+namespace TheWebSolver\Codegarage\Cli\Enums;
 
 enum Symbol: string {
 	case Tick       = '✅';
