@@ -7,7 +7,7 @@ use Closure;
 use PHPUnit\Framework\TestCase;
 use PHPUnit\Framework\Attributes\Test;
 use TheWebSolver\Codegarage\Cli\Helper\Parser;
-use TheWebSolver\Codegarage\Cli\Enum\InputVariant;
+use TheWebSolver\Codegarage\Cli\Enums\InputVariant;
 
 class ParserTest extends TestCase {
 	#[Test]

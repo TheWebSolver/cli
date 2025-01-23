@@ -9,7 +9,7 @@ use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\Attributes\DataProvider;
 use Symfony\Component\Console\Input\InputOption;
 use TheWebSolver\Codegarage\Cli\Data\Associative;
-use TheWebSolver\Codegarage\Cli\Enum\InputVariant;
+use TheWebSolver\Codegarage\Cli\Enums\InputVariant;
 
 class AssociativeTest extends TestCase {
 	#[Test]

@@ -10,7 +10,7 @@ use TheWebSolver\Codegarage\Cli\Console;
 use TheWebSolver\Codegarage\Cli\Data\Flag;
 use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Input\InputArgument;
-use TheWebSolver\Codegarage\Cli\Enum\InputVariant;
+use TheWebSolver\Codegarage\Cli\Enums\InputVariant;
 use Symfony\Component\Console\Completion\Suggestion;
 use Symfony\Component\Console\Input\InputDefinition;
 use TheWebSolver\Codegarage\Cli\Data\Positional as Pos;

@@ -9,7 +9,7 @@ use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\Attributes\DataProvider;
 use TheWebSolver\Codegarage\Cli\Data\Positional;
 use Symfony\Component\Console\Input\InputArgument;
-use TheWebSolver\Codegarage\Cli\Enum\InputVariant;
+use TheWebSolver\Codegarage\Cli\Enums\InputVariant;
 
 class PositionalTest extends TestCase {
 	#[Test]

@@ -1,7 +1,7 @@
 <?php // phpcs:disable Squiz.Commenting.FunctionComment.IncorrectTypeHint
 declare( strict_types = 1 );
 
-namespace TheWebSolver\Codegarage\Cli\Enum;
+namespace TheWebSolver\Codegarage\Cli\Enums;
 
 use TheWebSolver\Codegarage\Cli\Console;
 use TheWebSolver\Codegarage\Cli\Data\Flag;

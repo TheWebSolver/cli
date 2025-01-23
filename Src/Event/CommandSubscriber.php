@@ -8,7 +8,7 @@ use OutOfBoundsException;
 use TheWebSolver\Codegarage\Cli\Console;
 use Symfony\Component\Console\ConsoleEvents;
 use Symfony\Component\Console\Input\ArgvInput;
-use TheWebSolver\Codegarage\Cli\Enum\InputVariant;
+use TheWebSolver\Codegarage\Cli\Enums\InputVariant;
 use Symfony\Component\Console\Completion\Suggestion;
 use TheWebSolver\Codegarage\Cli\Helper\InputAttribute;
 use Symfony\Component\Console\Completion\CompletionInput;
