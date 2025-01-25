@@ -4,6 +4,7 @@ declare( strict_types = 1 );
 namespace TheWebSolver\Codegarage\Cli;
 
 use LogicException;
+use DirectoryIterator;
 use TheWebSolver\Codegarage\Cli\Console;
 use TheWebSolver\Codegarage\Cli\Data\EventTask;
 use TheWebSolver\Codegarage\Container\Container;
@@ -13,13 +14,24 @@ use TheWebSolver\Codegarage\Cli\Event\CommandSubscriber;
 use Symfony\Component\Console\CommandLoader\ContainerCommandLoader;
 
 class CommandLoader {
-	use DirectoryScanner;
+	use DirectoryScanner {
+		DirectoryScanner::scan as doScan;
+	}
 
 	final public const COMMAND_DIRECTORY = Cli::ROOT . 'Command';
 
+	/** @var array<string,int|int[]> */
+	protected array $subDirectories = array();
+	/** @var ?array{0:int,1:string} */
+	private ?array $currentDepth = null;
+	/** @var array{0:string,1:string} */
+	protected array $currentMap;
+	protected string $rootPath;
+	private bool $scanStarted;
+
 	/**
 	 * @param Container                           $container
-	 * @param array{0:string,1:string}            $registeredDirAndNamespace
+	 * @param array<array{0:string,1:string}>     $registeredDirAndNamespace
 	 * @param array<string,class-string<Console>> $commands
 	 */
 	final private function __construct(
@@ -35,8 +47,13 @@ class CommandLoader {
 		return $this->container;
 	}
 
-	/** @return array<string,string> List of found filePaths indexed by filename. */
-	public function getFileNames(): array {
+	/** @return array<array{0:string,1:string}> List of directory name and its command namespace. */
+	public function getDirectoryNamespaceMap(): array {
+		return $this->registeredDirAndNamespace;
+	}
+
+	/** @return array<string,string> List of found dirnames/filenames indexed by its absolute path. */
+	public function getScannedItems(): array {
 		return $this->scannedFiles;
 	}
 
@@ -45,12 +62,38 @@ class CommandLoader {
 		return $this->commands;
 	}
 
-	public static function subscribe( ?Container $container = null ): static {
-		return self::getInstance( self::COMMAND_DIRECTORY, Cli::NAMESPACE, $container, event: true );
+	/**
+	 * Registers sub-directories to be scanned when scanning the given directory and namespace map.
+	 *
+	 * Namespaces will be auto-generated appending those sub-directories for making them PSR-4 compliant.
+	 *
+	 * @param array<string,int|int[]> $nameWithDepth Sub-directory name and its depth/depths (if same name in nested depths)
+	 *                                               whose command files should be scanned and loaded.
+	 */
+	public static function withSubdirectories( array $nameWithDepth, ?Container $container = null ): static {
+		$loader                 = self::getInstance( $container );
+		$loader->subDirectories = $nameWithDepth;
+
+		return $loader;
 	}
 
-	public function toLocation( string $directory, string $ns ): static {
-		$this->registeredDirAndNamespace = array( $directory, $ns );
+	/** @param array{0:string,1:string}[] $dirNamespaceMaps */
+	public static function load( array $dirNamespaceMaps, ?Container $container = null ): static {
+		return self::getInstance( $container, $dirNamespaceMaps, event: false )->startScan();
+	}
+
+	public static function subscribe( ?Container $container = null ): static {
+		return self::getInstance( $container, event: true );
+	}
+
+	/**
+	 * @param array{0:string,1:string} $dirNamespaceMap     The directory name as key and namespace as value.
+	 * @param array{0:string,1:string} ...$dirNamespaceMaps Additional directory name and namespace map.
+	 */
+	public function forLocation( array $dirNamespaceMap, array ...$dirNamespaceMaps ): static {
+		$this->registerLocation( $dirNamespaceMap );
+
+		array_walk( $dirNamespaceMaps, $this->registerLocation( ... ) );
 
 		return $this;
 	}
@@ -69,38 +112,48 @@ class CommandLoader {
 		return $this;
 	}
 
-	public static function load(
-		string $directory = self::COMMAND_DIRECTORY,
-		string $ns = Cli::NAMESPACE,
-		?Container $container = null
-	): static {
-		return self::getInstance( $directory, $ns, $container, event: false )->startScan();
+	public function scan(): static {
+		return $this->startScan();
 	}
 
-	private static function getInstance( string $dir, string $ns, ?Container $c, bool $event = false ): static {
+	/** @param array{0:string,1:string}[] $map */
+	private static function getInstance( ?Container $c, array $map = array(), bool $event = false ): static {
 		$c ??= Container::boot();
 
-		return new static( $c, array( $dir, $ns ), dispatcher: $event ? new EventDispatcher() : null );
+		return new static( $c, $map, dispatcher: $event ? new EventDispatcher() : null );
 	}
 
-	private function startScan(): static {
-		$this->scan( realpath( $this->registeredDirAndNamespace[0] ) ?: $this->throwInvalidDir() );
+	/** @param array{0:string,1:string} $dirNamespaceMap */
+	protected function scanCurrent( array $dirNamespaceMap ): static {
+		$this->currentMap = $dirNamespaceMap;
 
-		// By default, all lazy-loaded commands extending Console will use default "Cli".
-		// Different application maybe used with setter "Console::setApplication()".
-		$this->container
-			->get( Cli::class )
-			->setCommandLoader( new ContainerCommandLoader( $this->container, $this->commands ) );
-
-		return $this;
+		return $this->doScan( realpath( $dirNamespaceMap[0] ) ?: $this->throwInvalidDir() );
 	}
 
-	protected function isIgnored( string $filename ): bool {
-		return ! $filename;
+	protected function isIgnored( DirectoryIterator $item ): bool {
+		if ( $this->isPHPFile( $item ) ) {
+			return false;
+		}
+
+		if ( ! $item->isDir() || empty( $this->subDirectories ) ) {
+			return true;
+		}
+
+		$dirname = $item->getFilename();
+
+		if ( ! $this->inCurrentDepthOf( $item )->directoryExists() ) {
+			return true;
+		}
+
+		$map = array( $item->getFileInfo()->getPathname(), $this->currentMap[1] . "\\{$dirname}" );
+
+		$this->forLocation( $map )->scanCurrent( $map );
+
+		return false;
 	}
 
 	protected function executeFor( string $filename, string $filepath ): void {
-		$command = "{$this->registeredDirAndNamespace[1]}\\{$filename}";
+		$command = "{$this->currentMap[1]}\\{$filename}";
 
 		if ( ! is_a( $command, Console::class, allow_string: true ) ) {
 			return;
@@ -132,14 +185,65 @@ class CommandLoader {
 		$this->container->set( $classname, $command );
 	}
 
+	/** @param array{0:string,1:string} $dirNamespaceMap */
+	private function registerLocation( array $dirNamespaceMap ): void {
+		$this->registeredDirAndNamespace[] = $dirNamespaceMap;
+	}
+
+	private function startScan(): static {
+		if ( $this->scanStarted ?? false ) {
+			return $this;
+		}
+
+		$this->scanStarted = true;
+
+		foreach ( $this->registeredDirAndNamespace as $index => $map ) {
+			if ( array_key_first( $this->registeredDirAndNamespace ) === $index ) {
+				$this->rootPath = $map[0];
+			}
+
+			$this->scanCurrent( $map );
+		}
+
+		empty( $this->subDirectories ) || $this->subDirectories = array();
+
+		// By default, all lazy-loaded commands extending Console will use default "Cli".
+		// Different application maybe used with setter "Console::setApplication()".
+		$this->container
+			->get( Cli::class )
+			->setCommandLoader( new ContainerCommandLoader( $this->container, $this->commands ) );
+
+		return $this;
+	}
+
+	private function inCurrentDepthOf( DirectoryIterator $item ): self {
+		$pathname           = $item->getFileInfo()->getPathname();
+		$subpath            = ltrim( substr( $pathname, strlen( realpath( $this->rootPath ) ?: '' ) ), DIRECTORY_SEPARATOR );
+		$this->currentDepth = array(
+			count( explode( separator: DIRECTORY_SEPARATOR, string: $subpath ) ),
+			$item->getFilename(),
+		);
+
+		return $this;
+	}
+
+	private function directoryExists(): bool {
+		if ( ! $this->currentDepth ) {
+			return false;
+		}
+
+		[$depth, $name]     = $this->currentDepth;
+		$this->currentDepth = null;
+
+		return in_array( $depth, (array) ( $this->subDirectories[ $name ] ?? array() ), strict: true );
+	}
+
 	/** @return ?callable(EventTask): void */
 	private function getCommandRunnerFromEvent(): ?callable {
 		return $this->dispatcher?->dispatch( new AfterLoadEvent() )->getCommandRunner();
 	}
 
 	private function throwInvalidDir(): never {
-		throw new LogicException(
-			sprintf( 'Cannot locate commands in directory: "%s".', $this->registeredDirAndNamespace[0] )
-		);
+		throw new LogicException( sprintf( 'Cannot locate commands in directory: "%s".', $this->currentMap[0] ) );
 	}
 }

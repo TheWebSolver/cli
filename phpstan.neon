@@ -5,7 +5,7 @@ parameters:
 	excludePaths:
 		- vendor/
 	ignoreErrors:
-		-
+		- # ConsoleChildClass::start() as container binding.
 			path: Src/CommandLoader.php
 			identifier: argument.type
 			count: 1

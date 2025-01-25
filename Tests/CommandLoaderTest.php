@@ -11,12 +11,12 @@ use TheWebSolver\Codegarage\Cli\Data\EventTask;
 use TheWebSolver\Codegarage\Container\Container;
 use TheWebSolver\Codegarage\Test\Stub\TestCommand;
 use TheWebSolver\Codegarage\Test\Stub\AnotherScannedCommand;
+use TheWebSolver\Codegarage\Test\Stub\SubStub\FirstDepthCommand;
 
 class CommandLoaderTest extends TestCase {
 	private const LOCATION = array(
 		Cli::ROOT . 'Tests' . DIRECTORY_SEPARATOR . 'Stub',
 		__NAMESPACE__ . '\\Stub',
-		null,
 	);
 
 	private const EXPECTED_FILENAMES = array( 'TestCommand', 'AnotherScannedCommand' );
@@ -27,21 +27,20 @@ class CommandLoaderTest extends TestCase {
 
 	#[Test]
 	public function itScansAndLazyloadCommandFromGivenLocation(): void {
-		$loader = CommandLoader::load( ...self::LOCATION );
+		$loader = CommandLoader::load( array( self::LOCATION ) );
 
-		$this->assertEmpty( array_diff( self::EXPECTED_COMMANDS, $loader->getCommands() ) );
 		$this->assertEmpty( array_diff_key( self::EXPECTED_COMMANDS, $loader->getCommands() ) );
-		$this->assertEmpty( array_diff( self::EXPECTED_FILENAMES, array_keys( $loader->getFileNames() ) ) );
+		$this->assertEmpty( array_diff( self::EXPECTED_FILENAMES, $loader->getScannedItems() ) );
 	}
 
 	#[Test]
 	public function itListensForEventsForEachResolvedCommandFile(): void {
 		$loader = CommandLoader::subscribe()
-			->toLocation( ...self::LOCATION )
+			->forLocation( self::LOCATION )
 			->withListener( $this->assertLoadedCommandIsListened( ... ) );
 
-		$this->assertCount( 2, $fileNames = $loader->getFileNames() );
-		$this->assertEmpty( array_diff( self::EXPECTED_FILENAMES, array_keys( $fileNames ) ) );
+		$this->assertCount( 2, $fileNames = $loader->getScannedItems() );
+		$this->assertEmpty( array_diff( self::EXPECTED_FILENAMES, $fileNames ) );
 	}
 
 	public function assertLoadedCommandIsListened( EventTask $task ): void {
@@ -56,7 +55,7 @@ class CommandLoaderTest extends TestCase {
 
 	#[Test]
 	public function itEnsuresCommandsAreLazyLoadedToContainer(): void {
-		$loader = CommandLoader::load( self::LOCATION[0], self::LOCATION[1], new Container() );
+		$loader = CommandLoader::load( array( self::LOCATION ), new Container() );
 		$this->assertTrue( true );
 
 		foreach ( self::EXPECTED_COMMANDS as $class ) {
@@ -69,7 +68,7 @@ class CommandLoaderTest extends TestCase {
 
 	#[Test]
 	public function itProvidesLazyLoadedCommandsToCli(): void {
-		$loader = CommandLoader::load( ...self::LOCATION );
+		$loader = CommandLoader::load( array( self::LOCATION ) );
 		$cli    = $loader->getContainer()->get( Cli::class );
 
 		$this->assertCount( 1, $cli->all( 'app' ) );
@@ -82,8 +81,34 @@ class CommandLoaderTest extends TestCase {
 
 	#[Test]
 	public function itEnsuresCommandLoaderIsInstantiatedWithContainer(): void {
-		$loader = CommandLoader::load( self::LOCATION[0], self::LOCATION[1], $c = new Container() );
+		$loader = CommandLoader::load( array( self::LOCATION ), $c = new Container() );
 
 		$this->assertSame( $c, $loader->getContainer() );
+	}
+
+	#[Test]
+	public function itRegistersCommandsFromSubDirectories(): void {
+		$loader = CommandLoader::withSubDirectories( array( 'SubStub' => 1 ) )
+			->forLocation( self::LOCATION )
+			->scan();
+
+		$this->assertCount( 2, $loader->getDirectoryNamespaceMap() );
+		$this->assertCount( 1, CommandLoader::load( array( self::LOCATION ) )->getDirectoryNamespaceMap() );
+		$this->assertContains( FirstDepthCommand::class, $loader->getCommands() );
+
+		$loader = CommandLoader::withSubDirectories( array( 'SubStub' => array( 1, 2 ) ) )
+			->forLocation( self::LOCATION )
+			->scan();
+
+		$this->assertCount( 2, $loader->getDirectoryNamespaceMap(), 'Must not scan sub-dir if parent-dir is ignored' );
+
+		$depths = array(
+			'SubStub'    => array( 1, 2 ),
+			'FirstDepth' => 1,
+		);
+
+		$loader = CommandLoader::withSubdirectories( $depths )->forLocation( self::LOCATION )->scan();
+
+		$this->assertCount( 4, $loader->getDirectoryNamespaceMap() );
 	}
 }
