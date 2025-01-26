@@ -4,7 +4,6 @@ declare( strict_types = 1 );
 namespace TheWebSolver\Codegarage\Cli;
 
 use Countable;
-use LogicException;
 use TheWebSolver\Codegarage\Cli\Console;
 use TheWebSolver\Codegarage\Cli\Data\EventTask;
 use TheWebSolver\Codegarage\Container\Container;
@@ -15,24 +14,21 @@ use Symfony\Component\Console\CommandLoader\ContainerCommandLoader;
 
 class CommandLoader implements Countable {
 	use DirectoryScanner {
-		DirectoryScanner::scan as doScan;
+		DirectoryScanner::usingSubDirectories as public;
 	}
 
-	final public const COMMAND_DIRECTORY = Cli::ROOT . 'Command';
-
-	/** @var array{0:string,1:string} */
-	protected array $currentMap;
-	protected string $rootPath;
+	/** @var array{dirpath:string,namespace:string} */
+	protected array $base;
 	private bool $scanStarted;
 
 	/**
 	 * @param Container                           $container
-	 * @param array<array{0:string,1:string}>     $registeredDirAndNamespace
+	 * @param array<array{0:string,1:string}>     $directoryPathAndNamespace
 	 * @param array<string,class-string<Console>> $commands
 	 */
 	final private function __construct(
 		private Container $container,
-		private array $registeredDirAndNamespace,
+		private array $directoryPathAndNamespace,
 		private array $commands = array(),
 		private ?EventDispatcher $dispatcher = null
 	) {
@@ -45,12 +41,7 @@ class CommandLoader implements Countable {
 
 	/** @return array<array{0:string,1:string}> List of directory name and its command namespace. */
 	public function getDirectoryNamespaceMap(): array {
-		return $this->registeredDirAndNamespace;
-	}
-
-	/** @return array<string,string> List of found dirnames/filenames indexed by its absolute path. */
-	public function getScannedItems(): array {
-		return $this->scannedFiles;
+		return $this->directoryPathAndNamespace;
 	}
 
 	/** @return array<string,class-string<Console>> */
@@ -63,49 +54,36 @@ class CommandLoader implements Countable {
 	 *
 	 * Namespaces will be auto-generated appending those sub-directories for making them PSR-4 compliant.
 	 *
-	 * @param array<string,int|int[]> $nameWithDepth Sub-directory name and its depth/depths (if same name in nested depths)
-	 *                                               whose command files should be scanned and loaded.
+	 * @param array<string,int|int[]> $nameWithDepth Sub-directory name and its depth (depths if same name
+	 *                                               in nested directory path) to scan for command files.
 	 */
 	public static function withSubdirectories( array $nameWithDepth, ?Container $container = null ): static {
-		return self::getInstance( $container )->usingDirectories( $nameWithDepth );
+		return self::getInstance( $container )->usingSubDirectories( $nameWithDepth );
 	}
 
-	/** @param array{0:string,1:string}[] $dirNamespaceMaps */
-	public static function load( array $dirNamespaceMaps, ?Container $container = null ): static {
-		return self::getInstance( $container, $dirNamespaceMaps, event: false )->startScan();
-	}
-
-	public static function subscribe( ?Container $container = null ): static {
-		return self::getInstance( $container, event: true );
-	}
-
-	/**
-	 * @param array{0:string,1:string} $dirNamespaceMap     The directory name as key and namespace as value.
-	 * @param array{0:string,1:string} ...$dirNamespaceMaps Additional directory name and namespace map.
-	 */
-	public function forLocation( array $dirNamespaceMap, array ...$dirNamespaceMaps ): static {
-		$this->registerLocation( $dirNamespaceMap );
-
-		array_walk( $dirNamespaceMaps, $this->registerLocation( ... ) );
-
-		return $this;
+	/** @param array{0:string,1:string}[] $directoryPathAndNamespaces */
+	public static function load( array $directoryPathAndNamespaces, ?Container $container = null ): static {
+		return self::getInstance( $container, $directoryPathAndNamespaces, event: false )->startScan();
 	}
 
 	/** @param callable(EventTask): void $listener */
-	public function withListener( callable $listener ): static {
-		if ( $this->dispatcher ) {
-			$this->dispatcher->addListener(
-				AfterLoadEvent::class,
-				static fn( AfterLoadEvent $e ) => $e->runCommand( $listener( ... ) )
-			);
+	public static function subscribeWith( callable $listener, ?Container $container = null ): static {
+		return self::getInstance( $container, event: true )->withListener( $listener );
+	}
 
-			$this->startScan();
-		}
+	/**
+	 * @param array{0:string,1:string} $pathAndNamespace     The directory path and namespace map.
+	 * @param array{0:string,1:string} ...$pathAndNamespaces Additional directory path and namespace map.
+	 */
+	public function inDirectory( array $pathAndNamespace, array ...$pathAndNamespaces ): static {
+		$this->register( $pathAndNamespace );
+
+		array_walk( $pathAndNamespaces, $this->register( ... ) );
 
 		return $this;
 	}
 
-	public function scan(): static {
+	public function loadCommands(): static {
 		return $this->startScan();
 	}
 
@@ -116,32 +94,32 @@ class CommandLoader implements Countable {
 		return new static( $c, $map, dispatcher: $event ? new EventDispatcher() : null );
 	}
 
-	protected function scannableDirectory(): void {
-		$item = $this->currentItem();
-
-		$this->scanCurrent( array( $item->getPathname(), $this->currentMap[1] . "\\{$item->getFilename()}" ) );
+	final protected function scanDirectory(): void {
+		$this->scan( directory: $this->currentItem()->getPathname() );
 	}
 
 	protected function getRootPath(): string {
-		return $this->rootPath;
+		return $this->realDirectoryPath( $this->base['dirpath'] );
 	}
 
-	protected function executeFor( string $filename, string $filepath ): void {
-		$command = "{$this->currentMap[1]}\\{$filename}";
-
-		if ( ! is_a( $command, Console::class, allow_string: true ) ) {
+	protected function execute(): void {
+		if ( ! $commandClass = $this->fromCurrentItemToPsr4SpecificationFullyQualifiedClassName() ) {
 			return;
 		}
 
-		$lazyload                       = array( $command, 'start' );
-		$commandName                    = $command::asCommandName();
-		$this->commands[ $commandName ] = $command;
+		if ( ! is_a( $commandClass, Console::class, allow_string: true ) ) {
+			return;
+		}
 
-		$this->handleResolved( $command, $lazyload, $commandName );
+		$lazyload                       = array( $commandClass, 'start' );
+		$commandName                    = $commandClass::asCommandName();
+		$this->commands[ $commandName ] = $commandClass;
+
+		$this->handleResolved( $commandClass, $lazyload, $commandName );
 
 		// Allow third-party to listen for resolved command by Command Loader  with the "EventTask".
 		if ( $commandRunner = $this->getCommandRunnerFromEvent() ) {
-			$commandRunner( new EventTask( $lazyload( ... ), $command, $commandName, $this->container ) );
+			$commandRunner( new EventTask( $lazyload( ... ), $commandClass, $commandName, $this->container ) );
 		}
 	}
 
@@ -159,9 +137,25 @@ class CommandLoader implements Countable {
 		$this->container->set( $classname, $command );
 	}
 
-	/** @param array{0:string,1:string} $dirNamespaceMap */
-	private function registerLocation( array $dirNamespaceMap ): void {
-		$this->registeredDirAndNamespace[] = $dirNamespaceMap;
+	private function fromCurrentItemToPsr4SpecificationFullyQualifiedClassName(): ?string {
+		return ( $subNamespacedFileParts = $this->currentItemSubpath( parts: true ) )
+			? $this->withoutExtension( "{$this->base['namespace']}\\" . implode( '\\', $subNamespacedFileParts ) )
+			: null;
+	}
+
+	/** @param callable(EventTask): void $listener */
+	private function withListener( callable $listener ): static {
+		$this->dispatcher?->addListener(
+			AfterLoadEvent::class,
+			static fn( AfterLoadEvent $e ) => $e->runCommand( $listener( ... ) )
+		);
+
+		return $this;
+	}
+
+	/** @param array{0:string,1:string} $directoryAndNamespace */
+	private function register( array $directoryAndNamespace ): void {
+		$this->directoryPathAndNamespace[] = $directoryAndNamespace;
 	}
 
 	private function startScan(): static {
@@ -171,12 +165,10 @@ class CommandLoader implements Countable {
 
 		$this->scanStarted = true;
 
-		foreach ( $this->registeredDirAndNamespace as $index => $map ) {
-			if ( array_key_first( $this->registeredDirAndNamespace ) === $index ) {
-				$this->rootPath = $map[ $index ];
-			}
+		foreach ( $this->directoryPathAndNamespace as [$dirpath, $namespace] ) {
+			$this->base = compact( 'dirpath', 'namespace' );
 
-			$this->scanCurrent( $map );
+			$this->scan( $this->realDirectoryPath( $dirpath ) );
 		}
 
 		// By default, all lazy-loaded commands extending Console will use default "Cli".
@@ -188,19 +180,8 @@ class CommandLoader implements Countable {
 		return $this;
 	}
 
-	/** @param array{0:string,1:string} $dirNamespaceMap */
-	protected function scanCurrent( array $dirNamespaceMap ): static {
-		$this->currentMap = $dirNamespaceMap;
-
-		return $this->doScan( realpath( $dirNamespaceMap[0] ) ?: $this->throwInvalidDir() );
-	}
-
 	/** @return ?callable(EventTask): void */
 	private function getCommandRunnerFromEvent(): ?callable {
 		return $this->dispatcher?->dispatch( new AfterLoadEvent() )->getCommandRunner();
-	}
-
-	private function throwInvalidDir(): never {
-		throw new LogicException( sprintf( 'Cannot locate commands in directory: "%s".', $this->currentMap[0] ) );
 	}
 }

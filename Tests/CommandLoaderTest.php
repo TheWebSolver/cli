@@ -35,9 +35,9 @@ class CommandLoaderTest extends TestCase {
 
 	#[Test]
 	public function itListensForEventsForEachResolvedCommandFile(): void {
-		$loader = CommandLoader::subscribe()
-			->forLocation( self::LOCATION )
-			->withListener( $this->assertLoadedCommandIsListened( ... ) );
+		$loader = CommandLoader::subscribeWith( $this->assertLoadedCommandIsListened( ... ) )
+			->inDirectory( self::LOCATION )
+			->loadCommands();
 
 		$this->assertCount( 2, $fileNames = $loader->getScannedItems() );
 		$this->assertEmpty( array_diff( self::EXPECTED_FILENAMES, $fileNames ) );
@@ -88,28 +88,36 @@ class CommandLoaderTest extends TestCase {
 	#[Test]
 	public function itRegistersCommandsFromSubDirectories(): void {
 		$loader = CommandLoader::withSubDirectories( array( 'SubStub' => 1 ) )
-			->forLocation( self::LOCATION )
-			->scan();
+			->inDirectory( self::LOCATION )
+			->loadCommands();
 
-			$this->assertCount( 2, $loader );
+		$this->assertCount( 2, $loader );
 		$this->assertCount( 4, $loader->getScannedItems() );
 		$this->assertContains( FirstDepthCommand::class, $loader->getCommands() );
 
 		$loader = CommandLoader::withSubDirectories( array( 'SubStub' => array( 1, 2 ) ) )
-			->forLocation( self::LOCATION )
-			->scan();
+			->inDirectory( self::LOCATION )
+			->loadCommands();
 
 		$this->assertCount( 2, $loader );
 		$this->assertCount( 4, $loader->getScannedItems(), 'Must not scan sub-dir if parent-dir is ignored' );
+	}
 
+	#[Test]
+	public function itRegistersNestedSubDirectoriesWithSameName(): void {
 		$depths = array(
 			'SubStub'    => array( 1, 2 ),
 			'FirstDepth' => 1,
 		);
 
-		$loader = CommandLoader::withSubdirectories( $depths )->forLocation( self::LOCATION )->scan();
+		$loader = CommandLoader::withSubdirectories( $depths )->inDirectory( self::LOCATION )->loadCommands();
 
 		$this->assertCount( 4, $loader );
 		$this->assertCount( 6, $loader->getScannedItems() );
+		$this->assertCount( 3, $loadedCommands = $loader->getCommands() );
+
+		foreach ( array( FirstDepthCommand::class, ...self::EXPECTED_COMMANDS ) as $classname ) {
+			$this->assertContains( $classname, $loadedCommands );
+		}
 	}
 }
