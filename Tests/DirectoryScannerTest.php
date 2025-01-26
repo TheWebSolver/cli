@@ -3,7 +3,6 @@ declare( strict_types = 1 );
 
 namespace TheWebSolver\Codegarage\Test;
 
-use DirectoryIterator;
 use PHPUnit\Framework\TestCase;
 use PHPUnit\Framework\Attributes\Test;
 use TheWebSolver\Codegarage\Cli\DirectoryScanner;
@@ -14,7 +13,7 @@ class DirectoryScannerTest extends TestCase {
 		$scanner = new Scanner();
 		$scanner->run();
 
-		$this->assertCount( 1, $files = $scanner->getFiles() );
+		$this->assertCount( 1, $files = $scanner->getScannedItems() );
 		$this->assertContains( 'Valid', $files );
 	}
 }
@@ -33,14 +32,9 @@ class Scanner {
 		return __DIR__ . '/Scan';
 	}
 
-	protected function isIgnored(): bool {
-		return ! $this->isPHPFile( $this->currentItem() )
-			|| str_contains( $this->currentItem()->getBasename(), 'Ignore' );
+	protected function currentItemIsIgnored(): bool {
+		return ! $this->isScannableFile() || str_contains( $this->currentItem()->getBasename(), 'Ignore' );
 	}
 
-	public function getFiles(): array {
-		return $this->scannedFiles;
-	}
-
-	protected function executeFor( string $filename, string $filePath ): void {}
+	protected function execute(): void {}
 }
