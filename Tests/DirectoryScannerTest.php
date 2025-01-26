@@ -24,9 +24,13 @@ class Scanner {
 	use DirectoryScanner;
 
 	public function run(): self {
-		$this->scan( __DIR__ . '/Scan' );
+		$this->scan( $this->getRootPath() );
 
 		return $this;
+	}
+
+	protected function getRootPath(): string {
+		return __DIR__ . '/Scan';
 	}
 
 	protected function isIgnored( DirectoryIterator $item ): bool {

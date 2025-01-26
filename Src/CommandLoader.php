@@ -20,10 +20,6 @@ class CommandLoader {
 
 	final public const COMMAND_DIRECTORY = Cli::ROOT . 'Command';
 
-	/** @var array<string,int|int[]> */
-	protected array $subDirectories = array();
-	/** @var ?array{0:int,1:string} */
-	private ?array $currentDepth = null;
 	/** @var array{0:string,1:string} */
 	protected array $currentMap;
 	protected string $rootPath;
@@ -71,10 +67,7 @@ class CommandLoader {
 	 *                                               whose command files should be scanned and loaded.
 	 */
 	public static function withSubdirectories( array $nameWithDepth, ?Container $container = null ): static {
-		$loader                 = self::getInstance( $container );
-		$loader->subDirectories = $nameWithDepth;
-
-		return $loader;
+		return self::getInstance( $container )->usingDirectories( $nameWithDepth );
 	}
 
 	/** @param array{0:string,1:string}[] $dirNamespaceMaps */
@@ -123,33 +116,15 @@ class CommandLoader {
 		return new static( $c, $map, dispatcher: $event ? new EventDispatcher() : null );
 	}
 
-	/** @param array{0:string,1:string} $dirNamespaceMap */
-	protected function scanCurrent( array $dirNamespaceMap ): static {
-		$this->currentMap = $dirNamespaceMap;
-
-		return $this->doScan( realpath( $dirNamespaceMap[0] ) ?: $this->throwInvalidDir() );
-	}
-
-	protected function isIgnored( DirectoryIterator $item ): bool {
-		if ( $this->isPHPFile( $item ) ) {
-			return false;
-		}
-
-		if ( ! $item->isDir() || empty( $this->subDirectories ) ) {
-			return true;
-		}
-
+	protected function scannableDirectory( DirectoryIterator $item ): void {
 		$dirname = $item->getFilename();
-
-		if ( ! $this->inCurrentDepthOf( $item )->directoryExists() ) {
-			return true;
-		}
-
-		$map = array( $item->getFileInfo()->getPathname(), $this->currentMap[1] . "\\{$dirname}" );
+		$map     = array( $item->getPathname(), $this->currentMap[1] . "\\{$dirname}" );
 
 		$this->forLocation( $map )->scanCurrent( $map );
+	}
 
-		return false;
+	protected function getRootPath(): string {
+		return $this->rootPath;
 	}
 
 	protected function executeFor( string $filename, string $filepath ): void {
@@ -216,26 +191,11 @@ class CommandLoader {
 		return $this;
 	}
 
-	private function inCurrentDepthOf( DirectoryIterator $item ): self {
-		$pathname           = $item->getFileInfo()->getPathname();
-		$subpath            = ltrim( substr( $pathname, strlen( realpath( $this->rootPath ) ?: '' ) ), DIRECTORY_SEPARATOR );
-		$this->currentDepth = array(
-			count( explode( separator: DIRECTORY_SEPARATOR, string: $subpath ) ),
-			$item->getFilename(),
-		);
+	/** @param array{0:string,1:string} $dirNamespaceMap */
+	protected function scanCurrent( array $dirNamespaceMap ): static {
+		$this->currentMap = $dirNamespaceMap;
 
-		return $this;
-	}
-
-	private function directoryExists(): bool {
-		if ( ! $this->currentDepth ) {
-			return false;
-		}
-
-		[$depth, $name]     = $this->currentDepth;
-		$this->currentDepth = null;
-
-		return in_array( $depth, (array) ( $this->subDirectories[ $name ] ?? array() ), strict: true );
+		return $this->doScan( realpath( $dirNamespaceMap[0] ) ?: $this->throwInvalidDir() );
 	}
 
 	/** @return ?callable(EventTask): void */

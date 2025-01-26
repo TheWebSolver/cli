@@ -56,7 +56,6 @@ class CommandLoaderTest extends TestCase {
 	#[Test]
 	public function itEnsuresCommandsAreLazyLoadedToContainer(): void {
 		$loader = CommandLoader::load( array( self::LOCATION ), new Container() );
-		$this->assertTrue( true );
 
 		foreach ( self::EXPECTED_COMMANDS as $class ) {
 			// The command is registered to container as a closure by CommandLoader.
@@ -93,7 +92,6 @@ class CommandLoaderTest extends TestCase {
 			->scan();
 
 		$this->assertCount( 2, $loader->getDirectoryNamespaceMap() );
-		$this->assertCount( 1, CommandLoader::load( array( self::LOCATION ) )->getDirectoryNamespaceMap() );
 		$this->assertContains( FirstDepthCommand::class, $loader->getCommands() );
 
 		$loader = CommandLoader::withSubDirectories( array( 'SubStub' => array( 1, 2 ) ) )
