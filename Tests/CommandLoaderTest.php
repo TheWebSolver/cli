@@ -91,14 +91,16 @@ class CommandLoaderTest extends TestCase {
 			->forLocation( self::LOCATION )
 			->scan();
 
-		$this->assertCount( 2, $loader->getDirectoryNamespaceMap() );
+			$this->assertCount( 2, $loader );
+		$this->assertCount( 4, $loader->getScannedItems() );
 		$this->assertContains( FirstDepthCommand::class, $loader->getCommands() );
 
 		$loader = CommandLoader::withSubDirectories( array( 'SubStub' => array( 1, 2 ) ) )
 			->forLocation( self::LOCATION )
 			->scan();
 
-		$this->assertCount( 2, $loader->getDirectoryNamespaceMap(), 'Must not scan sub-dir if parent-dir is ignored' );
+		$this->assertCount( 2, $loader );
+		$this->assertCount( 4, $loader->getScannedItems(), 'Must not scan sub-dir if parent-dir is ignored' );
 
 		$depths = array(
 			'SubStub'    => array( 1, 2 ),
@@ -107,6 +109,7 @@ class CommandLoaderTest extends TestCase {
 
 		$loader = CommandLoader::withSubdirectories( $depths )->forLocation( self::LOCATION )->scan();
 
-		$this->assertCount( 4, $loader->getDirectoryNamespaceMap() );
+		$this->assertCount( 4, $loader );
+		$this->assertCount( 6, $loader->getScannedItems() );
 	}
 }

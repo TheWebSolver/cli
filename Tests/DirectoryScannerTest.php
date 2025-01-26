@@ -33,8 +33,9 @@ class Scanner {
 		return __DIR__ . '/Scan';
 	}
 
-	protected function isIgnored( DirectoryIterator $item ): bool {
-		return ! $this->isPHPFile( $item ) || str_contains( $item->getBasename(), 'Ignore' );
+	protected function isIgnored(): bool {
+		return ! $this->isPHPFile( $this->currentItem() )
+			|| str_contains( $this->currentItem()->getBasename(), 'Ignore' );
 	}
 
 	public function getFiles(): array {

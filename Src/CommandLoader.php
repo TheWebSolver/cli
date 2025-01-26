@@ -3,8 +3,8 @@ declare( strict_types = 1 );
 
 namespace TheWebSolver\Codegarage\Cli;
 
+use Countable;
 use LogicException;
-use DirectoryIterator;
 use TheWebSolver\Codegarage\Cli\Console;
 use TheWebSolver\Codegarage\Cli\Data\EventTask;
 use TheWebSolver\Codegarage\Container\Container;
@@ -13,7 +13,7 @@ use Symfony\Component\EventDispatcher\EventDispatcher;
 use TheWebSolver\Codegarage\Cli\Event\CommandSubscriber;
 use Symfony\Component\Console\CommandLoader\ContainerCommandLoader;
 
-class CommandLoader {
+class CommandLoader implements Countable {
 	use DirectoryScanner {
 		DirectoryScanner::scan as doScan;
 	}
@@ -116,11 +116,10 @@ class CommandLoader {
 		return new static( $c, $map, dispatcher: $event ? new EventDispatcher() : null );
 	}
 
-	protected function scannableDirectory( DirectoryIterator $item ): void {
-		$dirname = $item->getFilename();
-		$map     = array( $item->getPathname(), $this->currentMap[1] . "\\{$dirname}" );
+	protected function scannableDirectory(): void {
+		$item = $this->currentItem();
 
-		$this->forLocation( $map )->scanCurrent( $map );
+		$this->scanCurrent( array( $item->getPathname(), $this->currentMap[1] . "\\{$item->getFilename()}" ) );
 	}
 
 	protected function getRootPath(): string {
@@ -174,13 +173,11 @@ class CommandLoader {
 
 		foreach ( $this->registeredDirAndNamespace as $index => $map ) {
 			if ( array_key_first( $this->registeredDirAndNamespace ) === $index ) {
-				$this->rootPath = $map[0];
+				$this->rootPath = $map[ $index ];
 			}
 
 			$this->scanCurrent( $map );
 		}
-
-		empty( $this->subDirectories ) || $this->subDirectories = array();
 
 		// By default, all lazy-loaded commands extending Console will use default "Cli".
 		// Different application maybe used with setter "Console::setApplication()".

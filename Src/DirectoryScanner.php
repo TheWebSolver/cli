@@ -8,6 +8,9 @@ use DirectoryIterator;
 trait DirectoryScanner {
 	public const EXTENSION = 'php';
 
+	private DirectoryIterator $currentlyScannedItem;
+	/** @var string[] */
+	private array $scannedDirectories = array();
 	/** @var array<string,int|int[]> */
 	protected array $subDirectories = array();
 	/** @var ?array{0:int,1:string} */
@@ -15,7 +18,25 @@ trait DirectoryScanner {
 	/** @var array<string,string> List of found filenames indexed by filePath. */
 	protected array $scannedFiles;
 
+	public function count(): int {
+		return count( $this->scannedDirectories );
+	}
+
+	/** @return string[] */
+	public function getScannedDirectories(): array {
+		return $this->scannedDirectories;
+	}
+
+	/**
+	 * Gets the root path of the sub-directory currently being scanned. If no sub-directories
+	 * `static::usingDirectories()` are scanned, it must be same as directory being scanned.
+	 */
 	abstract protected function getRootPath(): string;
+
+	/**
+	 * Allows concrete to execute task for the non-ignored filenames inside scanned directory.
+	 * Currently scanned item may be accessed within using `static::currentItem()` method.
+	 */
 	abstract protected function executeFor( string $filename, string $filepath ): void;
 
 	/** @param array<string,int|int[]> $nameWithDepth */
@@ -25,48 +46,65 @@ trait DirectoryScanner {
 		return $this;
 	}
 
+	final protected function currentItem(): DirectoryIterator {
+		return $this->currentlyScannedItem;
+	}
+
+	protected function isPHPFile(): bool {
+		return $this->currentItem()->isFile() && $this->currentItem()->getExtension() === self::EXTENSION;
+	}
+
+	protected function isScannableDirectory(): bool {
+		return $this->subDirectories && $this->currentItem()->isDir();
+	}
+
 	/**
-	 * Exposes scannable directory which can used to perform the recursive scanning.
+	 * Exposes scannable directory which may be used to perform recursive scanning.
 	 * This method is invoked inside `static::isIgnored()` by validating with the
 	 * user provided sub-directories using `static::usingDirectories()` method.
 	 * Inside this method, among others, may perform the next scanning batch
 	 * using provided directory name: `static::scan($item->getPathname())`.
 	 */
-	protected function scannableDirectory( DirectoryIterator $item ): void {}
+	protected function scannableDirectory(): void {}
 
-	protected function isIgnored( DirectoryIterator $item ): bool {
-		if ( $this->isPHPFile( $item ) ) {
+	/**
+	 * Validates current item should be ignored by the scanner or not.
+	 * It doesn't ignore **PHP files** & **static::$subDirectories**.
+	 */
+	protected function isIgnored(): bool {
+		if ( $this->isPHPFile() ) {
 			return false;
 		}
 
-		if ( ! $this->isScannableDir( $item ) ) {
+		if ( ! $this->isScannableDirectory() ) {
 			return true;
 		}
 
-		if ( ! $this->inCurrentDepthOf( $item )->directoryExists() ) {
+		if ( ! $this->inCurrentDepth()->subDirectoryExists() ) {
 			return true;
 		}
 
-		$this->scannableDirectory( $item );
+		$this->scannableDirectory();
 
 		return false;
 	}
 
-	protected function isPHPFile( DirectoryIterator $current ): bool {
-		return $current->isFile() && $current->getExtension() === self::EXTENSION;
-	}
-
-	protected function isScannableDir( DirectoryIterator $item ): bool {
-		return $item->isDir() && ! empty( $this->subDirectories );
-	}
-
+	/**
+	 * Scans files and directories inside the provided directory name.
+	 * This may or may not be same value as `static::getRootPath()`
+	 * based on whether directory is being recursively scanned.
+	 */
 	private function scan( string $directory ): static {
+		$this->scannedDirectories[] = $directory;
+
 		foreach ( new DirectoryIterator( $directory ) as $item ) {
+			$this->currentlyScannedItem = $item;
+
 			if ( $item->isDot() ) {
 				continue;
 			}
 
-			if ( $this->isIgnored( $item ) ) {
+			if ( $this->isIgnored() ) {
 				continue;
 			}
 
@@ -80,18 +118,18 @@ trait DirectoryScanner {
 		return $this;
 	}
 
-	private function inCurrentDepthOf( DirectoryIterator $item ): self {
-		$pathname           = $item->getFileInfo()->getPathname();
+	private function inCurrentDepth(): self {
+		$pathname           = $this->currentItem()->getPathname();
 		$subpath            = ltrim( substr( $pathname, strlen( $this->getRootPath() ) ), DIRECTORY_SEPARATOR );
 		$this->currentDepth = array(
 			count( explode( separator: DIRECTORY_SEPARATOR, string: $subpath ) ),
-			$item->getFilename(),
+			$this->currentItem()->getFilename(),
 		);
 
 		return $this;
 	}
 
-	private function directoryExists(): bool {
+	private function subDirectoryExists(): bool {
 		if ( ! $this->currentDepth ) {
 			return false;
 		}
