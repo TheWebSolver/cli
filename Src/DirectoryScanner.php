@@ -10,7 +10,7 @@ trait DirectoryScanner {
 	/** @var string */
 	public const EXTENSION = 'php';
 
-	private DirectoryIterator $currentlyScannedItem;
+	private DirectoryIterator $currentScannedItem;
 	/** @var string[] */
 	private array $scannedDirectories = array();
 	/** @var array<string,int|int[]> */
@@ -58,7 +58,7 @@ trait DirectoryScanner {
 	}
 
 	final protected function currentItem(): DirectoryIterator {
-		return $this->currentlyScannedItem;
+		return $this->currentScannedItem;
 	}
 
 	/** Validates current file should be scanned if file extension is `static::EXTENSION`. */
@@ -70,10 +70,21 @@ trait DirectoryScanner {
 	 * Provides a template method which may be used to perform recursive scanning.
 	 * This method is invoked inside `static::currentItemIsIgnored()` when user
 	 * provided sub-directory using `self::usingSubDirectories()` is a match.
-	 * Here, among other task, next scanning batch may be carried out using
-	 * current path: `static::scan($this->currentItem()->getPathname())`.
+	 * Here, among other task, next scan may be carried out using current
+	 * item's path: `static::scan($this->currentItem()->getPathname())`.
+	 *
+	 * @throws LogicException When this method is not implemented.
 	 */
-	final protected function scanDirectory(): void {}
+	final protected function scanDirectory(): void {
+		throw new LogicException(
+			sprintf(
+				'Class "%1$s" must implement "%2$s" method to scan "%3$s" directory.',
+				static::class,
+				DirectoryScanner::class . '::' . __FUNCTION__,
+				$this->currentItem()->getFilename()
+			)
+		);
+	}
 
 	/**
 	 * Validates current item should be ignored by the scanner or not.
@@ -99,7 +110,7 @@ trait DirectoryScanner {
 			return true;
 		}
 
-		$this->scanDirectory();
+		$this->cachingValidCurrentItemPath()->scanDirectory();
 
 		return false;
 	}
@@ -109,12 +120,6 @@ trait DirectoryScanner {
 		$suffix = '.' . static::EXTENSION;
 
 		return $name ? substr( $name, 0, - strlen( $suffix ) ) : $this->currentItem()->getBasename( $suffix );
-	}
-
-	final protected function withValid( DirectoryIterator $item ): static {
-		$this->scannedPaths[ $item->getPathname() ] = $this->withoutExtension( $item->getFilename() );
-
-		return $this;
 	}
 
 	final protected function realDirectoryPath( string $path ): string {
@@ -128,13 +133,24 @@ trait DirectoryScanner {
 	 */
 	private function scan( string $directory ): static {
 		$this->scannedDirectories[] = $directory;
+		$scanner                    = new DirectoryIterator( $directory );
 
-		foreach ( new DirectoryIterator( $directory ) as $item ) {
-			$this->currentlyScannedItem = $item;
+		while ( $scanner->valid() ) {
+			$this->currentScannedItem = $scanner->current();
 
 			if ( ! $this->currentItemIsIgnored() ) {
-				$this->withValid( $item )->execute();
+				$this->cachingValidCurrentItemPath()->execute();
 			}
+
+			$scanner->next();
+		}
+
+		return $this;
+	}
+
+	private function cachingValidCurrentItemPath(): static {
+		if ( ( $item = $this->currentItem() )->valid() ) {
+			$this->scannedPaths[ $item->getPathname() ] = $this->withoutExtension();
 		}
 
 		return $this;
@@ -157,7 +173,8 @@ trait DirectoryScanner {
 		[$depth, $dirname]  = $this->currentDepth;
 		$this->currentDepth = null;
 
-		return in_array( $depth, (array) ( $this->subDirectories[ $dirname ] ?? array() ), strict: true );
+		return array_key_exists( $dirname, $this->subDirectories )
+			&& in_array( $depth, (array) ( $this->subDirectories[ $dirname ] ), strict: true );
 	}
 
 	/** @return ($parts is true ? list<string> : string) */

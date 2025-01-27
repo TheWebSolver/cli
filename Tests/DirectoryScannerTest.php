@@ -3,6 +3,7 @@ declare( strict_types = 1 );
 
 namespace TheWebSolver\Codegarage\Test;
 
+use LogicException;
 use PHPUnit\Framework\TestCase;
 use PHPUnit\Framework\Attributes\Test;
 use TheWebSolver\Codegarage\Cli\DirectoryScanner;
@@ -15,6 +16,45 @@ class DirectoryScannerTest extends TestCase {
 
 		$this->assertCount( 1, $files = $scanner->getScannedItems() );
 		$this->assertContains( 'Valid', $files );
+	}
+
+	#[Test]
+	public function itForbidsUsingScannedDirMethodWithoutImplementation(): void {
+		$scanner = new class() {
+			use DirectoryScanner;
+
+			public function run(): self {
+				$this->subDirectories = array( 'SubStub' => 1 );
+
+				$this->scan( $this->getRootPath() );
+
+				return $this;
+			}
+
+			protected function getRootPath(): string {
+				return $this->realDirectoryPath( CommandLoaderTest::STUB_PATH );
+			}
+
+			protected function execute(): void {
+				$item = $this->currentItem();
+
+				if ( $item->valid() && $item->getFilename() === 'SubStub' ) {
+					$this->scanDirectory();
+				}
+			}
+		};
+
+		$this->expectException( LogicException::class );
+		$this->expectExceptionMessage(
+			sprintf(
+				'Class "%1$s" must implement "%2$s::scanDirectory" method to scan "%3$s" directory',
+				$scanner::class,
+				DirectoryScanner::class,
+				'SubStub'
+			)
+		);
+
+		$scanner->run();
 	}
 }
 
@@ -29,7 +69,7 @@ class Scanner {
 	}
 
 	protected function getRootPath(): string {
-		return __DIR__ . '/Scan';
+		return CommandLoaderTest::SCAN_PATH;
 	}
 
 	protected function currentItemIsIgnored(): bool {

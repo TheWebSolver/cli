@@ -6,6 +6,7 @@ namespace TheWebSolver\Codegarage\Test;
 use PHPUnit\Framework\TestCase;
 use TheWebSolver\Codegarage\Cli\Cli;
 use PHPUnit\Framework\Attributes\Test;
+use TheWebSolver\Codegarage\Test\Scan\Valid;
 use TheWebSolver\Codegarage\Cli\CommandLoader;
 use TheWebSolver\Codegarage\Cli\Data\EventTask;
 use TheWebSolver\Codegarage\Container\Container;
@@ -14,8 +15,11 @@ use TheWebSolver\Codegarage\Test\Stub\AnotherScannedCommand;
 use TheWebSolver\Codegarage\Test\Stub\SubStub\FirstDepthCommand;
 
 class CommandLoaderTest extends TestCase {
-	private const LOCATION = array(
-		Cli::ROOT . 'Tests' . DIRECTORY_SEPARATOR . 'Stub',
+	private const TEST_PATH = Cli::ROOT . 'Tests' . DIRECTORY_SEPARATOR;
+	public const SCAN_PATH  = self::TEST_PATH . 'Scan' . DIRECTORY_SEPARATOR;
+	public const STUB_PATH  = self::TEST_PATH . 'Stub' . DIRECTORY_SEPARATOR;
+	private const LOCATION  = array(
+		self::STUB_PATH,
 		__NAMESPACE__ . '\\Stub',
 	);
 
@@ -110,14 +114,47 @@ class CommandLoaderTest extends TestCase {
 			'FirstDepth' => 1,
 		);
 
-		$loader = CommandLoader::withSubdirectories( $depths )->inDirectory( self::LOCATION )->loadCommands();
+		$loader = CommandLoader::withSubdirectories( $depths )
+			->inDirectory( self::LOCATION, $scandir = array( self::SCAN_PATH, Valid::NAMESPACE ) )
+			->loadCommands();
 
-		$this->assertCount( 4, $loader );
-		$this->assertCount( 6, $loader->getScannedItems() );
-		$this->assertCount( 3, $loadedCommands = $loader->getCommands() );
+		$scannedSubDirectories = array(
+			self::STUB_PATH . 'SubStub'    => 'SubStub',
+			self::STUB_PATH . 'FirstDepth' => 'FirstDepth',
+			self::STUB_PATH . 'FirstDepth' . DIRECTORY_SEPARATOR . 'SubStub' => 'SubStub',
+		);
 
-		foreach ( array( FirstDepthCommand::class, ...self::EXPECTED_COMMANDS ) as $classname ) {
-			$this->assertContains( $classname, $loadedCommands );
+		$scannedItems = array(
+			...$scannedSubDirectories,
+			self::SCAN_PATH . 'Valid.php'  => 'Valid',
+			self::SCAN_PATH . 'Ignore.php' => 'Ignore', // Scanned but not a command class file.
+			self::STUB_PATH . self::EXPECTED_FILENAMES[0] . '.php' => self::EXPECTED_FILENAMES[0],
+			self::STUB_PATH . self::EXPECTED_FILENAMES[1] . '.php' => self::EXPECTED_FILENAMES[1],
+			self::STUB_PATH . 'SubStub' . DIRECTORY_SEPARATOR . 'FirstDepthCommand.php' => 'FirstDepthCommand',
+		);
+
+		$scannedDirectories = array_map(
+			static fn( string $dirpath ) => realpath( $dirpath ),
+			array( self::STUB_PATH, self::SCAN_PATH, ...( array_keys( $scannedSubDirectories ) ) )
+		);
+
+		$this->assertCount( 5, $loader );
+		$this->assertEmpty( array_diff( $scannedDirectories, $loader->getScannedDirectories() ) );
+
+		foreach ( array( self::LOCATION, $scandir ) as $map ) {
+			$this->assertContains( $map, $loader->getDirectoryNamespaceMap() );
 		}
+
+		$this->assertEmpty( array_diff( $scannedItems, $loader->getScannedItems() ) );
+
+		$scannedItemPaths = array_flip(
+			array_map( static fn( $p ) => realpath( $p ), array_flip( $scannedItems ) )
+		);
+
+		$this->assertEmpty( array_diff_key( $scannedItemPaths, $loader->getScannedItems() ) );
+
+		$commands = array( Valid::class, FirstDepthCommand::class, ...self::EXPECTED_COMMANDS );
+
+		$this->assertEmpty( array_diff( $commands, $loader->getCommands() ) );
 	}
 }
