@@ -9,6 +9,10 @@ use PHPUnit\Framework\Attributes\Test;
 use TheWebSolver\Codegarage\Cli\DirectoryScanner;
 
 class DirectoryScannerTest extends TestCase {
+	public const TEST_PATH = __DIR__ . DIRECTORY_SEPARATOR . '..' . DIRECTORY_SEPARATOR . 'Tests' . DIRECTORY_SEPARATOR;
+	public const SCAN_PATH = self::TEST_PATH . 'Scan' . DIRECTORY_SEPARATOR;
+	public const STUB_PATH = self::TEST_PATH . 'Stub' . DIRECTORY_SEPARATOR;
+
 	#[Test]
 	public function itScansCurrentDirectoryFiles(): void {
 		$scanner = new Scanner();
@@ -32,22 +36,16 @@ class DirectoryScannerTest extends TestCase {
 			}
 
 			protected function getRootPath(): string {
-				return $this->realDirectoryPath( CommandLoaderTest::STUB_PATH );
+				return $this->realDirectoryPath( DirectoryScannerTest::STUB_PATH );
 			}
 
-			protected function execute(): void {
-				$item = $this->currentItem();
-
-				if ( $item->valid() && $item->getFilename() === 'SubStub' ) {
-					$this->scanDirectory();
-				}
-			}
+			protected function forCurrentFile(): void {}
 		};
 
 		$this->expectException( LogicException::class );
 		$this->expectExceptionMessage(
 			sprintf(
-				'Class "%1$s" must implement "%2$s::scanDirectory" method to scan "%3$s" directory',
+				'Class "%1$s" must implement "%2$s::forCurrentSubDirectory" method to scan "%3$s" sub-directory',
 				$scanner::class,
 				DirectoryScanner::class,
 				'SubStub'
@@ -69,12 +67,16 @@ class Scanner {
 	}
 
 	protected function getRootPath(): string {
-		return CommandLoaderTest::SCAN_PATH;
+		return DirectoryScannerTest::SCAN_PATH;
 	}
 
-	protected function currentItemIsIgnored(): bool {
-		return ! $this->isScannableFile() || str_contains( $this->currentItem()->getBasename(), 'Ignore' );
+	protected function shouldRegisterCurrentItem(): bool {
+		$item = $this->currentItem();
+
+		return ! $item->isDot()
+			&& $this->currentItemIsFileWithAllowedExtension()
+			&& ! str_contains( $item->getBasename(), 'Ignore' );
 	}
 
-	protected function execute(): void {}
+	protected function forCurrentFile(): void {}
 }

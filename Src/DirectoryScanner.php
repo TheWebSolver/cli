@@ -7,16 +7,16 @@ use LogicException;
 use DirectoryIterator;
 
 trait DirectoryScanner {
-	/** @var string */
-	public const EXTENSION = 'php';
+	/** @var string[] */
+	public const ALLOWED_EXTENSIONS = array( 'php' );
 
 	private DirectoryIterator $currentScannedItem;
 	/** @var string[] */
 	private array $scannedDirectories = array();
 	/** @var array<string,int|int[]> */
 	private array $subDirectories = array();
-	/** @var ?array{0:int,1:string} */
-	private ?array $currentDepth = null;
+	/** @var array{0:int,1:string} */
+	private array $currentDepth;
 	/** @var array<string,string> */
 	private array $scannedPaths;
 
@@ -36,16 +36,38 @@ trait DirectoryScanner {
 
 	/**
 	 * Gets root directory path of the sub-directory currently being scanned.
-	 * If no sub-directory is provided using `self::usingSubDirectories()`,
+	 * If no sub-directory is provided using `$this->usingSubDirectories()`,
 	 * it must return same value as the current directory being scanned.
 	 */
 	abstract protected function getRootPath(): string;
 
 	/**
-	 * Allows concrete to execute task for the non-ignored filenames inside scanned directory.
-	 * Currently scanned item may be accessed within using `static::currentItem()` method.
+	 * Allows the implementing class to perform task for the current file.
+	 * Here, `$this->currentItem()->isFile()` will always return `true`.
 	 */
-	abstract protected function execute(): void;
+	abstract protected function forCurrentFile(): void;
+
+	/**
+	 * Allows the implementing class to perform task for the current sub-directory.
+	 * This is invoked inside `$this->shouldRegisterCurrentItem()` method when a
+	 * user provided sub-directory name (using `$this->usingSubDirectories()`)
+	 * matches. Then, among other tasks, user may perform next scan using
+	 * current item: `$this->scan($this->currentItem()->getPathname())`.
+	 * Here, `$this->currentItem()->isDir()` will always return `true`.
+	 *
+	 * @throws LogicException When this method is not implemented but sub-directory names
+	 *                        are provided with `$this->usingSubDirectories()` method.
+	 */
+	protected function forCurrentSubDirectory(): void {
+		throw new LogicException(
+			sprintf(
+				'Class "%1$s" must implement "%2$s" method to scan "%3$s" sub-directory.',
+				static::class,
+				DirectoryScanner::class . '::' . __FUNCTION__,
+				$this->currentItem()->getFilename()
+			)
+		);
+	}
 
 	/**
 	 * @param array<string,int|int[]> $nameWithDepth Sub-directory name and its depth (depths if same
@@ -61,65 +83,47 @@ trait DirectoryScanner {
 		return $this->currentScannedItem;
 	}
 
-	/** Validates current file should be scanned if file extension is `static::EXTENSION`. */
-	final protected function isScannableFile(): bool {
-		return ( $file = $this->currentItem() )->isFile() && $file->getExtension() === static::EXTENSION;
+	/** Gets the extension (without (.) dot) if given value is a filename with qualified extension, else null. */
+	protected function extensionOf( string $filename ): ?string {
+		$nameParts = explode( separator: '.', string: $filename );
+
+		return in_array( $ext = end( $nameParts ), static::ALLOWED_EXTENSIONS, strict: true ) ? $ext : null;
 	}
 
 	/**
-	 * Provides a template method which may be used to perform recursive scanning.
-	 * This method is invoked inside `static::currentItemIsIgnored()` when user
-	 * provided sub-directory using `self::usingSubDirectories()` is a match.
-	 * Here, among other task, next scan may be carried out using current
-	 * item's path: `static::scan($this->currentItem()->getPathname())`.
-	 *
-	 * @throws LogicException When this method is not implemented.
+	 * Acts as a safeguard as to whether current item should be considered as a scanned item or not.
+	 * By default, this will:
+	 *  - return true only when `$this->currentItem()->isFile()` and has one of the allowed extensions
+	 *  - invoke the template method `$this->forCurrentSubDirectory()` if sub-directory name matches
 	 */
-	final protected function scanDirectory(): void {
-		throw new LogicException(
-			sprintf(
-				'Class "%1$s" must implement "%2$s" method to scan "%3$s" directory.',
-				static::class,
-				DirectoryScanner::class . '::' . __FUNCTION__,
-				$this->currentItem()->getFilename()
-			)
-		);
-	}
-
-	/**
-	 * Validates current item should be ignored by the scanner or not.
-	 * By default, it validates item in the following order:
-	 * - Ignores dot (parent directory link)
-	 * - Allows file with `static::EXTENSION`.
-	 * - Allows sub-directory registered with `self::usingSubDirectories()`.
-	 */
-	protected function currentItemIsIgnored(): bool {
+	protected function shouldRegisterCurrentItem(): bool {
 		if ( ( $item = $this->currentItem() )->isDot() ) {
-			return true;
-		}
-
-		if ( $this->isScannableFile() ) {
 			return false;
 		}
 
-		if ( ! $item->isDir() ) {
+		if ( $this->currentItemIsFileWithAllowedExtension() ) {
 			return true;
+		}
+
+		if ( ! $item->isDir() ) {
+			return false;
 		}
 
 		if ( ! $this->inCurrentDepth()->directoryExists() ) {
-			return true;
+			return false;
 		}
 
-		$this->cachingValidCurrentItemPath()->scanDirectory();
+		$this->registerScannedPath()->forCurrentSubDirectory();
 
 		return false;
 	}
 
-	/** Gets the filename without `static::EXTENSION`. */
-	final protected function withoutExtension( string $name = null ): string {
-		$suffix = '.' . static::EXTENSION;
+	final protected function withoutExtension( string $filename = null ): string {
+		$ext = $this->extensionOf( $filename ?? $this->currentItem()->getFilename() ) ?? '';
 
-		return $name ? substr( $name, 0, - strlen( $suffix ) ) : $this->currentItem()->getBasename( $suffix );
+		return ! $filename
+			? $this->currentItem()->getBasename( ".{$ext}" )
+			: ( $ext ? substr( $filename, 0, - strlen( ".{$ext}" ) ) : $filename );
 	}
 
 	final protected function realDirectoryPath( string $path ): string {
@@ -128,7 +132,7 @@ trait DirectoryScanner {
 
 	/**
 	 * Scans files and directories inside the provided directory name.
-	 * This may or may not be same value as `static::getRootPath()`
+	 * This may or may not be same value as `$this->getRootPath()`
 	 * based on whether directory is being recursively scanned.
 	 */
 	private function scan( string $directory ): static {
@@ -138,8 +142,8 @@ trait DirectoryScanner {
 		while ( $scanner->valid() ) {
 			$this->currentScannedItem = $scanner->current();
 
-			if ( ! $this->currentItemIsIgnored() ) {
-				$this->cachingValidCurrentItemPath()->execute();
+			if ( $this->shouldRegisterCurrentItem() ) {
+				$this->registerScannedPath()->forCurrentFile();
 			}
 
 			$scanner->next();
@@ -148,17 +152,21 @@ trait DirectoryScanner {
 		return $this;
 	}
 
-	private function cachingValidCurrentItemPath(): static {
-		if ( ( $item = $this->currentItem() )->valid() ) {
-			$this->scannedPaths[ $item->getPathname() ] = $this->withoutExtension();
-		}
+	private function registerScannedPath(): static {
+		$this->scannedPaths[ $this->currentItem()->getPathname() ] = $this->withoutExtension();
 
 		return $this;
 	}
 
+	private function currentItemIsFileWithAllowedExtension(): bool {
+		$item = $this->currentItem();
+
+		return $item->isFile() && in_array( $item->getExtension(), static::ALLOWED_EXTENSIONS, strict: true );
+	}
+
 	private function inCurrentDepth(): self {
 		if ( $this->subDirectories ) {
-			$subPathParts       = $this->currentItemSubpath( parts: true );
+			$subPathParts       = $this->currentItemSubpath( parts: true ) ?? array();
 			$this->currentDepth = array( count( $subPathParts ), $this->currentItem()->getFilename() );
 		}
 
@@ -166,21 +174,22 @@ trait DirectoryScanner {
 	}
 
 	private function directoryExists(): bool {
-		if ( ! $this->currentDepth ) {
+		if ( ! ( $this->currentDepth ?? false ) ) {
 			return false;
 		}
 
-		[$depth, $dirname]  = $this->currentDepth;
-		$this->currentDepth = null;
+		[$depth, $dirname] = $this->currentDepth;
+
+		unset( $this->currentDepth );
 
 		return array_key_exists( $dirname, $this->subDirectories )
 			&& in_array( $depth, (array) ( $this->subDirectories[ $dirname ] ), strict: true );
 	}
 
-	/** @return ($parts is true ? list<string> : string) */
-	private function currentItemSubpath( bool $parts = true ): string|array {
+	/** @return ($parts is true ? ?list<string> : ?string) */
+	private function currentItemSubpath( bool $parts = true ): string|array|null {
 		if ( ! $this->currentItem()->valid() ) {
-			return $parts ? array() : '';
+			return null;
 		}
 
 		$fullPath = $this->currentItem()->getPathname();

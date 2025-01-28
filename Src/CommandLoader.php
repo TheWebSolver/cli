@@ -87,23 +87,16 @@ class CommandLoader implements Countable {
 		return $this->startScan();
 	}
 
-	/** @param array{0:string,1:string}[] $map */
-	private static function getInstance( ?Container $c, array $map = array(), bool $event = false ): static {
-		$c ??= Container::boot();
-
-		return new static( $c, $map, dispatcher: $event ? new EventDispatcher() : null );
-	}
-
-	final protected function scanDirectory(): void {
-		$this->scan( directory: $this->currentItem()->getPathname() );
-	}
-
 	protected function getRootPath(): string {
 		return $this->realDirectoryPath( $this->base['dirpath'] );
 	}
 
-	protected function execute(): void {
-		if ( ! $commandClass = $this->fromCurrentItemToPsr4SpecificationFullyQualifiedClassName() ) {
+	protected function forCurrentSubDirectory(): void {
+		$this->scan( directory: $this->currentItem()->getPathname() );
+	}
+
+	protected function forCurrentFile(): void {
+		if ( ! $commandClass = $this->fromFilePathToPsr4SpecificationFullyQualifiedClassName() ) {
 			return;
 		}
 
@@ -117,7 +110,7 @@ class CommandLoader implements Countable {
 
 		$this->handleResolved( $commandClass, $lazyload, $commandName );
 
-		// Allow third-party to listen for resolved command by Command Loader  with the "EventTask".
+		// Allow third-party to listen for resolved command by Command Loader with the "EventTask".
 		if ( $commandRunner = $this->getCommandRunnerFromEvent() ) {
 			$commandRunner( new EventTask( $lazyload( ... ), $commandClass, $commandName, $this->container ) );
 		}
@@ -132,14 +125,20 @@ class CommandLoader implements Countable {
 	 * @param callable(Container): void $command
 	 * @link https://symfony.com/doc/current/console/lazy_commands.html
 	 */
-	// phpcs:ignore Squiz.Commenting.FunctionComment.IncorrectTypeHint
 	protected function handleResolved( string $classname, callable $command, string $commandName ): void {
 		$this->container->set( $classname, $command );
 	}
 
-	private function fromCurrentItemToPsr4SpecificationFullyQualifiedClassName(): ?string {
-		return ( $subNamespacedFileParts = $this->currentItemSubpath( parts: true ) )
-			? $this->withoutExtension( "{$this->base['namespace']}\\" . implode( '\\', $subNamespacedFileParts ) )
+	/** @param array{0:string,1:string}[] $map */
+	private static function getInstance( ?Container $c, array $map = array(), bool $event = false ): static {
+		$c ??= Container::boot();
+
+		return new static( $c, $map, dispatcher: $event ? new EventDispatcher() : null );
+	}
+
+	private function fromFilePathToPsr4SpecificationFullyQualifiedClassName(): ?string {
+		return ( $fileSubpathParts = $this->currentItemSubpath( parts: true ) )
+			? "{$this->base['namespace']}\\{$this->withoutExtension( implode( '\\', $fileSubpathParts ) )}"
 			: null;
 	}
 
