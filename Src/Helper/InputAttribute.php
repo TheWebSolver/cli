@@ -36,6 +36,11 @@ class InputAttribute {
 	private string $baseClassName;
 	/** @var ReflectionClass<Console> */
 	private ReflectionClass $target;
+	/** @var class-string<Console> */
+	private string $lastTarget;
+	/** @var array<class-string> */
+	private array $hierarchy;
+
 	/** @var array<class-string<Pos|Assoc|Flag>,array<string,Pos|Assoc|Flag>> */
 	private array $collection;
 	/** @var array<string,array<string|int>|(Closure(CompletionInput): list<string|Suggestion>)> */
@@ -75,8 +80,29 @@ class InputAttribute {
 		$this->currentTarget = $this->target;
 	}
 
+	/** @return array<class-string<Pos|Assoc|Flag>,array<string,Pos|Assoc|Flag>> */
+	public function __invoke( int $mode = self::INFER_AND_UPDATE, InputVariant ...$inputs ): array {
+		return $this->do( $mode, ...$inputs )->getCollection();
+	}
+
+	public function __debugInfo() {
+		return array(
+			'status'    => ! $this->isValid(),
+			'hierarchy' => $this->hierarchy ?? array(),
+			'target'    => array(
+				'from' => $this->getTargetReflection()->name,
+				'till' => $this->lastTarget ?? false,
+				'base' => $this->getBaseClass(),
+			),
+		);
+	}
+
+	public function isValid(): bool {
+		return empty( $this->hierarchy );
+	}
+
 	/** @return class-string<Console> */
-	public function getBaseClass(): ?string {
+	public function getBaseClass(): string {
 		return $this->baseClassName ?? Console::class;
 	}
 
@@ -149,6 +175,10 @@ class InputAttribute {
 	 * @param self::INFER_AND* $mode
 	 */
 	public function do( int $mode, InputVariant ...$inputs ): self {
+		if ( ! $this->isValid() ) {
+			return $this;
+		}
+
 		$this->flag = $mode;
 
 		foreach ( $inputs ?: InputVariant::cases() as $variant ) {
@@ -174,20 +204,21 @@ class InputAttribute {
 	}
 
 	private function infer(): self {
-		$this->inferFrom( $this->target );
+		$this->currentTarget = $this->target;
+		$this->hierarchy[]   = $this->target->name;
+		$parent              = $this->target->getParentClass();
 
-		if ( ! $parent = $this->getTargetParent() ) {
-			return $this;
-		}
+		$this->doInfer();
 
 		while ( $parent ) {
-			$this->currentTarget = $parent;
-
-			if ( $this->shouldUpdate() ) {
-				$this->inferAndUpdateFrom( $parent );
-			} else {
-				$this->inferFrom( $parent );
+			if ( $this->isCurrentTargetBaseClass() ) {
+				break;
 			}
+
+			$this->currentTarget = $parent;
+			$this->hierarchy[]   = $parent->name;
+
+			( $this->shouldUpdate() && $this->doInferAndUpdate() ) || $this->doInfer();
 
 			$parent = $parent->getParentClass();
 		}
@@ -208,9 +239,8 @@ class InputAttribute {
 		return $input;
 	}
 
-	/** @param ReflectionClass<Console> $reflection */
-	private function inferFrom( ReflectionClass $reflection ): void {
-		foreach ( $reflection->getAttributes() as $attribute ) {
+	private function doInfer(): void {
+		foreach ( $this->currentTarget->getAttributes() as $attribute ) {
 			if ( ! $this->isInputVariant( $attribute ) ) {
 				continue;
 			}
@@ -225,9 +255,8 @@ class InputAttribute {
 		}
 	}
 
-	/** @param ReflectionClass<Console> $reflection */
-	private function inferAndUpdateFrom( ReflectionClass $reflection ): void {
-		foreach ( $reflection->getAttributes() as $attribute ) {
+	private function doInferAndUpdate(): void {
+		foreach ( $this->currentTarget->getAttributes() as $attribute ) {
 			if ( ! $this->isInputVariant( $attribute ) ) {
 				continue;
 			}
@@ -313,6 +342,8 @@ class InputAttribute {
 	}
 
 	private function flush(): self {
+		$this->lastTarget = $this->currentTarget->name;
+
 		unset(
 			$this->currentArguments,
 			$this->inputAndProperty,
@@ -335,11 +366,6 @@ class InputAttribute {
 		}
 
 		return $this->collection[ $attributeName ][ $inputName ] ?? null;
-	}
-
-	/** @return ReflectionClass<Console> */
-	private function getTargetParent(): ?ReflectionClass {
-		return ( $p = $this->target->getParentClass() ) && $this->getBaseClass() !== $p->getName() ? $p : null;
 	}
 
 	/** @return array<string,mixed> */
@@ -417,6 +443,10 @@ class InputAttribute {
 		return empty(
 			array_filter( $this->currentArguments, $this->isNamedArgument( ... ), ARRAY_FILTER_USE_KEY )
 		);
+	}
+
+	private function isCurrentTargetBaseClass(): bool {
+		return ( $parent = $this->currentTarget->getParentClass() ) && $this->getBaseClass() === $parent->name;
 	}
 
 	private function isCurrentTargetLastParent(): bool {

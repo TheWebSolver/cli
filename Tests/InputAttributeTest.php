@@ -6,21 +6,45 @@ namespace TheWebSolver\Codegarage\Test;
 use PHPUnit\Framework\TestCase;
 use PHPUnit\Framework\Attributes\Test;
 use TheWebSolver\Codegarage\Cli\Console;
+use PHPUnit\Framework\Attributes\Depends;
 use TheWebSolver\Codegarage\Cli\Data\Flag;
+use Symfony\Component\Console\Input\InputOption;
 use TheWebSolver\Codegarage\Cli\Data\Positional;
 use TheWebSolver\Codegarage\Cli\Data\Associative;
+use Symfony\Component\Console\Input\InputArgument;
 use TheWebSolver\Codegarage\Cli\Enums\InputVariant;
 use TheWebSolver\Codegarage\Cli\Helper\InputAttribute;
 
 class InputAttributeTest extends TestCase {
 	#[Test]
-	public function itSetsBaseClassToConsoleIfNotProvided(): void {
-		$this->assertSame( Console::class, ( new InputAttribute( MiddleClass::class ) )->getBaseClass() );
+	public function verifySetterAndGetter(): void {
+		$this->assertSame( Console::class, ( $parser = ( new InputAttribute( MiddleClass::class ) ) )->getBaseClass() );
+
+		$this->assertSame( MiddleClass::class, $parser->getTargetReflection()->getName() );
+		$this->assertEmpty( $parser->getCollection() );
+		$this->assertEmpty( $parser->getSource() );
+		$this->assertEmpty( $parser->getSuggestions() );
+		$this->assertNull( $parser->by( 'input-name' ) );
+		$this->assertTrue( $parser->isValid() );
 
 		$this->assertSame(
 			BaseClass::class,
-			( new InputAttribute( MiddleClass::class ) )->till( BaseClass::class )->getBaseClass()
+			( $parser = ( new InputAttribute( MiddleClass::class ) ) )->till( BaseClass::class )->getBaseClass()
 		);
+
+		$this->assertSame(
+			BaseClass::class,
+			$parser->till( Console::class )->getBaseClass(),
+			'Cannot update base class.'
+		);
+
+		$debug = $parser->__debugInfo();
+
+		$this->assertFalse( $debug['status'] );
+		$this->assertEmpty( $debug['hierarchy'] );
+		$this->assertFalse( $debug['target']['till'] );
+		$this->assertSame( MiddleClass::class, $debug['target']['from'] );
+		$this->assertSame( BaseClass::class, $debug['target']['base'] );
 	}
 
 	#[Test]
@@ -163,7 +187,7 @@ class InputAttributeTest extends TestCase {
 		$this->assertSame( 'key value pair in base class', $keyValueInput->desc );
 	}
 	#[Test]
-	public function itParsesAttributesFromMultiInheritanceHierarchy(): void {
+	public function itParsesAttributesFromMultiInheritanceHierarchy(): InputAttribute {
 		$parser = InputAttribute::from( TopClass::class )->do( InputAttribute::INFER_AND_UPDATE );
 
 		$this->assertCount( 3, $source = $parser->getSource() );
@@ -211,6 +235,78 @@ class InputAttributeTest extends TestCase {
 		$this->assertFalse( $keyValueInput->isVariadic );
 		$this->assertFalse( $keyValueInput->valueOptional );
 		$this->assertSame( 'key value pair in base class', $keyValueInput->desc );
+
+		return $parser;
+	}
+
+	#[Test]
+	#[Depends( 'itParsesAttributesFromMultiInheritanceHierarchy' )]
+	public function ensureGettersAndDebugInfo( InputAttribute $parser ): void {
+		$this->assertFalse( $parser->isValid() );
+		$this->assertSame( Console::class, $parser->getBaseClass() );
+
+		$debug = $parser->__debugInfo();
+
+		$this->assertTrue( $debug['status'] );
+		$this->assertSame( BaseClass::class, $debug['target']['till'] );
+		$this->assertSame( array( TopClass::class, MiddleClass::class, BaseClass::class ), $debug['hierarchy'] );
+
+		$this->assertCount( 3, $collection = $parser->getCollection() );
+		$this->assertCount( 2, $collection[ Associative::class ] );
+		$this->assertCount( 1, $collection[ Positional::class ] );
+		$this->assertCount( 1, $collection[ Flag::class ] );
+
+		$this->assertCount( 1, $suggestions = $parser->getSuggestions() );
+		$this->assertSame( array( 1.0, 2.0, 3.0 ), $suggestions['position'] );
+	}
+
+	#[Test]
+	#[Depends( 'itParsesAttributesFromMultiInheritanceHierarchy' )]
+	public function itTransformsParsedCollectionToDefinitions( InputAttribute $parser ): void {
+		$this->assertCount( 3, $definitions = $parser->toInput() );
+
+		foreach ( $definitions as $attributeName => $collection ) {
+			$this->assertCount( Associative::class === $attributeName ? 2 : 1, $collection );
+
+			foreach ( $collection as $input ) {
+				$this->assertInstanceOf(
+					Positional::class === $attributeName ? InputArgument::class : InputOption::class,
+					$input
+				);
+			}
+		}
+	}
+
+	#[Test]
+	#[Depends( 'itParsesAttributesFromMultiInheritanceHierarchy' )]
+	public function itTransformsCollectionToFlattenedArray( InputAttribute $parser ): void {
+		$flattened = $parser->toFlattenedArray();
+
+		$this->assertCount( 4, $flattened );
+		$this->assertEqualsCanonicalizing(
+			array( 'position', 'keyValue', 'onlyInMiddle', 'switch' ),
+			array_column( $flattened, 'name' )
+		);
+	}
+
+	#[Test]
+	#[Depends( 'itParsesAttributesFromMultiInheritanceHierarchy' )]
+	public function itEnsuresInvocableParserReturnsSameCollection( InputAttribute $parser ): void {
+		$this->assertEquals( ( new InputAttribute( TopClass::class ) )(), $parser->getCollection() );
+	}
+
+	#[Test]
+	public function itEnsuresParsingStopsOnBaseClass(): void {
+		$parser = InputAttribute::from( TopClass::class )
+			->till( BaseClass::class )
+			->do( InputAttribute::INFER_AND_REPLACE );
+
+		$debug = $parser->__debugInfo();
+
+		$this->assertSame( TopClass::class, $debug['target']['from'] );
+		$this->assertSame( MiddleClass::class, $debug['target']['till'] );
+		$this->assertSame( BaseClass::class, $debug['target']['base'] );
+		$this->assertSame( array( TopClass::class, MiddleClass::class ), $debug['hierarchy'] );
 	}
 }
 
