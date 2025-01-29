@@ -65,7 +65,6 @@ class Console extends Command {
 	 * - **_non-empty-string:_** Using classname itself: `static::CLI_NAMESPACE` . **':camelCaseClassName'**, or
 	 * - **_empty-string:_**     If command name from classname is disabled: `Cli::useClassNameAsCommand(false)`.
 	 */
-	// phpcs:ignore Squiz.Commenting.FunctionComment.IncorrectTypeHint
 	final public static function asCommandName( ReflectionClass $ref = null ): string {
 		$ref ??= new ReflectionClass( static::class );
 
@@ -78,29 +77,22 @@ class Console extends Command {
 		return static::CLI_NAMESPACE . ':' . lcfirst( $name );
 	}
 
-	/** @return ($toInput is true ? array<class-string<Pos>,array<string,InputArgument>> : array<class-string<Pos>,array<string,Pos>>) */
-	final public static function positionalInputs( bool $replaceParent = false, bool $toInput = false ): array {
-		return self::getInputs( $replaceParent, $toInput, InputVariant::Positional );
-	}
+	/**
+	 * @param InputAttribute::INFER_AND* $mode One of the input attribute infer modes.
+	 * @return (
+	 *    $asDefinition is true
+	 *      ? array<class-string<Pos|Assoc|Flag>,array<string,InputArgument|InputOption>>
+	 *      : array<class-string<Pos|Assoc|Flag>,array<string,Pos|Assoc|Flag>>
+	 * )
+	 */
+	final public static function getInputs(
+		int $mode = InputAttribute::INFER_AND_UPDATE,
+		bool $asDefinition = false,
+		InputVariant ...$variant
+	): array {
+		$attributes = InputAttribute::from( static::class )->do( $mode, ...$variant );
 
-	/** @return ($toInput is true ? array<class-string<Assoc>,array<string,InputOption>> : array<class-string<Assoc>,array<string,Assoc>>) */
-	final public static function associativeInputs( bool $replaceParent = false, bool $toInput = false ): array {
-		return self::getInputs( $replaceParent, $toInput, InputVariant::Associative );
-	}
-
-	/** @return ($toInput is true ? array<class-string<Flag>,array<string,InputOption>> : array<class-string<Flag>,array<string,Flag>>) */
-	final public static function flagInputs( bool $replaceParent = false, bool $toInput = false ): array {
-		return self::getInputs( $replaceParent, $toInput, InputVariant::Flag );
-	}
-
-	/** @return array<class-string<Pos|Assoc|Flag>,array<string,Pos|Assoc|Flag|InputArgument|InputOption>> */
-	final public static function getInputs( bool $replace = false, bool $toInput = false, InputVariant ...$variant ): array {
-		$attributes = InputAttribute::from( static::class )->do(
-			$replace ? InputAttribute::INFER_AND_REPLACE : InputAttribute::INFER_AND_UPDATE,
-			...$variant
-		);
-
-		return $toInput ? $attributes->toInput() : $attributes->getCollection();
+		return $asDefinition ? $attributes->toInput() : $attributes->getCollection();
 	}
 
 	final public function setDefined( bool $isDefined = true ): static {
@@ -183,7 +175,6 @@ class Console extends Command {
 	 *
 	 * @param ReflectionClass<static> $reflection
 	 */
-	// phpcs:ignore Squiz.Commenting.FunctionComment.IncorrectTypeHint
 	protected function withDefinitionsFromAttribute( ?ReflectionClass $reflection = null ): static {
 		$inputAttribute = InputAttribute::from( $reflection ?? static::class )
 			->do( InputAttribute::INFER_AND_UPDATE );
