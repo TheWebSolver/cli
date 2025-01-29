@@ -23,11 +23,3 @@ parameters:
 			path: Src/Helper/InputAttribute.php
 			identifier: argument.type
 			count: 2 # For Associative::with().
-		-
-			path: Src/Helper/InputAttribute.php
-			identifier: method.void
-			count: 1 # shorthand: inside infer method.
-		-
-			path: Src/Helper/InputAttribute.php
-			identifier: booleanAnd.rightAlwaysFalse
-			count: 1 # shorthand: inside infer method.

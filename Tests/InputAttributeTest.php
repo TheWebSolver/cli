@@ -323,13 +323,13 @@ class InputAttributeTest extends TestCase {
 #[Flag( name: 'switch', isNegatable: true )]
 class BaseClass extends Console {}
 
-#[Positional( name: 'position', isOptional: false, suggestedValues: '123' )]
+#[Positional( isOptional: false, name: 'position', suggestedValues: '123' )]
 #[Flag( name: 'switch', desc: 'test based on infer mode', isNegatable: true )]
 #[Associative(
-	name: 'onlyInMiddle',
 	desc: 'no update or replace',
 	shortcut: 'o',
 	valueOptional: true,
+	name: 'onlyInMiddle',
 	isVariadic: true
 )]
 class MiddleClass extends BaseClass {}

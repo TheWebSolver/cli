@@ -66,7 +66,7 @@ class InputAttribute {
 	/** @var mixed[] */
 	private array $currentArguments;
 	/** @var array{0:Pos|Assoc|Flag,1:int|string} */
-	private array $inputAndProperty;
+	private array $currentInput;
 	/** @var array<class-string<Pos|Assoc|Flag>> */
 	private array $inputClassNames;
 	/** @var ReflectionClass<Console> */
@@ -133,17 +133,17 @@ class InputAttribute {
 	 * @template TAttribute of Pos|Assoc|Flag
 	 */
 	public function by( string $name, ?string $attributeName = null ): Pos|Assoc|Flag|null {
-		if ( ! $inputs = $this->getCollection() ) {
+		if ( ! $collection = $this->getCollection() ) {
 			return null;
 		}
 
 		if ( $attributeName ) {
-			return $inputs[ $attributeName ][ $name ] ?? null;
+			return $collection[ $attributeName ][ $name ] ?? null;
 		}
 
-		return $inputs[ Assoc::class ][ $name ]
-			?? $inputs[ Flag::class ][ $name ]
-			?? $inputs[ Pos::class ][ $name ]
+		return $collection[ Assoc::class ][ $name ]
+			?? $collection[ Flag::class ][ $name ]
+			?? $collection[ Pos::class ][ $name ]
 			?? null;
 	}
 
@@ -203,22 +203,25 @@ class InputAttribute {
 		return array_reduce( $this->collection, $this->toSingleArray( ... ), array() );
 	}
 
-	private function infer(): self {
-		$this->currentTarget = $this->target;
-		$this->hierarchy[]   = $this->target->name;
-		$parent              = $this->target->getParentClass();
+	/** @param ReflectionClass<Console> $target */
+	private function withCurrentTarget( ReflectionClass $target = null ): self {
+		$this->currentTarget = $target ?? $this->target;
+		$this->hierarchy[]   = $this->currentTarget->name;
 
-		$this->doInfer();
+		return $this;
+	}
+
+	private function infer(): self {
+		$this->withCurrentTarget()->parseAttributes();
+
+		$parent = $this->target->getParentClass();
 
 		while ( $parent ) {
-			if ( $this->isCurrentTargetBaseClass() ) {
+			if ( $this->isCurrentTargetLastParent() ) {
 				break;
 			}
 
-			$this->currentTarget = $parent;
-			$this->hierarchy[]   = $parent->name;
-
-			( $this->shouldUpdate() && $this->doInferAndUpdate() ) || $this->doInfer();
+			$this->withCurrentTarget( $parent )->parseAttributes();
 
 			$parent = $parent->getParentClass();
 		}
@@ -230,70 +233,31 @@ class InputAttribute {
 		return $this;
 	}
 
-	/** @param ReflectionAttribute<Pos|Assoc|Flag> $attribute */
-	private function useCurrent( ReflectionAttribute $attribute ): Pos|Assoc|Flag {
-		$input                  = $attribute->newInstance();
-		$this->currentArguments = $attribute->getArguments();
-		$this->inputAndProperty = array( $input, '' );
-
-		return $input;
-	}
-
-	private function doInfer(): void {
-		foreach ( $this->currentTarget->getAttributes() as $attribute ) {
-			if ( ! $this->isInputVariant( $attribute ) ) {
-				continue;
-			}
-
-			$this->useCurrent( $attribute );
-
-			if ( $this->currentInputInCollectionStack() ) {
-				continue;
-			}
-
-			$this->pushCurrentInputToCollectionStack();
+	/** @param ReflectionAttribute<object> $attribute */
+	private function ensureInput( ReflectionAttribute $attribute ): bool {
+		if ( $this->isInputVariant( $attribute ) ) {
+			$input                  = $attribute->newInstance();
+			$this->currentArguments = $attribute->getArguments();
+			$this->currentInput     = array( $input, '' );
 		}
+
+		return ! empty( $this->currentInput );
 	}
 
-	private function doInferAndUpdate(): void {
+	private function parseAttributes(): void {
 		foreach ( $this->currentTarget->getAttributes() as $attribute ) {
-			if ( ! $this->isInputVariant( $attribute ) ) {
-				continue;
-			}
-
-			$this->useCurrent( $attribute );
-
-			if ( ! $this->currentInputInCollectionStack() ) {
-				$this->pushCurrentInputToCollectionStack();
-
-				continue;
-			}
-
-			$this->updateWithCurrentInputProperties();
+			$this->ensureInput( $attribute ) && ( $this->toCollectionStack() || $this->toUpdateStack() );
 		}
 	}
 
 	private function walkCollectionWithUpdatedInputProperties(): void {
-		if ( empty( $this->update ) ) {
-			return;
-		}
-
-		foreach ( $this->update as $attributeName => $inputStack ) {
-			foreach ( $inputStack as $name => $updatedProperties ) {
-				if ( ! $input = $this->currentInputInCollectionStack( $attributeName, $name ) ) {
-					continue;
-				}
-
-				$updatedProperties                           = array( ...compact( 'name' ), ...$updatedProperties );
-				$this->collection[ $attributeName ][ $name ] = $input->with( $updatedProperties );
-
-				$this->toSuggestedValuesCollection( $input );
-			}
+		foreach ( $this->update ?? array() as $attributeName => $updates ) {
+			array_walk( $updates, $this->fromUpdateToCollectionStack( ... ), $attributeName );
 		}
 	}
 
-	private function pushCurrentInputToCollectionStack(): void {
-		[$input] = $this->inputAndProperty;
+	private function pushCurrentInputToCollectionStack(): bool {
+		[$input] = $this->currentInput;
 		$args    = $this->shouldUpdate() ? $this->onlyNamedArguments() : $this->currentArguments;
 
 		if ( $this->shouldUpdate() ) {
@@ -303,38 +267,59 @@ class InputAttribute {
 		[$shouldCollectCurrentInput, $propertyNames] = $this->getPropertyNamesFromCurrentArguments();
 
 		if ( ! $shouldCollectCurrentInput ) {
-			return;
+			return false;
 		}
 
 		$this->collection[ $input::class ][ $input->name ] = $input;
-		$arguments = $propertyNames ?? array_keys( $args );
+		$propertyNames                                   ??= array_keys( $args );
 
 		// Omit sourcing input's "name" property by determining it's position.
-		unset( $arguments[ $this->getPositionIn( $arguments, propertyName: 'name' ) ] );
+		unset( $propertyNames[ $this->getPropertyPositionIn( $propertyNames, propertyName: 'name' ) ] );
 
 		// And source whatever properties left.
-		if ( ! empty( $arguments ) ) {
-			$this->source[ $this->currentTarget->name ][ $input::class ][ $input->name ] = $arguments;
+		if ( ! empty( $propertyNames ) ) {
+			$this->source[ $this->currentTarget->name ][ $input::class ][ $input->name ] = $propertyNames;
 		}
+
+		$this->toSuggestedValuesCollection( $input );
+
+		return true;
+	}
+
+	private function toCollectionStack(): bool {
+		return ! $this->currentInputInCollectionStack() && $this->pushCurrentInputToCollectionStack();
+	}
+
+	/**
+	 * @param mixed[]                      $props
+	 * @param class-string<Pos|Assoc|Flag> $attrName
+	 */
+	private function fromUpdateToCollectionStack( array $props, string $name, string $attrName ): void {
+		if ( ! $input = $this->currentInputInCollectionStack( $attrName, $name ) ) {
+			return;
+		}
+
+		$this->collection[ $attrName ][ $name ] = $input->with( array( ...compact( 'name' ), ...$props ) );
 
 		$this->toSuggestedValuesCollection( $input );
 	}
 
-	private function updateWithCurrentInputProperties(): void {
-		foreach ( get_object_vars( $this->inputAndProperty[0] ) as $this->inputAndProperty[1] => $value ) {
-			if ( $this->updateStackContainsCurrentProperty() ) {
-				continue;
-			}
-
-			if ( $this->isCurrentPropertyNamedArgument() ) {
-				$this->pushCurrentPropertyValueToUpdateStack( $value );
-			}
+	private function toUpdateStack(): bool {
+		if ( ! $this->shouldUpdate() ) {
+			return false;
 		}
+
+		foreach ( get_object_vars( $this->currentInput[0] ) as $this->currentInput[1] => $value ) {
+			$this->updateStackContainsCurrentProperty() ||
+			( $this->isCurrentPropertyNamedArgument() && $this->currentPropertyValueToUpdateStack( $value ) );
+		}
+
+		return true;
 	}
 
-	private function pushCurrentPropertyValueToUpdateStack( mixed $value ): void {
+	private function currentPropertyValueToUpdateStack( mixed $value ): void {
 		[$isDefaultProperty, $propertyValue] = $this->getCurrentInputDefaultPropertyValue();
-		[$input, $property]                  = $this->inputAndProperty;
+		[$input, $property]                  = $this->currentInput;
 		$value                               = $isDefaultProperty ? $propertyValue : $value;
 
 		$this->update[ $input::class ][ $input->name ][ $property ]                    = $value;
@@ -346,7 +331,7 @@ class InputAttribute {
 
 		unset(
 			$this->currentArguments,
-			$this->inputAndProperty,
+			$this->currentInput,
 			$this->inputClassNames,
 			$this->currentTarget,
 			$this->update
@@ -356,7 +341,7 @@ class InputAttribute {
 	}
 
 	private function currentInputInCollectionStack(): Pos|Assoc|Flag|null {
-		[$input]       = $this->inputAndProperty;
+		[$input]       = $this->currentInput;
 		$attributeName = $input::class;
 		$inputName     = $input->name;
 
@@ -373,19 +358,17 @@ class InputAttribute {
 		return array_filter( $this->currentArguments, $this->isCollectable( ... ), mode: ARRAY_FILTER_USE_KEY );
 	}
 
-	/** @param string[] $arguments */
-	private function getPositionIn( array $arguments, string $propertyName ): string|int|null {
-		return false !== ( $index = array_search( $propertyName, $arguments, strict: true ) ) ? $index : null;
+	/** @param string[] $names */
+	private function getPropertyPositionIn( array $names, string $propertyName ): string|int|null {
+		return false !== ( $index = array_search( $propertyName, $names, strict: true ) ) ? $index : null;
 	}
 
-	/**
-	 * @return array{0:bool,1:?string[]} `0:` should collect current input, `1:` property names if indexed args.
-	 */
+	/** @return array{0:bool,1:?string[]} `0:` should collect current input, `1:` property names if indexed args. */
 	private function getPropertyNamesFromCurrentArguments(): array {
 		$unnamedArgs   = $this->hasNamelessArguments();
 		$collect       = ! ( $this->shouldUpdate() && $unnamedArgs ) || $this->isCurrentTargetLastParent();
 		$needsName     = ( ! $this->shouldUpdate() && $unnamedArgs ) || $unnamedArgs;
-		$propertyNames = $needsName && $collect ? $this->toPropertyNamesFromCurrentArgumentsIndex() : null;
+		$propertyNames = $needsName && $collect ? $this->toPropertyNamesFromCurrentArgumentsPosition() : null;
 
 		return array( $collect, $propertyNames );
 	}
@@ -397,7 +380,7 @@ class InputAttribute {
 	 * }
 	 */
 	private function getCurrentInputDefaultPropertyValue(): array {
-		[$input, $property] = $this->inputAndProperty;
+		[$input, $property] = $this->currentInput;
 
 		return 'default' === $property && ! $input instanceof Flag
 			? array( true, $input->getUserDefault() )
@@ -414,7 +397,7 @@ class InputAttribute {
 	}
 
 	private function updateStackContainsCurrentProperty(): bool {
-		[$input, $property] = $this->inputAndProperty;
+		[$input, $property] = $this->currentInput;
 		$propertiesInStack  = $this->update[ $input::class ][ $input->name ] ?? array();
 
 		return $propertiesInStack && array_key_exists( $property, $propertiesInStack );
@@ -430,7 +413,7 @@ class InputAttribute {
 	}
 
 	private function isCurrentPropertyNamedArgument(): bool {
-		[, $property] = $this->inputAndProperty;
+		[, $property] = $this->currentInput;
 
 		return $this->isCollectable( $property ) && array_key_exists( $property, $this->currentArguments );
 	}
@@ -445,28 +428,18 @@ class InputAttribute {
 		);
 	}
 
-	private function isCurrentTargetBaseClass(): bool {
+	private function isCurrentTargetLastParent(): bool {
 		return ( $parent = $this->currentTarget->getParentClass() ) && $this->getBaseClass() === $parent->name;
 	}
 
-	private function isCurrentTargetLastParent(): bool {
-		$currentTargetParent = $this->currentTarget->getParentClass();
-
-		return ! $currentTargetParent || ( $currentTargetParent->name === $this->getBaseClass() );
-	}
-
 	/** @return string[] */
-	private function toPropertyNamesFromCurrentArgumentsIndex(): array {
+	private function toPropertyNamesFromCurrentArgumentsPosition(): array {
 		$props = array();
 
-		foreach ( get_object_vars( $this->inputAndProperty[0] ) as $prop => $value ) {
-			if ( ! $this->isCollectable( $prop ) ) {
-				continue;
-			}
-
-			if ( in_array( $value, $this->currentArguments, strict: true ) ) {
-				$props[] = $prop;
-			}
+		foreach ( get_object_vars( $this->currentInput[0] ) as $prop => $value ) {
+			$this->isCollectable( $prop )
+				&& in_array( $value, $this->currentArguments, strict: true )
+				&& ( $props[] = $prop );
 		}
 
 		return $props;
