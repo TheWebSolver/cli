@@ -55,8 +55,8 @@ trait DirectoryScanner {
 	 * current item: `$this->scan($this->currentItem()->getPathname())`.
 	 * Here, `$this->currentItem()->isDir()` will always return `true`.
 	 *
-	 * @throws LogicException When this method is not implemented but sub-directory names
-	 *                        are provided with `$this->usingSubDirectories()` method.
+	 * @throws LogicException When sub-directory names are provided with `$this->usingSubDirectories()`
+	 *                        method but the class using this scanner does not implement this method.
 	 */
 	protected function forCurrentSubDirectory(): void {
 		throw new LogicException(
@@ -83,7 +83,7 @@ trait DirectoryScanner {
 		return $this->currentScannedItem;
 	}
 
-	/** Gets the extension (without (.) dot) if given value is a filename with qualified extension, else null. */
+	/** Returns extension (without (.) dot) if given filename extension is allowed, else null. */
 	protected function extensionOf( string $filename ): ?string {
 		$nameParts = explode( separator: '.', string: $filename );
 
@@ -188,10 +188,6 @@ trait DirectoryScanner {
 
 	/** @return ($parts is true ? ?list<string> : ?string) */
 	private function currentItemSubpath( bool $parts = true ): string|array|null {
-		if ( ! $this->currentItem()->valid() ) {
-			return null;
-		}
-
 		$fullPath = $this->currentItem()->getPathname();
 		$subpath  = trim( substr( $fullPath, strlen( $this->getRootPath() ) ), DIRECTORY_SEPARATOR );
 

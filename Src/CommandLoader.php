@@ -61,14 +61,14 @@ class CommandLoader implements Countable {
 		return self::getInstance( $container )->usingSubDirectories( $nameWithDepth );
 	}
 
-	/** @param array{0:string,1:string}[] $directoryPathAndNamespaces */
-	public static function load( array $directoryPathAndNamespaces, ?Container $container = null ): static {
-		return self::getInstance( $container, $directoryPathAndNamespaces, event: false )->startScan();
+	/** @param callable(EventTask): void $listener */
+	public static function withEvent( callable $listener, ?Container $container = null ): static {
+		return self::getInstance( $container, event: true )->withListener( $listener );
 	}
 
-	/** @param callable(EventTask): void $listener */
-	public static function subscribeWith( callable $listener, ?Container $container = null ): static {
-		return self::getInstance( $container, event: true )->withListener( $listener );
+	/** @param array{0:string,1:string}[] $pathsAndNamespaces */
+	public static function loadCommands( array $pathsAndNamespaces, ?Container $container = null ): static {
+		return self::getInstance( $container, $pathsAndNamespaces, event: false )->load();
 	}
 
 	/**
@@ -83,7 +83,7 @@ class CommandLoader implements Countable {
 		return $this;
 	}
 
-	public function loadCommands(): static {
+	public function load(): static {
 		return $this->startScan();
 	}
 
