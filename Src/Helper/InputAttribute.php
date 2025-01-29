@@ -32,37 +32,52 @@ class InputAttribute {
 	/** @var self::INFER_AND* */
 	private int $flag = self::INFER_AND_REPLACE;
 
+	/** @var class-string<Console> */
+	private string $baseClassName;
+	/** @var ReflectionClass<Console> */
+	private ReflectionClass $target;
 	/** @var array<class-string<Pos|Assoc|Flag>,array<string,Pos|Assoc|Flag>> */
-	private array $collect;
-
+	private array $collection;
+	/** @var array<string,array<string|int>|(Closure(CompletionInput): list<string|Suggestion>)> */
+	private array $suggestion;
 	/** @var array<class-string<Console>,array<class-string<Pos|Assoc|Flag>,array<string,array<int|string>>>> */
 	private array $source;
 
-	/** @var ReflectionClass<Console> */
-	private ReflectionClass $target;
-
-	/** @var class-string<Console> */
-	private string $currentClass;
-
-	/** @var array<class-string<Pos|Assoc|Flag>> */
-	private array $inputClassNames;
-
-	/** @var array{0:Pos|Assoc|Flag,1:int|string} */
-	private array $inputAndProperty;
+	/*
+	| ----------------------------------------------------------------------------------
+	| Flushable properties.
+	| ----------------------------------------------------------------------------------
+	|
+	| These properties only exist within infer lifecycle. They are immediately flushed
+	| and cleared from the memory to make object less heavy when its reference still
+	| exist on some another dependant class (eg: by default, on command classes).
+	|
+	| ----------------------------------------------------------------------------------
+	| @see self::do()
+	| @see self::flush()
+	| ----------------------------------------------------------------------------------
+	*/
 
 	/** @var mixed[] */
 	private array $currentArguments;
-
+	/** @var array{0:Pos|Assoc|Flag,1:int|string} */
+	private array $inputAndProperty;
+	/** @var array<class-string<Pos|Assoc|Flag>> */
+	private array $inputClassNames;
+	/** @var ReflectionClass<Console> */
+	private ReflectionClass $currentTarget;
 	/** @var array<class-string<Pos|Assoc|Flag>,array<string,array<array-key,mixed>>> */
 	private array $update;
 
-	/** @var array<string,array<string|int>|(Closure(CompletionInput): list<string|Suggestion>)> */
-	private array $suggestions;
-
 	/** @param class-string<Console>|ReflectionClass<Console> $target */
 	public function __construct( string|ReflectionClass $target ) {
-		$this->target       = is_string( $target ) ? new ReflectionClass( $target ) : $target;
-		$this->currentClass = $this->target->name;
+		$this->target        = is_string( $target ) ? new ReflectionClass( $target ) : $target;
+		$this->currentTarget = $this->target;
+	}
+
+	/** @return class-string<Console> */
+	public function getBaseClass(): ?string {
+		return $this->baseClassName ?? Console::class;
 	}
 
 	/** @return ReflectionClass<Console> */
@@ -72,7 +87,7 @@ class InputAttribute {
 
 	/** @return array<class-string<Pos|Assoc|Flag>,array<string,Pos|Assoc|Flag>> */
 	public function getCollection(): array {
-		return $this->collect ?? array();
+		return $this->collection ?? array();
 	}
 
 	/** @return array<class-string<Console>,array<class-string<Pos|Assoc|Flag>,array<string,array<int|string>>>> */
@@ -82,7 +97,7 @@ class InputAttribute {
 
 	/** @return array<string,array<string|int>|(Closure(CompletionInput): list<string|Suggestion>)> */
 	public function getSuggestions(): array {
-		return $this->suggestions ?? array();
+		return $this->suggestion ?? array();
 	}
 
 	/**
@@ -106,9 +121,24 @@ class InputAttribute {
 			?? null;
 	}
 
-	/** @param class-string<Console>|ReflectionClass<Console> $target */
+	/**
+	 * Starts extraction from the topmost subclass of the Console class inheritance hierarchy.
+	 *
+	 * @param class-string<Console>|ReflectionClass<Console> $target
+	 */
 	public static function from( string|ReflectionClass $target ): self {
 		return new self( $target );
+	}
+
+	/**
+	 * Ends extraction at the lowermost subclass of the Console class inheritance hierarchy.
+	 *
+	 * @param class-string<Console> $baseClassName It (and its parent classes) won't be used for parsing.
+	 */
+	public function till( string $baseClassName = Console::class ): self {
+		$this->baseClassName ??= $baseClassName;
+
+		return $this;
 	}
 
 	/**
@@ -125,7 +155,7 @@ class InputAttribute {
 			$this->inputClassNames[] = $variant->getClassName();
 		}
 
-		return $this->infer()->reset();
+		return $this->infer()->flush();
 	}
 
 	/** @return array<class-string<Pos|Assoc|Flag>,array<string,InputArgument|InputOption>> */
@@ -140,18 +170,18 @@ class InputAttribute {
 
 	/** @return array<Pos|Assoc|Flag> */
 	public function toFlattenedArray(): array {
-		return array_reduce( $this->collect, $this->reduceToSingleArray( ... ), array() );
+		return array_reduce( $this->collection, $this->toSingleArray( ... ), array() );
 	}
 
 	private function infer(): self {
 		$this->inferFrom( $this->target );
 
-		if ( ! $parent = $this->getTargetParentClass() ) {
+		if ( ! $parent = $this->getTargetParent() ) {
 			return $this;
 		}
 
 		while ( $parent ) {
-			$this->currentClass = $parent->name;
+			$this->currentTarget = $parent;
 
 			if ( $this->shouldUpdate() ) {
 				$this->inferAndUpdateFrom( $parent );
@@ -220,32 +250,45 @@ class InputAttribute {
 		}
 
 		foreach ( $this->update as $attributeName => $inputStack ) {
-			foreach ( $inputStack as $inputName => $updatedProperties ) {
-				if ( ! $input = $this->currentInputInCollectionStack( $attributeName, $inputName ) ) {
+			foreach ( $inputStack as $name => $updatedProperties ) {
+				if ( ! $input = $this->currentInputInCollectionStack( $attributeName, $name ) ) {
 					continue;
 				}
 
-				$this->collect[ $attributeName ][ $inputName ] = $input->with( $updatedProperties );
+				$updatedProperties                           = array( ...compact( 'name' ), ...$updatedProperties );
+				$this->collection[ $attributeName ][ $name ] = $input->with( $updatedProperties );
 
-				$this->collectSuggestedValuesFrom( $input );
+				$this->toSuggestedValuesCollection( $input );
 			}
 		}
 	}
 
 	private function pushCurrentInputToCollectionStack(): void {
 		[$input] = $this->inputAndProperty;
-		$args    = $this->currentArguments;
-		$name    = $input->name;
+		$args    = $this->shouldUpdate() ? $this->onlyNamedArguments() : $this->currentArguments;
 
 		if ( $this->shouldUpdate() ) {
-			$args                                   = $this->onlyNamedArguments();
-			$this->update[ $input::class ][ $name ] = array( ...compact( 'name' ), ...$args );
+			$this->update[ $input::class ][ $input->name ] = $args;
 		}
 
-		$this->collect[ $input::class ][ $name ]                       = $input;
-		$this->source[ $this->currentClass ][ $input::class ][ $name ] = array_keys( $args );
+		[$shouldCollectCurrentInput, $propertyNames] = $this->getPropertyNamesFromCurrentArguments();
 
-		$this->collectSuggestedValuesFrom( $input );
+		if ( ! $shouldCollectCurrentInput ) {
+			return;
+		}
+
+		$this->collection[ $input::class ][ $input->name ] = $input;
+		$arguments = $propertyNames ?? array_keys( $args );
+
+		// Omit sourcing input's "name" property by determining it's position.
+		unset( $arguments[ $this->getPositionIn( $arguments, propertyName: 'name' ) ] );
+
+		// And source whatever properties left.
+		if ( ! empty( $arguments ) ) {
+			$this->source[ $this->currentTarget->name ][ $input::class ][ $input->name ] = $arguments;
+		}
+
+		$this->toSuggestedValuesCollection( $input );
 	}
 
 	private function updateWithCurrentInputProperties(): void {
@@ -262,30 +305,23 @@ class InputAttribute {
 
 	private function pushCurrentPropertyValueToUpdateStack( mixed $value ): void {
 		[$isDefaultProperty, $propertyValue] = $this->getCurrentInputDefaultPropertyValue();
-		$value                               = $isDefaultProperty ? $propertyValue : $value;
 		[$input, $property]                  = $this->inputAndProperty;
+		$value                               = $isDefaultProperty ? $propertyValue : $value;
 
-		$this->update[ $input::class ][ $input->name ][ $property ]             = $value;
-		$this->source[ $this->currentClass ][ $input::class ][ $input->name ][] = $property;
+		$this->update[ $input::class ][ $input->name ][ $property ]                    = $value;
+		$this->source[ $this->currentTarget->name ][ $input::class ][ $input->name ][] = $property;
 	}
 
-	private function reset(): self {
-		$this->currentClass     = $this->target->name;
-		$this->currentArguments = array();
-		$this->inputAndProperty = array();
-		$this->inputClassNames  = array();
-		$this->update           = array();
+	private function flush(): self {
+		unset(
+			$this->currentArguments,
+			$this->inputAndProperty,
+			$this->inputClassNames,
+			$this->currentTarget,
+			$this->update
+		);
 
 		return $this;
-	}
-
-	/**
-	 * @param ReflectionAttribute<T> $reflection
-	 * @template T of object
-	 * @phpstan-assert-if-true ReflectionAttribute<Pos|Assoc|Flag> $reflection
-	 */
-	private function isInputVariant( ReflectionAttribute $reflection ): bool {
-		return in_array( $reflection->getName(), $this->inputClassNames, true );
 	}
 
 	private function currentInputInCollectionStack(): Pos|Assoc|Flag|null {
@@ -298,7 +334,57 @@ class InputAttribute {
 			[$attributeName, $inputName] = func_get_args();
 		}
 
-		return $this->collect[ $attributeName ][ $inputName ] ?? null;
+		return $this->collection[ $attributeName ][ $inputName ] ?? null;
+	}
+
+	/** @return ReflectionClass<Console> */
+	private function getTargetParent(): ?ReflectionClass {
+		return ( $p = $this->target->getParentClass() ) && $this->getBaseClass() !== $p->getName() ? $p : null;
+	}
+
+	/** @return array<string,mixed> */
+	private function onlyNamedArguments(): array {
+		return array_filter( $this->currentArguments, $this->isCollectable( ... ), mode: ARRAY_FILTER_USE_KEY );
+	}
+
+	/** @param string[] $arguments */
+	private function getPositionIn( array $arguments, string $propertyName ): string|int|null {
+		return false !== ( $index = array_search( $propertyName, $arguments, strict: true ) ) ? $index : null;
+	}
+
+	/**
+	 * @return array{0:bool,1:?string[]} `0:` should collect current input, `1:` property names if indexed args.
+	 */
+	private function getPropertyNamesFromCurrentArguments(): array {
+		$unnamedArgs   = $this->hasNamelessArguments();
+		$collect       = ! ( $this->shouldUpdate() && $unnamedArgs ) || $this->isCurrentTargetLastParent();
+		$needsName     = ( ! $this->shouldUpdate() && $unnamedArgs ) || $unnamedArgs;
+		$propertyNames = $needsName && $collect ? $this->toPropertyNamesFromCurrentArgumentsIndex() : null;
+
+		return array( $collect, $propertyNames );
+	}
+
+	/**
+	 * @return array{
+	 *   0:bool,
+	 *   1:null|string|class-string<BackedEnum>|bool|int|float|array{}|(callable(): string|bool|int|float|array{})
+	 * }
+	 */
+	private function getCurrentInputDefaultPropertyValue(): array {
+		[$input, $property] = $this->inputAndProperty;
+
+		return 'default' === $property && ! $input instanceof Flag
+			? array( true, $input->getUserDefault() )
+			: array( false, null );
+	}
+
+	/**
+	 * @param ReflectionAttribute<T> $reflection
+	 * @template T of object
+	 * @phpstan-assert-if-true ReflectionAttribute<Pos|Assoc|Flag> $reflection
+	 */
+	private function isInputVariant( ReflectionAttribute $reflection ): bool {
+		return in_array( $reflection->getName(), $this->inputClassNames, true );
 	}
 
 	private function updateStackContainsCurrentProperty(): bool {
@@ -306,12 +392,6 @@ class InputAttribute {
 		$propertiesInStack  = $this->update[ $input::class ][ $input->name ] ?? array();
 
 		return $propertiesInStack && array_key_exists( $property, $propertiesInStack );
-	}
-
-	private function isCurrentPropertyNamedArgument(): bool {
-		[, $property] = $this->inputAndProperty;
-
-		return $this->isCollectable( $property ) && array_key_exists( $property, $this->currentArguments );
 	}
 
 	private function shouldUpdate(): bool {
@@ -323,30 +403,43 @@ class InputAttribute {
 		return ! is_int( $property ) && ! in_array( $property, self::IMMUTABLE_INPUT_PROPERTIES, true );
 	}
 
-	/** @return ReflectionClass<Console> */
-	private function getTargetParentClass(): ?ReflectionClass {
-		return ( $p = $this->target->getParentClass() ) && Console::class !== $p->getName() ? $p : null;
+	private function isCurrentPropertyNamedArgument(): bool {
+		[, $property] = $this->inputAndProperty;
+
+		return $this->isCollectable( $property ) && array_key_exists( $property, $this->currentArguments );
 	}
 
-	/** @return array<string,mixed> */
-	private function onlyNamedArguments(): array {
-		return array_filter( $this->currentArguments, $this->isCollectable( ... ), mode: ARRAY_FILTER_USE_KEY );
+	private function isNamedArgument( string|int $propertyNameOrIndex ): bool {
+		return 0 !== $propertyNameOrIndex /*ignore: "name" property*/ && ! is_int( $propertyNameOrIndex );
 	}
 
-
-	/** @return array{0:bool,1:null|string|class-string<BackedEnum>|bool|int|float|array{}|(callable(): string|bool|int|float|array{})} */
-	private function getCurrentInputDefaultPropertyValue(): array {
-		[$input, $property] = $this->inputAndProperty;
-
-		return 'default' === $property && ! $input instanceof Flag
-			? array( true, $input->getUserDefault() )
-			: array( false, null );
+	private function hasNamelessArguments(): bool {
+		return empty(
+			array_filter( $this->currentArguments, $this->isNamedArgument( ... ), ARRAY_FILTER_USE_KEY )
+		);
 	}
 
-	private function collectSuggestedValuesFrom( Pos|Assoc|Flag $input ): void {
-		if ( ! $input instanceof Flag && ( $value = $input->suggestedValues ) ) {
-			$this->suggestions[ $input->name ] = $value;
+	private function isCurrentTargetLastParent(): bool {
+		$currentTargetParent = $this->currentTarget->getParentClass();
+
+		return ! $currentTargetParent || ( $currentTargetParent->name === $this->getBaseClass() );
+	}
+
+	/** @return string[] */
+	private function toPropertyNamesFromCurrentArgumentsIndex(): array {
+		$props = array();
+
+		foreach ( get_object_vars( $this->inputAndProperty[0] ) as $prop => $value ) {
+			if ( ! $this->isCollectable( $prop ) ) {
+				continue;
+			}
+
+			if ( in_array( $value, $this->currentArguments, strict: true ) ) {
+				$props[] = $prop;
+			}
 		}
+
+		return $props;
 	}
 
 	/**
@@ -354,8 +447,14 @@ class InputAttribute {
 	 * @param array<string,Pos|Assoc|Flag> $inputs
 	 * @return array<Pos|Assoc|Flag>
 	 */
-	private function reduceToSingleArray( array $carry, array $inputs ): array {
+	private function toSingleArray( array $carry, array $inputs ): array {
 		return array( ...$carry, ...array_values( $inputs ) );
+	}
+
+	private function toSuggestedValuesCollection( Pos|Assoc|Flag $input ): void {
+		if ( ! $input instanceof Flag && ( $value = $input->suggestedValues ) ) {
+			$this->suggestion[ $input->name ] = $value;
+		}
 	}
 
 	/**

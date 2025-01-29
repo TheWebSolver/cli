@@ -21,13 +21,5 @@ parameters:
 			identifier: return.type # Parser::parseInputSuggestion() -> BackedEnum is never callable.
 		-
 			path: Src/Helper/InputAttribute.php
-			identifier: assign.propertyType
-			count: 2
-		-
-			path: Src/Helper/InputAttribute.php
 			identifier: argument.type
 			count: 1 # For Associative::with().
-		-
-			path: Src/Console.php
-			identifier: return.type
-			count: 3 # For each input extracting static methods.
