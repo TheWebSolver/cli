@@ -47,15 +47,20 @@ class Console extends Command {
 		return $this->inputAttribute ?? null;
 	}
 
-	final public static function start( Container $container = null ): static {
-		[ $command, $ref ] = static::getInstance( $container );
+	/** @param array<string,mixed> $dependencies passed by the container. */
+	final public static function start(
+		Container $container = null,
+		array $dependencies = array(),
+		bool $infer = true
+	): static {
+		[ $command, $ref ] = static::getInstance( $container, $dependencies );
 		$command->io       = $container?->has( SymfonyStyle::class )
 			? $container->get( SymfonyStyle::class )
 			: new SymfonyStyle( new ArgvInput(), new ConsoleOutput() );
 
 		$command->setApplication( $container?->get( Cli::class ) );
 
-		return $command->isDefined() ? $command : $command->withDefinitionsFromAttribute( $ref );
+		return $command->isDefined() || ! $infer ? $command : $command->withDefinitionsFromAttribute( $ref );
 	}
 
 	/**
@@ -130,8 +135,11 @@ class Console extends Command {
 		}
 	}
 
-	/** @return array{0:static,1:ReflectionClass<static>} */
-	protected static function getInstance( ?Container $container ): array {
+	/**
+	 * @param array<string,mixed> $dependencies
+	 *  @return array{0:static,1:ReflectionClass<static>}
+	 */
+	protected static function getInstance( ?Container $container, array $dependencies ): array {
 		$ref = new ReflectionClass( static::class );
 
 		// If container provides a shared instance, use that (if not it will be converted).
@@ -142,7 +150,7 @@ class Console extends Command {
 		// Clear container binding. (Hint: in CommandLoader [static::class => static::start()]).
 		$container?->offsetUnset( static::class );
 		// Only then use Container for DI. This is to prevent infinite loop.
-		$command = $container?->resolve( static::class, array(), true, $ref ) ?? new static();
+		$command = $container?->resolve( static::class, $dependencies, true, $ref ) ?? new static();
 
 		if ( ! $attributes = Parser::parseClassAttribute( CommandAttribute::class, $ref ) ) {
 			$args = array( $command->setName( static::asCommandName( $ref ) ), $ref );
