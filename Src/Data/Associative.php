@@ -62,6 +62,18 @@ readonly class Associative {
 		return $this->name;
 	}
 
+	public function __debugInfo() {
+		return array(
+			'name'            => $this->name,
+			'desc'            => $this->desc,
+			'isVariadic'      => $this->isVariadic,
+			'valueOptional'   => $this->valueOptional,
+			'default'         => $this->userDefault,
+			'shortcut'        => $this->shortcut,
+			'suggestedValues' => $this->suggestedValues,
+		);
+	}
+
 	// phpcs:disable Squiz.Commenting.FunctionComment.MissingParamName
 	/**
 	 * @param array{

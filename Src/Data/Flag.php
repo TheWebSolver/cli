@@ -31,6 +31,15 @@ readonly class Flag {
 		return $this->name;
 	}
 
+	public function __debugInfo() {
+		return array(
+			'name'        => $this->name,
+			'desc'        => $this->desc,
+			'isNegatable' => $this->isNegatable,
+			'shortcut'    => $this->shortcut,
+		);
+	}
+
 	/** @param array{name:string,desc?:string,isNegatable?:bool,shortcut?:null|string|array{}} $args */
 	public function with( array $args ): self {
 		return new self(

@@ -58,7 +58,17 @@ readonly class Positional {
 		return $this->name;
 	}
 
-	// phpcs:disable Squiz.Commenting.FunctionComment.MissingParamName
+	public function __debugInfo() {
+		return array(
+			'name'            => $this->name,
+			'desc'            => $this->desc,
+			'isVariadic'      => $this->isVariadic,
+			'isOptional'      => $this->isOptional,
+			'default'         => $this->userDefault,
+			'suggestedValues' => $this->suggestedValues,
+		);
+	}
+
 	/**
 	 * @param array{
 	 *  name:string,
@@ -69,7 +79,6 @@ readonly class Positional {
 	 *  suggestedValues?: class-string<BackedEnum>|array<string|int,string|int>|callable(CompletionInput): list<string|Suggestion>
 	 * } $args
 	 */
-	// phpcs:enable
 	public function with( array $args ): self {
 		return new self(
 			name: $args['name'],
