@@ -65,8 +65,8 @@ class InputAttribute {
 
 	/** @var mixed[] */
 	private array $currentArguments;
-	/** @var array{0:Pos|Assoc|Flag,1:int|string} */
-	private array $currentInput;
+	/** @var array{input:Pos|Assoc|Flag,property:int|string} */
+	private array $current;
 	/** @var array<class-string<Pos|Assoc|Flag>> */
 	private array $inputClassNames;
 	/** @var ReflectionClass<Console> */
@@ -238,13 +238,18 @@ class InputAttribute {
 
 	/** @param ReflectionAttribute<object> $attribute */
 	private function ensureInput( ReflectionAttribute $attribute ): bool {
-		if ( $this->isInputVariant( $attribute ) ) {
-			$input                  = $attribute->newInstance();
-			$this->currentArguments = $attribute->getArguments();
-			$this->currentInput     = array( $input, '' );
+		if ( ! $this->isInputVariant( $attribute ) ) {
+			return false;
 		}
 
-		return ! empty( $this->currentInput );
+		$input                  = $attribute->newInstance();
+		$this->currentArguments = $attribute->getArguments();
+		$this->current          = array(
+			'input'    => $input,
+			'property' => '',
+		);
+
+		return true;
 	}
 
 	private function parseAttributes(): void {
@@ -260,11 +265,12 @@ class InputAttribute {
 	}
 
 	private function pushCurrentInputToCollectionStack(): bool {
-		[$input]    = $this->currentInput;
-		$properties = $this->withoutValueOf( key: 'name', haystack: $this->discoverUnnamedArgumentNames() );
+		$input      = $this->current['input'];
+		$properties = $this->discoverPropertiesExceptNameProperty();
+		$arguments  = $this->currentArgumentsToNamedArguments( $properties );
 
 		if ( $this->shouldUpdate() ) {
-			$this->update[ $input::class ][ $input->name ] = $this->currentArguments;
+			$this->update[ $input::class ][ $input->name ] = $arguments;
 		}
 
 		$this->collection[ $input::class ][ $input->name ]                           = $input;
@@ -299,18 +305,17 @@ class InputAttribute {
 			return false;
 		}
 
-		foreach ( get_object_vars( $this->currentInput[0] ) as $this->currentInput[1] => $value ) {
-			$this->updateStackContainsCurrentProperty() ||
-			( $this->isCurrentPropertyNamedArgument() && $this->currentPropertyValueToUpdateStack( $value ) );
+		foreach ( $this->currentArgumentsToNamedArguments() as $this->current['property'] => $value ) {
+			$this->updateStackContainsCurrentProperty() || $this->currentPropertyValueToUpdateStack( $value );
 		}
 
 		return true;
 	}
 
 	private function currentPropertyValueToUpdateStack( mixed $value ): void {
-		[$isDefaultProperty, $propertyValue] = $this->getCurrentInputDefaultPropertyValue();
-		[$input, $property]                  = $this->currentInput;
-		$value                               = $isDefaultProperty ? $propertyValue : $value;
+		[$isDefaultProperty, $propertyValue]         = $this->getCurrentInputDefaultPropertyValue();
+		['input' => $input, 'property' => $property] = $this->current;
+		$value                                       = $isDefaultProperty ? $propertyValue : $value;
 
 		$this->update[ $input::class ][ $input->name ][ $property ]                    = $value;
 		$this->source[ $this->currentTarget->name ][ $input::class ][ $input->name ][] = $property;
@@ -321,9 +326,9 @@ class InputAttribute {
 
 		unset(
 			$this->currentArguments,
-			$this->currentInput,
 			$this->inputClassNames,
 			$this->currentTarget,
+			$this->current,
 			$this->update
 		);
 
@@ -331,7 +336,7 @@ class InputAttribute {
 	}
 
 	private function currentInputInCollectionStack(): Pos|Assoc|Flag|null {
-		[$input]       = $this->currentInput;
+		$input         = $this->current['input'];
 		$attributeName = $input::class;
 		$inputName     = $input->name;
 
@@ -344,8 +349,10 @@ class InputAttribute {
 	}
 
 	/**
-	 * @param array<int|string> $haystack
-	 * @return array<int|string>
+	 * @param array<TKey,TValue> $haystack
+	 * @return array<TKey,TValue>
+	 * @template TKey
+	 * @template TValue
 	 */
 	private function withoutValueOf( string|int $key, array $haystack ): array {
 		if ( is_string( $key ) ) {
@@ -359,40 +366,44 @@ class InputAttribute {
 		return $haystack;
 	}
 
-	/** @param array<int|string> $names */
+	/**
+	 * @param array<TValue> $names
+	 * @template TValue
+	 */
 	private function getPropertyPositionIn( array $names, string $propertyName ): string|int|null {
 		return false !== ( $index = array_search( $propertyName, $names, strict: true ) ) ? $index : null;
 	}
 
 	/** @return string[] */
-	private function discoverUnnamedArgumentNames(): array {
+	private function discoverPropertiesExceptNameProperty(): array {
 		$keys           = array_keys( $this->currentArguments );
-		$info           =
-		$info           = array_keys( (array) $this->currentInput[0]->__debugInfo() );
-		$namedArguments = array_filter( $keys, $this->isNamedArgument( ... ) );
+		$info           = array_keys( (array) $this->current['input']->__debugInfo() );
+		$namedArguments = array_filter( $keys, is_string( ... ) );
 
+		// All numeric keys.
 		if ( empty( $namedArguments ) ) {
 			return array_map(
 				callback: static fn( int|string $index ): string => (string) $info[ $index ],
-				array: $this->withoutValueOf( key: 0 /* ignore: input's "name" */, haystack: $keys )
+				array: $this->withoutValueOf( key: 0 /* ignore: "name" property */, haystack: $keys )
 			);
 		}
 
-		$nameAsUnnamedArgument = isset( $this->currentArguments[0] );
-		$givenArgumentsCount   = count( $keys ) + ( $nameAsUnnamedArgument ? -1 : 0 );
+		$isNameArgumentAs0 = isset( $this->currentArguments[0] );
 
-		if ( count( $namedArguments ) === $givenArgumentsCount ) {
-			return $nameAsUnnamedArgument ? $this->withoutValueOf( key: 0, haystack: $keys ) : $keys;
+		// All string keys (except maybe for "name" property which is always at "0" index).
+		if ( count( $namedArguments ) === count( $keys ) + ( $isNameArgumentAs0 ? -1 : 0 ) ) {
+			return $this->withoutValueOf( key: $isNameArgumentAs0 ? 0 : 'name', haystack: $keys );
 		}
 
 		$propertyNames      = array();
-		$position           = $namedArgumentStarted = 0;
+		$position           = $namedArgumentStartedAt = 0;
 		$foundNamedArgument = null;
 
+		// Hybrid keys. Mix of named and unnamed arguments provided.
 		foreach ( $keys as $key ) {
 			if ( is_string( $key ) ) {
-				$foundNamedArgument   = $key;
-				$namedArgumentStarted = $position;
+				$foundNamedArgument     = $key;
+				$namedArgumentStartedAt = $position;
 
 				continue;
 			}
@@ -400,11 +411,25 @@ class InputAttribute {
 			++$position;
 		}
 
-		for ( $i = 0; $i < $namedArgumentStarted; $i++ ) {
+		// Convert to named properties starting with 1 (ignore "name" property coz it is always at "0").
+		for ( $i = 1; $i < $namedArgumentStartedAt; $i++ ) {
 			$propertyNames[] = (string) $info[ $i ];
 		}
 
 		return $foundNamedArgument ? array( ...$propertyNames, $foundNamedArgument ) : $propertyNames;
+	}
+
+	/**
+	 * @param string[] $withoutNameProperties
+	 * @return array<string,mixed>
+	 */
+	private function currentArgumentsToNamedArguments( ?array $withoutNameProperties = null ): array {
+		$args = $this->currentArguments;
+
+		// Drop input "name" (if exists) from argument to prevent unequal properties & arguments length.
+		unset( $args['name'], $args[0] );
+
+		return array_combine( $withoutNameProperties ?? $this->discoverPropertiesExceptNameProperty(), $args );
 	}
 
 	/**
@@ -414,9 +439,7 @@ class InputAttribute {
 	 * }
 	 */
 	private function getCurrentInputDefaultPropertyValue(): array {
-		[$input, $property] = $this->currentInput;
-
-		return 'default' === $property && ! $input instanceof Flag
+		return 'default' === $this->current['property'] && ! ( $input = $this->current['input'] ) instanceof Flag
 			? array( true, $input->getUserDefault() )
 			: array( false, null );
 	}
@@ -431,8 +454,8 @@ class InputAttribute {
 	}
 
 	private function updateStackContainsCurrentProperty(): bool {
-		[$input, $property] = $this->currentInput;
-		$propertiesInStack  = $this->update[ $input::class ][ $input->name ] ?? array();
+		['input' => $input, 'property' => $property] = $this->current;
+		$propertiesInStack                           = $this->update[ $input::class ][ $input->name ] ?? array();
 
 		return $propertiesInStack && array_key_exists( $property, $propertiesInStack );
 	}
@@ -441,27 +464,12 @@ class InputAttribute {
 		return self::INFER_AND_UPDATE === $this->flag;
 	}
 
-	/** @phpstan-assert-if-true =string $property */
-	private function isCollectable( string|int $property ): bool {
-		return ! is_int( $property ) && ! in_array( $property, self::IMMUTABLE_INPUT_PROPERTIES, true );
-	}
-
-	private function isCurrentPropertyNamedArgument(): bool {
-		[, $property] = $this->currentInput;
-
-		return $this->isCollectable( $property ) && array_key_exists( $property, $this->currentArguments );
-	}
-
-	private function isNamedArgument( string|int $propertyNameOrIndex ): bool {
-		return 0 !== $propertyNameOrIndex /*ignore: "name" property*/ && ! is_int( $propertyNameOrIndex );
-	}
-
 	private function isCurrentTargetLastParent(): bool {
 		return ( $parent = $this->currentTarget->getParentClass() ) && $this->getBaseClass() === $parent->name;
 	}
 
 	private function suggestibleInput( Pos|Assoc|Flag|null $attribute = null ): Pos|Assoc|null {
-		return ( $input = ( $attribute ?? $this->currentInput[0] ) ) instanceof Flag ? null : $input;
+		return ( $input = ( $attribute ?? $this->current['input'] ) ) instanceof Flag ? null : $input;
 	}
 
 	/**

@@ -306,6 +306,16 @@ class InputAttributeTest extends TestCase {
 		$this->assertSame( BaseClass::class, $debug['target']['base'] );
 		$this->assertSame( array( TopClass::class, MiddleClass::class ), $debug['hierarchy'] );
 	}
+
+	#[Test]
+	public function itEnsuresUnnamedAttributesAreRecursivelyUpdated(): void {
+		$parser     = InputAttribute::from( UnnamedTarget::class )->do( InputAttribute::INFER_AND_UPDATE );
+		$positional = $parser->by( 'unnamed', Positional::class );
+
+		$this->assertTrue( $positional->isVariadic );
+		$this->assertFalse( $positional->isOptional );
+		$this->assertSame( 'target desc', $positional->desc );
+	}
 }
 
 // phpcs:disable Generic.Files.OneObjectStructurePerFile.MultipleFound
@@ -341,3 +351,11 @@ class MiddleClass extends BaseClass {}
 	suggestedValues: array( 1.0, 2.0, 3.0 )
 )]
 class TopClass extends MiddleClass {}
+
+#[Positional( 'unnamed', '', false, false )]
+class BaseTarget extends Console {}
+#[Positional( 'unnamed', '', true )]
+class MiddleTarget extends BaseTarget {}
+
+#[Positional( 'unnamed', desc: 'target desc' )]
+class UnnamedTarget extends MiddleTarget {}
