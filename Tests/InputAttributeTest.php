@@ -108,10 +108,13 @@ class InputAttributeTest extends TestCase {
 		$keyValueSource = $topClassSource[ Associative::class ]['keyValue'];
 		$keyValueInput  = $parser->by( 'keyValue', Associative::class );
 
-		$this->assertEqualsCanonicalizing( array( 'desc', 'isVariadic', 'valueOptional' ), $keyValueSource );
+		$this->assertEqualsCanonicalizing(
+			array( 'desc', 'isVariadic', 'valueOptional', 'default' ),
+			$keyValueSource
+		);
 		$this->assertTrue( $keyValueInput->isVariadic );
 		$this->assertTrue( $keyValueInput->valueOptional );
-		$this->assertSame( 'no update if not named argument', $keyValueInput->desc );
+		$this->assertSame( 'updated irrespective of no-named argument', $keyValueInput->desc );
 
 		$switchSource = $topClassSource[ Flag::class ]['switch'];
 		$switchInput  = $parser->by( 'switch', Flag::class );
@@ -191,9 +194,9 @@ class InputAttributeTest extends TestCase {
 		$parser = InputAttribute::from( TopClass::class )->do( InputAttribute::INFER_AND_UPDATE );
 
 		$this->assertCount( 3, $source = $parser->getSource() );
-		$this->assertCount( 2, $topClassSource = $source[ TopClass::class ] );
+		$this->assertCount( 3, $topClassSource = $source[ TopClass::class ] );
 		$this->assertCount( 3, $middleClassSource = $source[ MiddleClass::class ] );
-		$this->assertCount( 2, $baseClassSource = $source[ BaseClass::class ] );
+		$this->assertCount( 1, $baseClassSource = $source[ BaseClass::class ] );
 
 		$positionInput = $parser->by( 'position', Positional::class );
 		$this->assertEqualsCanonicalizing(
@@ -211,7 +214,6 @@ class InputAttributeTest extends TestCase {
 		$this->assertNull( $positionInput->default, 'Sourced but normalized to "null" for required non-variadic' );
 
 		$switchInput = $parser->by( 'switch', Flag::class );
-
 		$this->assertEqualsCanonicalizing( array( 'desc', 'shortcut' ), $topClassSource[ Flag::class ]['switch'] );
 		$this->assertSame( 'final switch', $switchInput->desc );
 		$this->assertSame( 'f', $switchInput->shortcut );
@@ -221,20 +223,16 @@ class InputAttributeTest extends TestCase {
 
 		$this->assertArrayNotHasKey( Flag::class, $baseClassSource, 'Nothing left to source' );
 
-		$this->assertArrayNotHasKey( Associative::class, $topClassSource, 'Value passed without named arguments' );
-		$this->assertArrayNotHasKey(
-			'keyValue',
-			$middleClassSource[ Associative::class ],
-			'Attribute with "keyValue" name does not exists to parse'
-		);
-
 		$keyValueInput = $parser->by( 'keyValue', Associative::class );
+		$this->assertEqualsCanonicalizing(
+			array( 'desc', 'isVariadic', 'valueOptional', 'default' ),
+			$topClassSource[ Associative::class ]['keyValue']
+		);
+		$this->assertArrayNotHasKey( Associative::class, $baseClassSource );
 
-		$this->assertEqualsCanonicalizing( array( 'desc' ), $baseClassSource[ Associative::class ]['keyValue'] );
-
-		$this->assertFalse( $keyValueInput->isVariadic );
-		$this->assertFalse( $keyValueInput->valueOptional );
-		$this->assertSame( 'key value pair in base class', $keyValueInput->desc );
+		$this->assertTrue( $keyValueInput->isVariadic );
+		$this->assertTrue( $keyValueInput->valueOptional );
+		$this->assertSame( 'updated irrespective of no-named argument', $keyValueInput->desc );
 
 		return $parser;
 	}
@@ -334,7 +332,7 @@ class BaseClass extends Console {}
 )]
 class MiddleClass extends BaseClass {}
 
-#[Associative( 'keyValue', 'no update if not named argument', true, true )]
+#[Associative( 'keyValue', 'updated irrespective of no-named argument', true, true, default: InputVariant::class )]
 #[Flag( name: 'switch', desc: 'final switch', shortcut: 'f' )]
 #[Positional(
 	name: 'position',

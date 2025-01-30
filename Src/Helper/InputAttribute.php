@@ -80,7 +80,10 @@ class InputAttribute {
 		$this->currentTarget = $this->target;
 	}
 
-	/** @return array<class-string<Pos|Assoc|Flag>,array<string,Pos|Assoc|Flag>> */
+	/**
+	 * @param self::INFER_AND* $mode
+	 * @return array<class-string<Pos|Assoc|Flag>,array<string,Pos|Assoc|Flag>>
+	 */
 	public function __invoke( int $mode = self::INFER_AND_UPDATE, InputVariant ...$inputs ): array {
 		return $this->do( $mode, ...$inputs )->getCollection();
 	}
@@ -257,29 +260,15 @@ class InputAttribute {
 	}
 
 	private function pushCurrentInputToCollectionStack(): bool {
-		[$input] = $this->currentInput;
-		$args    = $this->shouldUpdate() ? $this->onlyNamedArguments() : $this->currentArguments;
+		[$input]    = $this->currentInput;
+		$properties = $this->withoutValueOf( key: 'name', haystack: $this->discoverUnnamedArgumentNames() );
 
 		if ( $this->shouldUpdate() ) {
-			$this->update[ $input::class ][ $input->name ] = $args;
+			$this->update[ $input::class ][ $input->name ] = $this->currentArguments;
 		}
 
-		[$shouldCollectCurrentInput, $propertyNames] = $this->getPropertyNamesFromCurrentArguments();
-
-		if ( ! $shouldCollectCurrentInput ) {
-			return false;
-		}
-
-		$this->collection[ $input::class ][ $input->name ] = $input;
-		$propertyNames                                   ??= array_keys( $args );
-
-		// Omit sourcing input's "name" property by determining it's position.
-		unset( $propertyNames[ $this->getPropertyPositionIn( $propertyNames, propertyName: 'name' ) ] );
-
-		// And source whatever properties left.
-		if ( ! empty( $propertyNames ) ) {
-			$this->source[ $this->currentTarget->name ][ $input::class ][ $input->name ] = $propertyNames;
-		}
+		$this->collection[ $input::class ][ $input->name ]                           = $input;
+		$this->source[ $this->currentTarget->name ][ $input::class ][ $input->name ] = $properties;
 
 		$this->toSuggestedValuesCollection( $input );
 
@@ -299,6 +288,7 @@ class InputAttribute {
 			return;
 		}
 
+		// @phpstan-ignore-next-line Properties are always valid as they come from attribute itself.
 		$this->collection[ $attrName ][ $name ] = $input->with( array( ...compact( 'name' ), ...$props ) );
 
 		$this->toSuggestedValuesCollection( $input );
@@ -353,24 +343,68 @@ class InputAttribute {
 		return $this->collection[ $attributeName ][ $inputName ] ?? null;
 	}
 
-	/** @return array<string,mixed> */
-	private function onlyNamedArguments(): array {
-		return array_filter( $this->currentArguments, $this->isCollectable( ... ), mode: ARRAY_FILTER_USE_KEY );
+	/**
+	 * @param array<int|string> $haystack
+	 * @return array<int|string>
+	 */
+	private function withoutValueOf( string|int $key, array $haystack ): array {
+		if ( is_string( $key ) ) {
+			unset( $haystack[ $this->getPropertyPositionIn( $haystack, propertyName: $key ) ] );
+
+			return $haystack;
+		}
+
+		unset( $haystack[ $key ] );
+
+		return $haystack;
 	}
 
-	/** @param string[] $names */
+	/** @param array<int|string> $names */
 	private function getPropertyPositionIn( array $names, string $propertyName ): string|int|null {
 		return false !== ( $index = array_search( $propertyName, $names, strict: true ) ) ? $index : null;
 	}
 
-	/** @return array{0:bool,1:?string[]} `0:` should collect current input, `1:` property names if indexed args. */
-	private function getPropertyNamesFromCurrentArguments(): array {
-		$unnamedArgs   = $this->hasNamelessArguments();
-		$collect       = ! ( $this->shouldUpdate() && $unnamedArgs ) || $this->isCurrentTargetLastParent();
-		$needsName     = ( ! $this->shouldUpdate() && $unnamedArgs ) || $unnamedArgs;
-		$propertyNames = $needsName && $collect ? $this->toPropertyNamesFromCurrentArgumentsPosition() : null;
+	/** @return string[] */
+	private function discoverUnnamedArgumentNames(): array {
+		$keys           = array_keys( $this->currentArguments );
+		$info           =
+		$info           = array_keys( (array) $this->currentInput[0]->__debugInfo() );
+		$namedArguments = array_filter( $keys, $this->isNamedArgument( ... ) );
 
-		return array( $collect, $propertyNames );
+		if ( empty( $namedArguments ) ) {
+			return array_map(
+				callback: static fn( int|string $index ): string => (string) $info[ $index ],
+				array: $this->withoutValueOf( key: 0 /* ignore: input's "name" */, haystack: $keys )
+			);
+		}
+
+		$nameAsUnnamedArgument = isset( $this->currentArguments[0] );
+		$givenArgumentsCount   = count( $keys ) + ( $nameAsUnnamedArgument ? -1 : 0 );
+
+		if ( count( $namedArguments ) === $givenArgumentsCount ) {
+			return $nameAsUnnamedArgument ? $this->withoutValueOf( key: 0, haystack: $keys ) : $keys;
+		}
+
+		$propertyNames      = array();
+		$position           = $namedArgumentStarted = 0;
+		$foundNamedArgument = null;
+
+		foreach ( $keys as $key ) {
+			if ( is_string( $key ) ) {
+				$foundNamedArgument   = $key;
+				$namedArgumentStarted = $position;
+
+				continue;
+			}
+
+			++$position;
+		}
+
+		for ( $i = 0; $i < $namedArgumentStarted; $i++ ) {
+			$propertyNames[] = (string) $info[ $i ];
+		}
+
+		return $foundNamedArgument ? array( ...$propertyNames, $foundNamedArgument ) : $propertyNames;
 	}
 
 	/**
@@ -422,27 +456,12 @@ class InputAttribute {
 		return 0 !== $propertyNameOrIndex /*ignore: "name" property*/ && ! is_int( $propertyNameOrIndex );
 	}
 
-	private function hasNamelessArguments(): bool {
-		return empty(
-			array_filter( $this->currentArguments, $this->isNamedArgument( ... ), ARRAY_FILTER_USE_KEY )
-		);
-	}
-
 	private function isCurrentTargetLastParent(): bool {
 		return ( $parent = $this->currentTarget->getParentClass() ) && $this->getBaseClass() === $parent->name;
 	}
 
-	/** @return string[] */
-	private function toPropertyNamesFromCurrentArgumentsPosition(): array {
-		$props = array();
-
-		foreach ( get_object_vars( $this->currentInput[0] ) as $prop => $value ) {
-			$this->isCollectable( $prop )
-				&& in_array( $value, $this->currentArguments, strict: true )
-				&& ( $props[] = $prop );
-		}
-
-		return $props;
+	private function suggestibleInput( Pos|Assoc|Flag|null $attribute = null ): Pos|Assoc|null {
+		return ( $input = ( $attribute ?? $this->currentInput[0] ) ) instanceof Flag ? null : $input;
 	}
 
 	/**
@@ -455,7 +474,7 @@ class InputAttribute {
 	}
 
 	private function toSuggestedValuesCollection( Pos|Assoc|Flag $input ): void {
-		if ( ! $input instanceof Flag && ( $value = $input->suggestedValues ) ) {
+		if ( $value = $this->suggestibleInput( $input )?->suggestedValues ) {
 			$this->suggestion[ $input->name ] = $value;
 		}
 	}
