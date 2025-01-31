@@ -13,17 +13,17 @@ use Symfony\Component\Console\Completion\Suggestion;
 use Symfony\Component\Console\Completion\CompletionInput;
 
 #[Attribute( Attribute::TARGET_CLASS | Attribute::IS_REPEATABLE )]
-readonly class Associative {
+class Associative {
 	use PureArg;
 
 	/** @var int-mask-of<InputOption::*> The input mode. */
-	public int $mode;
+	public readonly int $mode;
 
 	/** @var array<string|int>|(Closure(CompletionInput): list<string|Suggestion>) The option's suggested values. */
-	public array|Closure $suggestedValues;
+	public readonly array|Closure $suggestedValues;
 
 	/** @var null|string|bool|int|float|array{} */
-	public null|string|bool|int|float|array $default;
+	public readonly null|string|bool|int|float|array $default;
 
 	/** @var null|string|bool|int|float|array{}|class-string<BackedEnum>|(callable(): string|bool|int|float|array{}) */
 	private mixed $userDefault;
@@ -41,12 +41,12 @@ readonly class Associative {
 	 * @param class-string<BackedEnum>|array<string|int>|(callable(CompletionInput): list<string|Suggestion>)         $suggestedValues The option's suggested values.
 	 */
 	public function __construct(
-		public string $name,
-		public string $desc = '',
-		public bool $isVariadic = false,
-		public bool $valueOptional = false,
+		public readonly string $name,
+		public readonly string $desc = '',
+		public readonly bool $isVariadic = false,
+		public readonly bool $valueOptional = false,
 		null|string|bool|int|float|array|callable $default = null,
-		public null|string|array $shortcut = null,
+		public readonly null|string|array $shortcut = null,
 		string|array|callable $suggestedValues = array(),
 	) {
 		$this->mode            = $this->setPure( func_get_args() )->normalizeMode();
@@ -88,7 +88,6 @@ readonly class Associative {
 		);
 	}
 
-	// phpcs:disable Squiz.Commenting.FunctionComment.MissingParamName
 	/**
 	 * @param array{
 	 *  desc?:            string,
@@ -99,7 +98,6 @@ readonly class Associative {
 	 *  suggestedValues?: class-string<BackedEnum>|array<string|int,string|int>|callable(CompletionInput): list<string|Suggestion>
 	 * } $args
 	 */
-	// phpcs:enable
 	public function with( array $args ): self {
 		return new self(
 			name: $this->name,

@@ -3,20 +3,39 @@ declare( strict_types = 1 );
 
 namespace TheWebSolver\Codegarage\Cli;
 
-/** Intended to be used with classes that can also be used as an attribute. */
+/** Intended to be used by class that can also be used as an attribute. */
 trait PureArg {
 	/** @var mixed[] */
-	private readonly array $pureArgs;
+	private array $pureArgs;
 
-	/** @return mixed[] Only user provided arguments that mimics `$attribute->getArguments()` behavior. */
+	/**
+	 * Gets user provided arguments that mimics `$attribute->getArguments()` feature.
+	 *
+	 * @return mixed[] Empty array if already purged.
+	 */
 	public function getPure(): array {
-		return $this->pureArgs;
+		return $this->pureArgs ?? array();
 	}
 
-	/** @param mixed[] $args User provided args from `func_get_args()`. It must only be called once. */
+	/**
+	 * Sets user provided arguments: `func_get_args()`. It can only be used once.
+	 *
+	 * @param mixed[] $args
+	 */
 	private function setPure( array $args ): static {
-		$this->pureArgs = $args;
+		$this->pureArgs ??= $args;
 
 		return $this;
+	}
+
+	/** @return bool True if not purged before, false otherwise. */
+	public function purgePure(): bool {
+		if ( isset( $this->pureArgs ) ) {
+			unset( $this->pureArgs );
+
+			return true;
+		}
+
+		return false;
 	}
 }

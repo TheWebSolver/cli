@@ -8,11 +8,11 @@ use TheWebSolver\Codegarage\Cli\PureArg;
 use Symfony\Component\Console\Input\InputOption;
 
 #[Attribute( Attribute::TARGET_CLASS | Attribute::IS_REPEATABLE )]
-readonly class Flag {
+class Flag {
 	use PureArg;
 
 	/** @var int-mask-of<InputOption::*> The input mode. */
-	public int $mode;
+	public readonly int $mode;
 
 	/**
 	 * @param string               $name        The option name. Eg: "show".
@@ -22,10 +22,10 @@ readonly class Flag {
 	 * @param null|string|string[] $shortcut Shortcut. For eg: "-s" for "--show".
 	 */
 	public function __construct(
-		public string $name,
-		public string $desc = '',
-		public bool $isNegatable = false,
-		public null|string|array $shortcut = null
+		public readonly string $name,
+		public readonly string $desc = '',
+		public readonly bool $isNegatable = false,
+		public readonly null|string|array $shortcut = null
 	) {
 		$this->mode = $this->setPure( func_get_args() )->normalizeMode();
 	}

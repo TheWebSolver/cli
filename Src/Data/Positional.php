@@ -13,17 +13,17 @@ use Symfony\Component\Console\Completion\Suggestion;
 use Symfony\Component\Console\Completion\CompletionInput;
 
 #[Attribute( Attribute::TARGET_CLASS | Attribute::IS_REPEATABLE )]
-readonly class Positional {
+class Positional {
 	use PureArg;
 
 	/** @var int-mask-of<InputArgument::*> The input mode. */
-	public int $mode;
+	public readonly int $mode;
 
 	/** @var array<string|int>|Closure(CompletionInput): list<string|Suggestion> The argument's suggested values. */
-	public array|Closure $suggestedValues;
+	public readonly array|Closure $suggestedValues;
 
 	/** @var null|string|bool|int|float|array{} */
-	public null|string|bool|int|float|array $default;
+	public readonly null|string|bool|int|float|array $default;
 
 	/** @var null|string|class-string<BackedEnum>|bool|int|float|array{}|(callable(): string|bool|int|float|array{}) */
 	private mixed $userDefault;
@@ -38,10 +38,10 @@ readonly class Positional {
 	 * @param class-string<BackedEnum>|array<string|int>|callable(CompletionInput): list<string|Suggestion>           $suggestedValues The argument's suggested values.
 	 */
 	public function __construct(
-		public string $name,
-		public string $desc = '',
-		public bool $isVariadic = false,
-		public bool $isOptional = true,
+		public readonly string $name,
+		public readonly string $desc = '',
+		public readonly bool $isVariadic = false,
+		public readonly bool $isOptional = true,
 		null|string|bool|int|float|array|callable $default = null,
 		string|array|callable $suggestedValues = array(),
 	) {
