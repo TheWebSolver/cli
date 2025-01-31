@@ -27,6 +27,15 @@ readonly class Flag {
 		$this->normalizeMode();
 	}
 
+	public static function from( InputOption $input ): self {
+		return new self(
+			name: $input->getName(),
+			desc: $input->getDescription(),
+			isNegatable: $input->isNegatable(),
+			shortcut: $input->getShortcut(),
+		);
+	}
+
 	public function __toString() {
 		return $this->name;
 	}

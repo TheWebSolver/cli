@@ -7,6 +7,7 @@ use ReflectionClass;
 use PHPUnit\Framework\TestCase;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\Attributes\DataProvider;
+use TheWebSolver\Codegarage\Cli\Helper\Parser;
 use TheWebSolver\Codegarage\Cli\Data\Positional;
 use Symfony\Component\Console\Input\InputArgument;
 use TheWebSolver\Codegarage\Cli\Enums\InputVariant;
@@ -85,6 +86,26 @@ class PositionalTest extends TestCase {
 		$this->assertSame( 'test', $argument->name );
 		$this->assertSame( 'Using as attribute', $argument->desc );
 		$this->assertSame( array( 'argument', 'option', 'flag' ), $argument->suggestedValues );
+	}
+
+	#[Test]
+	public function itConvertsInputArgumentToPositional(): void {
+		$argument = new InputArgument(
+			name: 'arg',
+			mode: InputArgument::OPTIONAL | InputArgument::IS_ARRAY,
+			description: 'a short details',
+			default: array( 'argument', 'option', 'flag' ),
+			suggestedValues: fn() => Parser::parseBackedEnumValue( InputVariant::class )
+		);
+
+		$positional = Positional::from( $argument );
+
+		$this->assertSame( 'arg', $positional->name );
+		$this->assertSame( 'a short details', $positional->desc );
+		$this->assertTrue( $positional->isVariadic );
+		$this->assertTrue( $positional->isOptional );
+		$this->assertSame( $variants = array( 'argument', 'option', 'flag' ), $positional->default );
+		$this->assertSame( $variants, ( $positional->suggestedValues )() );
 	}
 }
 

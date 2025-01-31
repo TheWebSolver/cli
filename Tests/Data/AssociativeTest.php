@@ -7,6 +7,7 @@ use ReflectionClass;
 use PHPUnit\Framework\TestCase;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\Attributes\DataProvider;
+use TheWebSolver\Codegarage\Cli\Helper\Parser;
 use Symfony\Component\Console\Input\InputOption;
 use TheWebSolver\Codegarage\Cli\Data\Associative;
 use TheWebSolver\Codegarage\Cli\Enums\InputVariant;
@@ -91,6 +92,28 @@ class AssociativeTest extends TestCase {
 		$this->assertSame( 'as Desc', $option->desc );
 		$this->assertSame( array( 's' ), $option->shortcut );
 		$this->assertSame( array( 'argument', 'option', 'flag' ), $option->suggestedValues );
+	}
+
+	#[Test]
+	public function itConvertsInputOptionToAssociative(): void {
+		$option = new InputOption(
+			name: 'arg',
+			shortcut: 's',
+			mode: InputOption::VALUE_OPTIONAL | InputOption::VALUE_IS_ARRAY,
+			description: 'a short details',
+			default: array( 'argument', 'option', 'flag' ),
+			suggestedValues: fn() => Parser::parseBackedEnumValue( InputVariant::class )
+		);
+
+		$associative = Associative::from( $option );
+
+		$this->assertSame( 'arg', $associative->name );
+		$this->assertSame( 'a short details', $associative->desc );
+		$this->assertTrue( $associative->isVariadic );
+		$this->assertTrue( $associative->valueOptional );
+		$this->assertSame( $variants = array( 'argument', 'option', 'flag' ), $associative->default );
+		$this->assertSame( 's', $associative->shortcut );
+		$this->assertSame( $variants, ( $associative->suggestedValues )() );
 	}
 }
 

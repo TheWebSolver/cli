@@ -49,6 +49,17 @@ readonly class Positional {
 		$this->suggestedValues = Parser::parseInputSuggestion( $suggestedValues );
 	}
 
+	public static function from( InputArgument $input ): self {
+		return new self(
+			name: $input->getName(),
+			desc: $input->getDescription(),
+			isVariadic: $input->isArray(),
+			isOptional: ! $input->isRequired(),
+			default: $input->getDefault(),
+			suggestedValues: Parser::suggestedValuesFrom( $input ) ?? array()
+		);
+	}
+
 	/** @return null|string|class-string<BackedEnum>|bool|int|float|array{}|(callable(): string|bool|int|float|array{}) */
 	public function getUserDefault(): null|string|bool|int|float|array|callable {
 		return $this->userDefault;

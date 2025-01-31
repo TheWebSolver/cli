@@ -53,6 +53,18 @@ readonly class Associative {
 		$this->suggestedValues = Parser::parseInputSuggestion( $suggestedValues );
 	}
 
+	public static function from( InputOption $input ): self {
+		return new self(
+			name: $input->getName(),
+			desc: $input->getDescription(),
+			isVariadic: $input->isArray(),
+			valueOptional: ! $input->isValueRequired(),
+			default: $input->getDefault(),
+			shortcut: $input->getShortcut(),
+			suggestedValues: Parser::suggestedValuesFrom( $input ) ?? array()
+		);
+	}
+
 	/** @return null|string|bool|int|float|array{}|class-string<BackedEnum>|(callable(): string|bool|int|float|array{}) */
 	public function getUserDefault(): null|string|bool|int|float|array|callable {
 		return $this->userDefault;

@@ -7,6 +7,9 @@ use Closure;
 use BackedEnum;
 use ReflectionClass;
 use ReflectionAttribute;
+use ReflectionException;
+use Symfony\Component\Console\Input\InputOption;
+use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Completion\Suggestion;
 use Symfony\Component\Console\Completion\CompletionInput;
 
@@ -46,5 +49,14 @@ class Parser {
 		$reflection = $target instanceof ReflectionClass ? $target : new ReflectionClass( $target );
 
 		return empty( $attrs = $reflection->getAttributes( $attributeName ) ) ? null : $attrs;
+	}
+
+	/** @return null|array<string|int>|callable(CompletionInput): list<string|Suggestion> */
+	public static function suggestedValuesFrom( InputArgument|InputOption $input ): array|callable|null {
+		try {
+			return ( new ReflectionClass( $input ) )->getProperty( 'suggestedValues' )->getValue( $input );
+		} catch ( ReflectionException ) {
+			return null;
+		}
 	}
 }

@@ -42,6 +42,23 @@ class FlagTest extends TestCase {
 		$this->assertSame( 't', $flag->shortcut );
 		$this->assertSame( 'Using as attribute', $flag->desc );
 	}
+
+	#[Test]
+	public function itConvertsInputOptionToFlag(): void {
+		$option = new InputOption(
+			name: 'arg',
+			shortcut: 's',
+			mode: InputOption::VALUE_NONE | InputOption::VALUE_NEGATABLE,
+			description: 'a short details'
+		);
+
+		$flag = Flag::from( $option );
+
+		$this->assertSame( 'arg', $flag->name );
+		$this->assertSame( 'a short details', $flag->desc );
+		$this->assertTrue( $flag->isNegatable );
+		$this->assertSame( 's', $flag->shortcut );
+	}
 }
 
 #[Flag( 'test', 'Using as attribute', isNegatable: true, shortcut: 't' )]
