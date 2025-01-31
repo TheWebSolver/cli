@@ -8,11 +8,11 @@ use PHPUnit\Framework\Attributes\Test;
 use TheWebSolver\Codegarage\Cli\Console;
 use Symfony\Component\Console\Application;
 use Symfony\Component\Console\Input\InputOption;
-
 use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\EventDispatcher\EventDispatcher;
+use TheWebSolver\Codegarage\Cli\Helper\InputAttribute;
 use Symfony\Component\Console\Tester\ApplicationTester;
 use TheWebSolver\Codegarage\Cli\Event\CommandSubscriber;
 use TheWebSolver\Codegarage\Cli\Attribute\DoNotValidateSuggestedValues;
@@ -23,15 +23,19 @@ class CommandSubscriberTest extends TestCase {
 	 * @return array{0:ApplicationTester,1:Console:Application,2:TestCommand}
 	 */
 	// phpcs:ignore quiz.Commenting.FunctionComment.IncorrectTypeHint
-	private static function getApplicationTester( string $className = TestCommand::class ): array {
-		$tester = new ApplicationTester( $app = new Application() );
+	private function getApplicationTester( string $className = TestCommand::class ): array {
+		$tester  = new ApplicationTester( $app = new Application() );
+		$parser  = $this->createMock( InputAttribute::class );
+		$command = $className::start( infer: false )
+			->setInputAttribute( $parser )
+			->setName( 'test:command' );
 
 		$app->setDispatcher( $dispatcher = new EventDispatcher() );
 		$app->setAutoExit( false );
 		$app->setCatchExceptions( false );
 		$dispatcher->addSubscriber( new CommandSubscriber() );
 
-		$app->add( $command = $className::start( infer: false )->setName( 'test:command' ) );
+		$app->add( $command );
 
 		return array( $tester, $command, $app );
 	}

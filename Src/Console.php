@@ -43,24 +43,37 @@ class Console extends Command {
 		parent::__construct( $name );
 	}
 
-	final public function getInputAttribute(): ?InputAttribute {
-		return $this->inputAttribute ?? null;
+	final public function setInputAttribute( InputAttribute $instance ): static {
+		$this->inputAttribute = $instance;
+
+		return $this;
 	}
 
-	/** @param array<string,mixed> $dependencies passed by the container. */
+	final public function getInputAttribute(): InputAttribute {
+		return $this->inputAttribute;
+	}
+
+	/**
+	 * @param Container           $container    The DI container.
+	 * @param array<string,mixed> $dependencies Constructor's injected dependencies by the container.
+	 * @param bool                $infer        Whether to infer inputs from this class attributes.
+	 */
 	final public static function start(
 		Container $container = null,
 		array $dependencies = array(),
 		bool $infer = true
 	): static {
-		[ $command, $ref ] = static::getInstance( $container, $dependencies );
-		$command->io       = $container?->has( SymfonyStyle::class )
+		[$command, $reflection] = static::getInstance( $container, $dependencies );
+		$command->io            = $container?->has( SymfonyStyle::class )
 			? $container->get( SymfonyStyle::class )
 			: new SymfonyStyle( new ArgvInput(), new ConsoleOutput() );
 
-		$command->setApplication( $container?->get( Cli::class ) );
+		$command
+			// Do not override InputAttribute if already set via constructor.
+			->setInputAttribute( $command->inputAttribute ?? InputAttribute::from( $reflection )->register() )
+			->setApplication( $container?->get( Cli::class ) );
 
-		return $command->isDefined() || ! $infer ? $command : $command->withDefinitionsFromAttribute( $ref );
+		return $command->isDefined() || ! $infer ? $command : $command->withDefinitionsFrom( $reflection );
 	}
 
 	/**
@@ -83,14 +96,15 @@ class Console extends Command {
 	}
 
 	/**
-	 * @param InputAttribute::INFER_AND* $mode One of the input attribute infer modes.
+	 * @param InputAttribute::INFER_AND* $mode         One of the input attribute infer modes.
+	 * @param bool                       $asDefinition Whether to get Symfony input definitions or not.
 	 * @return (
 	 *    $asDefinition is true
 	 *      ? array<class-string<Pos|Assoc|Flag>,array<string,InputArgument|InputOption>>
 	 *      : array<class-string<Pos|Assoc|Flag>,array<string,Pos|Assoc|Flag>>
 	 * )
 	 */
-	final public static function getInputs(
+	final public static function inputFromAttribute(
 		int $mode = InputAttribute::INFER_AND_UPDATE,
 		bool $asDefinition = false,
 		InputVariant ...$variant
@@ -140,20 +154,20 @@ class Console extends Command {
 	 *  @return array{0:static,1:ReflectionClass<static>}
 	 */
 	protected static function getInstance( ?Container $container, array $dependencies ): array {
-		$ref = new ReflectionClass( static::class );
+		$reflection = new ReflectionClass( static::class );
 
 		// If container provides a shared instance, use that (if not it will be converted).
 		if ( $container?->isInstance( static::class ) ) {
-			return array( $container->get( static::class ), $ref );
+			return array( $container->get( static::class ), $reflection );
 		}
 
-		// Clear container binding. (Hint: in CommandLoader [static::class => static::start()]).
+		// Clear container binding. (Hint: in CommandLoader [static::class,'start']).
 		$container?->offsetUnset( static::class );
 		// Only then use Container for DI. This is to prevent infinite loop.
-		$command = $container?->resolve( static::class, $dependencies, true, $ref ) ?? new static();
+		$command = $container?->resolve( static::class, $dependencies, true, $reflection ) ?? new static();
 
-		if ( ! $attributes = Parser::parseClassAttribute( CommandAttribute::class, $ref ) ) {
-			$args = array( $command->setName( static::asCommandName( $ref ) ), $ref );
+		if ( ! $attributes = Parser::parseClassAttribute( CommandAttribute::class, $reflection ) ) {
+			$args = array( $command->setName( static::asCommandName( $reflection ) ), $reflection );
 		} else {
 			$attribute = $attributes[0]->newInstance();
 
@@ -162,7 +176,7 @@ class Console extends Command {
 				->setAliases( $attribute->altNames )
 				->setHidden( $attribute->isInternal );
 
-			$args = array( $command, $ref );
+			$args = array( $command, $reflection );
 		}
 
 		// Convert as singleton next time same command is requested to prevent recomputation.
@@ -175,25 +189,21 @@ class Console extends Command {
 	 * Sets input definitions using Positional|Associative|Flag attributes.
 	 *
 	 * This method may be overridden to handle attribute extraction. Make sure
-	 * to update `InputAttribute` property by using respective setter method:
+	 * to update `InputAttribute` property using `$this->setInputAttribute()`
+	 * if a new instance is used to handle attribute extraction & parsing.
 	 * ```php
-	 * $inputAttribute = InputAttribute::from(static::class)->do(InputAttribute::INFER_AND_UPDATE);
 	 * $this->setInputAttribute($inputAttribute);
 	 * ```
 	 *
 	 * @param ReflectionClass<static> $reflection
 	 */
-	protected function withDefinitionsFromAttribute( ?ReflectionClass $reflection = null ): static {
-		$inputAttribute = InputAttribute::from( $reflection ?? static::class )->register()->parse();
+	protected function withDefinitionsFrom( ReflectionClass $reflection ): static {
+		if ( ! ( $this->inputAttribute ?? false ) ) {
+			return $this;
+		}
 
-		$inputAttribute->toInput( $this->getDefinition() );
+		$this->inputAttribute->parse()->toInput( $this->getDefinition() );
 
-		return $this->setInputAttribute( $inputAttribute )->setDefined();
-	}
-
-	final protected function setInputAttribute( InputAttribute $instance ): static {
-		$this->inputAttribute = $instance;
-
-		return $this;
+		return $this->setDefined();
 	}
 }
