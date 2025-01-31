@@ -23,12 +23,12 @@ class CommandLoader implements Countable {
 
 	/**
 	 * @param Container                           $container
-	 * @param array<array{0:string,1:string}>     $directoryPathAndNamespace
+	 * @param array<int,array<string,string>>     $namespacedDirectory
 	 * @param array<string,class-string<Console>> $commands
 	 */
 	final private function __construct(
 		private Container $container,
-		private array $directoryPathAndNamespace,
+		private array $namespacedDirectory = array(),
 		private array $commands = array(),
 		private ?EventDispatcher $dispatcher = null
 	) {
@@ -39,9 +39,9 @@ class CommandLoader implements Countable {
 		return $this->container;
 	}
 
-	/** @return array<array{0:string,1:string}> List of directory name and its command namespace. */
-	public function getDirectoryNamespaceMap(): array {
-		return $this->directoryPathAndNamespace;
+	/** @return array<int,array<string,string>> List of directory name indexed by its namespace. */
+	public function getNamespacedDirectories(): array {
+		return $this->namespacedDirectory;
 	}
 
 	/** @return array<string,class-string<Console>> */
@@ -66,19 +66,14 @@ class CommandLoader implements Countable {
 		return self::getInstance( $container, event: true )->withListener( $listener );
 	}
 
-	/** @param array{0:string,1:string}[] $pathsAndNamespaces */
-	public static function loadCommands( array $pathsAndNamespaces, ?Container $container = null ): static {
-		return self::getInstance( $container, $pathsAndNamespaces, event: false )->load();
+	/** @param array<int,array<string,string>> $namespacedDirectories */
+	public static function loadCommands( array $namespacedDirectories, ?Container $container = null ): static {
+		return self::getInstance( $container, event: false )->inDirectory( $namespacedDirectories )->load();
 	}
 
-	/**
-	 * @param array{0:string,1:string} $pathAndNamespace     The directory path and namespace map.
-	 * @param array{0:string,1:string} ...$pathAndNamespaces Additional directory path and namespace map.
-	 */
-	public function inDirectory( array $pathAndNamespace, array ...$pathAndNamespaces ): static {
-		$this->register( $pathAndNamespace );
-
-		array_walk( $pathAndNamespaces, $this->register( ... ) );
+	/** @param array<int,array<string,string>> $namespacedDirectories The directory path and namespace map. */
+	public function inDirectory( array $namespacedDirectories ): static {
+		array_walk( $namespacedDirectories, $this->register( ... ) );
 
 		return $this;
 	}
@@ -110,14 +105,14 @@ class CommandLoader implements Countable {
 
 		$this->handleResolved( $commandClass, $lazyload, $commandName );
 
-		// Allow third-party to listen for resolved command by Command Loader with the "EventTask".
+		// Allow developers to listen for resolved command by Command Loader with the "EventTask".
 		if ( $commandRunner = $this->getCommandRunnerFromEvent() ) {
 			$commandRunner( new EventTask( $lazyload( ... ), $commandClass, $commandName, $this->container ) );
 		}
 	}
 
 	/**
-	 * Allows developers to handle the resolved commands.
+	 * Allows developers to handle the resolved command.
 	 *
 	 * By default, it defers command instantiation until current command is ran.
 	 *
@@ -129,11 +124,10 @@ class CommandLoader implements Countable {
 		$this->container->set( $classname, $command );
 	}
 
-	/** @param array{0:string,1:string}[] $map */
-	private static function getInstance( ?Container $c, array $map = array(), bool $event = false ): static {
-		$c ??= Container::boot();
+	private static function getInstance( ?Container $container, bool $event = false ): static {
+		$container ??= Container::boot();
 
-		return new static( $c, $map, dispatcher: $event ? new EventDispatcher() : null );
+		return new static( $container, dispatcher: $event ? new EventDispatcher() : null );
 	}
 
 	private function fromFilePathToPsr4SpecificationFullyQualifiedClassName(): ?string {
@@ -152,9 +146,9 @@ class CommandLoader implements Countable {
 		return $this;
 	}
 
-	/** @param array{0:string,1:string} $directoryAndNamespace */
-	private function register( array $directoryAndNamespace ): void {
-		$this->directoryPathAndNamespace[] = $directoryAndNamespace;
+	/** @param array<string,string> $namespacedDirectory */
+	private function register( array $namespacedDirectory ): void {
+		$this->namespacedDirectory[] = $namespacedDirectory;
 	}
 
 	private function startScan(): static {
@@ -164,14 +158,15 @@ class CommandLoader implements Countable {
 
 		$this->scanStarted = true;
 
-		foreach ( $this->directoryPathAndNamespace as [$dirpath, $namespace] ) {
+		foreach ( $this->namespacedDirectory as $base ) {
+			$dirpath    = $base[ $namespace = (string) array_key_first( $base ) ];
 			$this->base = compact( 'dirpath', 'namespace' );
 
 			$this->scan( $this->realDirectoryPath( $dirpath ) );
 		}
 
 		// By default, all lazy-loaded commands extending Console will use default "Cli".
-		// Different application maybe used with setter "Console::setApplication()".
+		// Different application may be used with setter "Console::setApplication()".
 		$this->container
 			->get( Cli::class )
 			->setCommandLoader( new ContainerCommandLoader( $this->container, $this->commands ) );

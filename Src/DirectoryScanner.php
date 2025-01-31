@@ -109,11 +109,9 @@ trait DirectoryScanner {
 			return false;
 		}
 
-		if ( ! $this->inCurrentDepth()->directoryExists() ) {
-			return false;
+		if ( $this->inCurrentDepth()->subDirectoryExists() ) {
+			$this->registerScannedPath()->forCurrentSubDirectory();
 		}
-
-		$this->registerScannedPath()->forCurrentSubDirectory();
 
 		return false;
 	}
@@ -142,9 +140,7 @@ trait DirectoryScanner {
 		while ( $scanner->valid() ) {
 			$this->currentScannedItem = $scanner->current();
 
-			if ( $this->shouldRegisterCurrentItem() ) {
-				$this->registerScannedPath()->forCurrentFile();
-			}
+			$this->shouldRegisterCurrentItem() && $this->registerScannedPath()->forCurrentFile();
 
 			$scanner->next();
 		}
@@ -173,7 +169,7 @@ trait DirectoryScanner {
 		return $this;
 	}
 
-	private function directoryExists(): bool {
+	private function subDirectoryExists(): bool {
 		if ( ! ( $this->currentDepth ?? false ) ) {
 			return false;
 		}

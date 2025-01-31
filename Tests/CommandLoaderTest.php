@@ -15,7 +15,7 @@ use TheWebSolver\Codegarage\Test\Stub\AnotherScannedCommand;
 use TheWebSolver\Codegarage\Test\Stub\SubStub\FirstDepthCommand;
 
 class CommandLoaderTest extends TestCase {
-	private const LOCATION = array( DirectoryScannerTest::STUB_PATH, __NAMESPACE__ . '\\Stub' );
+	private const LOCATION = array( __NAMESPACE__ . '\\Stub' => DirectoryScannerTest::STUB_PATH );
 
 	protected function setUp(): void {
 		require_once Cli::ROOT . 'bootstrap.php';
@@ -38,7 +38,7 @@ class CommandLoaderTest extends TestCase {
 	#[Test]
 	public function itListensForEventsForEachResolvedCommandFile(): void {
 		$loader = CommandLoader::withEvent( $this->assertLoadedCommandIsListened( ... ) )
-			->inDirectory( self::LOCATION )
+			->inDirectory( array( self::LOCATION ) )
 			->load();
 
 		$this->assertCount( 2, $fileNames = $loader->getScannedItems() );
@@ -90,7 +90,7 @@ class CommandLoaderTest extends TestCase {
 	#[Test]
 	public function itRegistersCommandsFromSubDirectories(): void {
 		$loader = CommandLoader::withSubDirectories( array( 'SubStub' => 1 ) )
-			->inDirectory( self::LOCATION )
+			->inDirectory( array( self::LOCATION ) )
 			->load();
 
 		$this->assertCount( 2, $loader );
@@ -98,7 +98,7 @@ class CommandLoaderTest extends TestCase {
 		$this->assertContains( FirstDepthCommand::class, $loader->getCommands() );
 
 		$loader = CommandLoader::withSubDirectories( array( 'SubStub' => array( 1, 2 ) ) )
-			->inDirectory( self::LOCATION )
+			->inDirectory( array( self::LOCATION ) )
 			->load();
 
 		$this->assertCount( 2, $loader );
@@ -115,7 +115,7 @@ class CommandLoaderTest extends TestCase {
 		);
 
 		$loader = CommandLoader::withSubdirectories( $depths )
-			->inDirectory( self::LOCATION, $scandir = array( $scanPath, Valid::NAMESPACE ) )
+			->inDirectory( array( self::LOCATION, $scandir = array( Valid::NAMESPACE => $scanPath ) ) )
 			->load();
 
 		$scannedSubDirectories = array(
@@ -141,10 +141,10 @@ class CommandLoaderTest extends TestCase {
 		$this->assertCount( 5, $loader );
 		$this->assertEmpty( array_diff( $expectedScanSubDirectories, $loader->getScannedDirectories() ) );
 
-		$this->assertCount( 2, $loader->getDirectoryNamespaceMap() );
+		$this->assertCount( 2, $loader->getNamespacedDirectories() );
 
 		foreach ( array( self::LOCATION, $scandir ) as $expectedRootPathAndItsNamespace ) {
-			$this->assertContains( $expectedRootPathAndItsNamespace, $loader->getDirectoryNamespaceMap() );
+			$this->assertContains( $expectedRootPathAndItsNamespace, $loader->getNamespacedDirectories() );
 		}
 
 		$this->assertCount( 8, $loader->getScannedItems() );
