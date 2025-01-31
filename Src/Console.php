@@ -192,7 +192,25 @@ class Console extends Command {
 	 * to update `InputAttribute` property using `$this->setInputAttribute()`
 	 * if a new instance is used to handle attribute extraction & parsing.
 	 * ```php
-	 * $this->setInputAttribute($inputAttribute);
+	 * use ReflectionClass;
+	 * use TheWebSolver\Codegarage\Cli\Data\Flag;
+	 * use heWebSolver\Codegarage\Cli\Enums\InputVariant;
+	 * use TheWebSolver\Codegarage\Cli\Helper\InputAttribute;
+	 *
+	 * function withDefinitionsFrom(ReflectionClass $reflection): static {
+	 *
+	 *  // Updates instead of replacing whole parent attribute. Eg: for prop: "default" or "suggestedValues".
+	 *  $mode = InputAttribute::INFER_AND_UPDATE;
+	 *  // Optional but if only some variants needs to be parsed, provide like so:
+	 *  $variants = [InputVariant::Positional, InputVariant::Associative];
+	 *  $inputAttribute = InputAttribute::from($reflection)->register($mode, ...$variants)->parse();
+	 *  // Other inputs before converting to input definition (in addition to class attribute).
+	 *  $inputAttribute->add(new Flag('cheer', desc: 'celebrate victory!'));
+	 * // Convert to symfony inputs.
+	 *  $inputAttribute->toSymfonyInput($this->getDefinition());
+	 *  // Ensure definitions are registered.
+	 *  return $this->setInputAttribute($inputAttribute)->setDefined();
+	 * }
 	 * ```
 	 *
 	 * @param ReflectionClass<static> $reflection
