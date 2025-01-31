@@ -39,7 +39,7 @@ class CommandLoader implements Countable {
 		return $this->container;
 	}
 
-	/** @return array<int,array<string,string>> List of directory name indexed by its namespace. */
+	/** @return array<int,array<string,string>> List of directory path indexed by its namespace. */
 	public function getNamespacedDirectories(): array {
 		return $this->namespacedDirectory;
 	}
@@ -50,7 +50,7 @@ class CommandLoader implements Countable {
 	}
 
 	/**
-	 * Registers sub-directories to be scanned when scanning the given directory and namespace map.
+	 * Registers sub-directories to be scanned when scanning the given directory.
 	 *
 	 * Namespaces will be auto-generated appending those sub-directories for making them PSR-4 compliant.
 	 *
@@ -68,12 +68,12 @@ class CommandLoader implements Countable {
 
 	/** @param array<int,array<string,string>> $namespacedDirectories */
 	public static function loadCommands( array $namespacedDirectories, ?Container $container = null ): static {
-		return self::getInstance( $container, event: false )->inDirectory( $namespacedDirectories )->load();
+		return self::getInstance( $container )->inDirectory( $namespacedDirectories )->load();
 	}
 
-	/** @param array<int,array<string,string>> $namespacedDirectories The directory path and namespace map. */
+	/** @param array<int,array<string,string>> $namespacedDirectories Directory paths indexed by namespace. */
 	public function inDirectory( array $namespacedDirectories ): static {
-		array_walk( $namespacedDirectories, $this->register( ... ) );
+		$this->namespacedDirectory = $namespacedDirectories;
 
 		return $this;
 	}
@@ -144,11 +144,6 @@ class CommandLoader implements Countable {
 		);
 
 		return $this;
-	}
-
-	/** @param array<string,string> $namespacedDirectory */
-	private function register( array $namespacedDirectory ): void {
-		$this->namespacedDirectory[] = $namespacedDirectory;
 	}
 
 	private function startScan(): static {
