@@ -316,6 +316,12 @@ class InputAttributeTest extends TestCase {
 		$this->assertTrue( $positional->isVariadic );
 		$this->assertFalse( $positional->isOptional );
 		$this->assertSame( 'target desc', $positional->desc );
+
+		$parser->addInput( new Positional( 'unnamed', 'later added' ) );
+
+		$unnamed = $parser->getInputBy( 'unnamed', Positional::class );
+
+		$this->assertSame( 'later added', $unnamed->desc );
 	}
 }
 

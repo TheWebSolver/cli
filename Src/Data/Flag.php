@@ -4,11 +4,14 @@ declare( strict_types = 1 );
 namespace TheWebSolver\Codegarage\Cli\Data;
 
 use Attribute;
+use TheWebSolver\Codegarage\Cli\PureArg;
 use Symfony\Component\Console\Input\InputOption;
 
 #[Attribute( Attribute::TARGET_CLASS | Attribute::IS_REPEATABLE )]
 readonly class Flag {
-	/** @var int-mask-of<InputOption::*> */
+	use PureArg;
+
+	/** @var int-mask-of<InputOption::*> The input mode. */
 	public int $mode;
 
 	/**
@@ -24,7 +27,7 @@ readonly class Flag {
 		public bool $isNegatable = false,
 		public null|string|array $shortcut = null
 	) {
-		$this->normalizeMode();
+		$this->mode = $this->setPure( func_get_args() )->normalizeMode();
 	}
 
 	public static function from( InputOption $input ): self {
@@ -70,13 +73,12 @@ readonly class Flag {
 		);
 	}
 
-	private function normalizeMode(): void {
+	/** @return int-mask-of<InputOption::*> */
+	private function normalizeMode(): int {
 		$mode = InputOption::VALUE_NONE;
 
-		if ( $this->isNegatable ) {
-			$mode |= InputOption::VALUE_NEGATABLE;
-		}
+		$this->isNegatable && ( $mode |= InputOption::VALUE_NEGATABLE );
 
-		$this->mode = $mode;
+		return $mode;
 	}
 }

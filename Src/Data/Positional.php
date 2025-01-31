@@ -6,6 +6,7 @@ namespace TheWebSolver\Codegarage\Cli\Data;
 use Closure;
 use Attribute;
 use BackedEnum;
+use TheWebSolver\Codegarage\Cli\PureArg;
 use TheWebSolver\Codegarage\Cli\Helper\Parser;
 use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Completion\Suggestion;
@@ -13,6 +14,8 @@ use Symfony\Component\Console\Completion\CompletionInput;
 
 #[Attribute( Attribute::TARGET_CLASS | Attribute::IS_REPEATABLE )]
 readonly class Positional {
+	use PureArg;
+
 	/** @var int-mask-of<InputArgument::*> The input mode. */
 	public int $mode;
 
@@ -42,8 +45,7 @@ readonly class Positional {
 		null|string|bool|int|float|array|callable $default = null,
 		string|array|callable $suggestedValues = array(),
 	) {
-		$this->resolveMode();
-
+		$this->mode            = $this->setPure( func_get_args() )->normalizeMode();
 		$this->default         = $this->normalizeDefault( $default );
 		$this->userDefault     = $default;
 		$this->suggestedValues = Parser::parseInputSuggestion( $suggestedValues );
@@ -110,14 +112,13 @@ readonly class Positional {
 		);
 	}
 
-	private function resolveMode(): void {
+	/** @return int-mask-of<InputArgument::*>  */
+	private function normalizeMode(): int {
 		$mode = $this->isOptional ? InputArgument::OPTIONAL : InputArgument::REQUIRED;
 
-		if ( $this->isVariadic ) {
-			$mode |= InputArgument::IS_ARRAY;
-		}
+		$this->isVariadic && ( $mode |= InputArgument::IS_ARRAY );
 
-		$this->mode = $mode;
+		return $mode;
 	}
 
 	/**

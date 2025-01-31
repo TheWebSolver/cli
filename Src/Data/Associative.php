@@ -6,6 +6,7 @@ namespace TheWebSolver\Codegarage\Cli\Data;
 use Closure;
 use Attribute;
 use BackedEnum;
+use TheWebSolver\Codegarage\Cli\PureArg;
 use TheWebSolver\Codegarage\Cli\Helper\Parser;
 use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Completion\Suggestion;
@@ -13,7 +14,9 @@ use Symfony\Component\Console\Completion\CompletionInput;
 
 #[Attribute( Attribute::TARGET_CLASS | Attribute::IS_REPEATABLE )]
 readonly class Associative {
-	/** @var int-mask-of<InputOption::*> */
+	use PureArg;
+
+	/** @var int-mask-of<InputOption::*> The input mode. */
 	public int $mode;
 
 	/** @var array<string|int>|(Closure(CompletionInput): list<string|Suggestion>) The option's suggested values. */
@@ -46,8 +49,7 @@ readonly class Associative {
 		public null|string|array $shortcut = null,
 		string|array|callable $suggestedValues = array(),
 	) {
-		$this->normalizeMode();
-
+		$this->mode            = $this->setPure( func_get_args() )->normalizeMode();
 		$this->default         = $this->normalizeDefault( $default );
 		$this->userDefault     = $default;
 		$this->suggestedValues = Parser::parseInputSuggestion( $suggestedValues );
@@ -121,14 +123,13 @@ readonly class Associative {
 		);
 	}
 
-	private function normalizeMode(): void {
+	/** @return int-mask-of<InputOption::*> */
+	private function normalizeMode(): int {
 		$mode = $this->valueOptional ? InputOption::VALUE_OPTIONAL : InputOption::VALUE_REQUIRED;
 
-		if ( $this->isVariadic ) {
-			$mode |= InputOption::VALUE_IS_ARRAY;
-		}
+		$this->isVariadic && ( $mode |= InputOption::VALUE_IS_ARRAY );
 
-		$this->mode = $mode;
+		return $mode;
 	}
 
 	/**

@@ -68,7 +68,8 @@ class InputAttribute {
 	 *   ref:   ReflectionClass<Console>,
 	 *   input: Pos|Assoc|Flag,
 	 *   prop:  int|string,args:mixed[],
-	 *   names: string[]
+	 *   names: string[],
+	 *   args:  mixed[]
 	 * }
 	 */
 	private array $current;
@@ -192,6 +193,18 @@ class InputAttribute {
 
 	public function parse(): self {
 		return $this->isValid() ? $this->infer()->flush() : $this;
+	}
+
+	/** @param ?self::INFER_AND* $mode Defaults to whatever mode was registered with: `$this->register()`. */
+	public function addInput( Pos|Assoc|Flag $input, ?int $mode = null ): void {
+		$this->mode = $mode ?? $this->mode;
+		$previous   = $this->registerCurrent( $input, args: $input->getPure() );
+
+		$this->toCollectionStack() || $this->toUpdateStack();
+
+		$this->inUpdateMode() && $this->walkCollectionWithUpdatedInputProperties();
+
+		$previous && ( $this->current = $previous );
 	}
 
 	/** @return array<class-string<Pos|Assoc|Flag>,array<string,InputArgument|InputOption>> */
@@ -366,17 +379,33 @@ class InputAttribute {
 		return in_array( $reflection->getName(), $this->inputClassNames, true );
 	}
 
+	/**
+	 * @param mixed[] $args
+	 * @return ?array{
+	 *   ref:   ReflectionClass<Console>,
+	 *   input: Pos|Assoc|Flag,
+	 *   prop:  int|string,args:mixed[],
+	 *   names: string[],
+	 *   args:  mixed[]
+	 * }
+	 */
+	private function registerCurrent( Pos|Assoc|Flag $input, array $args ): ?array {
+		$previous      = $this->current ?? null;
+		$names         = array_keys( (array) $input->__debugInfo() );
+		$prop          = '';
+		$ref           = $previous['ref'] ?? $this->target;
+		$this->current = compact( 'input', 'prop', 'args', 'names', 'ref' );
+
+		return $previous;
+	}
+
 	/** @param ReflectionAttribute<object> $attribute */
 	private function ensureInput( ReflectionAttribute $attribute ): bool {
 		if ( ! $this->isInputVariant( $attribute ) ) {
 			return false;
 		}
 
-		$input                  = $attribute->newInstance();
-		$this->current['input'] = $input;
-		$this->current['prop']  = '';
-		$this->current['args']  = $attribute->getArguments();
-		$this->current['names'] = array_keys( (array) $input->__debugInfo() );
+		$this->registerCurrent( input: $attribute->newInstance(), args: $attribute->getArguments() );
 
 		return true;
 	}
@@ -427,9 +456,7 @@ class InputAttribute {
 			$parent = $parent->getParentClass();
 		}
 
-		if ( $this->inUpdateMode() ) {
-			$this->walkCollectionWithUpdatedInputProperties();
-		}
+		$this->inUpdateMode() && $this->walkCollectionWithUpdatedInputProperties();
 
 		return $this;
 	}
