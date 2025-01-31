@@ -401,7 +401,7 @@ class InputAttribute {
 		}
 
 		// @phpstan-ignore-next-line Properties are always valid as they come from attribute itself.
-		$this->collection[ $attrName ][ $name ] = $input->with( array( ...compact( 'name' ), ...$props ) );
+		$this->collection[ $attrName ][ $name ] = $input->with( $props );
 
 		$this->toSuggestionStack( $input );
 	}

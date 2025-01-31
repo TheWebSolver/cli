@@ -77,19 +77,18 @@ readonly class Associative {
 	// phpcs:disable Squiz.Commenting.FunctionComment.MissingParamName
 	/**
 	 * @param array{
-	 *  name:string,
-	 *  desc?:string,
-	 *  isVariadic?:bool,
-	 *  valueOptional?:bool,
-	 *  default?:string,
-	 *  shortcut?:string|string[],
+	 *  desc?:            string,
+	 *  isVariadic?:      bool,
+	 *  valueOptional?:   bool,
+	 *  default?:         string,
+	 *  shortcut?:        string|string[],
 	 *  suggestedValues?: class-string<BackedEnum>|array<string|int,string|int>|callable(CompletionInput): list<string|Suggestion>
 	 * } $args
 	 */
 	// phpcs:enable
 	public function with( array $args ): self {
 		return new self(
-			name: $args['name'],
+			name: $this->name,
 			desc: $args['desc'] ?? $this->desc,
 			isVariadic: $args['isVariadic'] ?? $this->isVariadic,
 			valueOptional: $args['valueOptional'] ?? $this->valueOptional,

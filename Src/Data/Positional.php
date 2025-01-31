@@ -71,17 +71,16 @@ readonly class Positional {
 
 	/**
 	 * @param array{
-	 *  name:string,
-	 *  desc?:string,
-	 *  isVariadic?:bool,
-	 *  isOptional?:bool,
-	 *  default?:string,
+	 *  desc?:            string,
+	 *  isVariadic?:      bool,
+	 *  isOptional?:      bool,
+	 *  default?:         string,
 	 *  suggestedValues?: class-string<BackedEnum>|array<string|int,string|int>|callable(CompletionInput): list<string|Suggestion>
 	 * } $args
 	 */
 	public function with( array $args ): self {
 		return new self(
-			name: $args['name'],
+			name: $this->name,
 			desc: $args['desc'] ?? $this->desc,
 			isVariadic: $args['isVariadic'] ?? $this->isVariadic,
 			isOptional: $args['isOptional'] ?? $this->isOptional,

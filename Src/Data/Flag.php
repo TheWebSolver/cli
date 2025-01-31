@@ -40,10 +40,10 @@ readonly class Flag {
 		);
 	}
 
-	/** @param array{name:string,desc?:string,isNegatable?:bool,shortcut?:null|string|array{}} $args */
+	/** @param array{desc?:string,isNegatable?:bool,shortcut?:null|string|array{}} $args */
 	public function with( array $args ): self {
 		return new self(
-			name: $args['name'],
+			name: $this->name,
 			desc: $args['desc'] ?? $this->desc,
 			isNegatable: $args['isNegatable'] ?? $this->isNegatable,
 			shortcut: $args['shortcut'] ?? $this->shortcut
