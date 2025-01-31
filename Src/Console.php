@@ -95,7 +95,7 @@ class Console extends Command {
 		bool $asDefinition = false,
 		InputVariant ...$variant
 	): array {
-		$attributes = InputAttribute::from( static::class )->do( $mode, ...$variant );
+		$attributes = InputAttribute::from( static::class )->register( $mode, ...$variant )->parse();
 
 		return $asDefinition ? $attributes->toInput() : $attributes->getCollection();
 	}
@@ -184,8 +184,7 @@ class Console extends Command {
 	 * @param ReflectionClass<static> $reflection
 	 */
 	protected function withDefinitionsFromAttribute( ?ReflectionClass $reflection = null ): static {
-		$inputAttribute = InputAttribute::from( $reflection ?? static::class )
-			->do( InputAttribute::INFER_AND_UPDATE );
+		$inputAttribute = InputAttribute::from( $reflection ?? static::class )->register()->parse();
 
 		$inputAttribute->toInput( $this->getDefinition() );
 

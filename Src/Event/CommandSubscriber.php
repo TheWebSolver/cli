@@ -40,7 +40,6 @@ class CommandSubscriber implements EventSubscriberInterface {
 	 * @param ?list<string>                                                                                $argv
 	 * @return array<string|int>
 	 */
-	// phpcs:ignore Squiz.Commenting.FunctionComment.IncorrectTypeHint
 	public static function inputSuggestedValues( Closure|array $given, ?array $argv ): array {
 		$suggestedValue = $given instanceof Closure ? $given( new CompletionInput( $argv ) ) : $given;
 
@@ -71,7 +70,7 @@ class CommandSubscriber implements EventSubscriberInterface {
 		}
 
 		return ! $parser->getTargetReflection()->getAttributes( DoNotValidateSuggestedValues::class )
-			? $parser->getSuggestions()
+			? $parser->getSuggestion()
 			: null;
 	}
 
@@ -99,7 +98,7 @@ class CommandSubscriber implements EventSubscriberInterface {
 		// And, prevent any other event listeners to be able to execute the command.
 		$event->stopPropagation();
 
-		$attribute = self::getCommandFrom( $event )?->getInputAttribute()?->by( $inputName );
+		$attribute = self::getCommandFrom( $event )?->getInputAttribute()?->getInputBy( $inputName );
 		$variant   = $attribute ? InputVariant::fromAttribute( $attribute::class )?->value : null;
 		$input     = 'input' . ( $variant ? " {$variant}" : '' );
 		$msg       = array(
