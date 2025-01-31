@@ -53,13 +53,13 @@ class InputAttribute {
 	| Flushable properties.
 	| ----------------------------------------------------------------------------------
 	|
-	| These properties only exist within infer lifecycle. They are immediately flushed
+	| These properties only exist within infer lifecycle. They are immediately purged
 	| and cleared from the memory to make object less heavy when its reference still
 	| exist on some another dependant class (eg: by default, on command classes).
 	|
 	| ----------------------------------------------------------------------------------
 	| @see self::do()
-	| @see self::flush()
+	| @see self::purge()
 	| ----------------------------------------------------------------------------------
 	*/
 
@@ -192,19 +192,23 @@ class InputAttribute {
 	}
 
 	public function parse(): self {
-		return $this->isValid() ? $this->infer()->flush() : $this;
+		return $this->isValid() ? $this->infer()->purge() : $this;
 	}
 
-	/** @param ?self::INFER_AND* $mode Defaults to whatever mode was registered with: `$this->register()`. */
-	public function addInput( Pos|Assoc|Flag $input, ?int $mode = null ): void {
-		$this->mode = $mode ?? $this->mode;
-		$previous   = $this->registerCurrent( $input, args: $input->getPure() );
-
-		$this->toCollectionStack() || $this->toUpdateStack();
+	/**
+	 * @param ?self::INFER_AND* $mode Defaults to whatever mode was registered with: `$this->register()`.
+	 * @return bool True of input's user provided arguments are purged, false otherwise.
+	 */
+	public function addInput( Pos|Assoc|Flag $input, ?int $mode = null ): bool {
+		$previousMode  = $this->mode;
+		$this->mode    = $mode ?? $previousMode;
+		$previous      = $this->registerCurrent( $input, args: $input->getPure() );
+		$isInputPurged = $this->registerCurrentInput();
 
 		$this->inUpdateMode() && $this->walkCollectionWithUpdatedInputProperties();
+		$this->resetWith( $previousMode, current: $previous );
 
-		$previous && ( $this->current = $previous );
+		return $isInputPurged;
 	}
 
 	/** @return array<class-string<Pos|Assoc|Flag>,array<string,InputArgument|InputOption>> */
@@ -261,17 +265,17 @@ class InputAttribute {
 		return $isAllString ? $withoutNameKeys : array_map( $this->getPropertyName( ... ), $withoutNameKeys );
 	}
 
-	/**
-	 * @param string[] $withoutNameProperties
-	 * @return array<string,mixed>
-	 */
-	private function currentArgumentsToNamedArguments( ?array $withoutNameProperties = null ): array {
-		$args = $this->current['args'];
+	private function toNamedArguments(): bool {
+		if ( ! $userProvidedArgs = ( $this->current['args'] ?? null ) ) {
+			return false;
+		}
 
-		// Drop input "name" (if exists) from argument to prevent unequal properties & arguments length.
-		unset( $args['name'], $args[0] );
+		// Pragmatically excluded "name" property.
+		unset( $userProvidedArgs['name'], $userProvidedArgs[0] );
 
-		return array_combine( $withoutNameProperties ?? $this->discoverPropertyNames(), $args );
+		$this->current['args'] = array_combine( $this->discoverPropertyNames(), $userProvidedArgs );
+
+		return true;
 	}
 
 	private function inUpdateMode(): bool {
@@ -302,16 +306,14 @@ class InputAttribute {
 	}
 
 	private function pushCurrentInputToCollectionStack(): bool {
-		['input' => $input, 'ref' => $target] = $this->current;
-		$properties                           = $this->discoverPropertyNames();
-		$arguments                            = $this->currentArgumentsToNamedArguments( $properties );
+		['input' => $input, 'ref' => $target, 'args' => $namedArguments] = $this->current;
 
 		if ( $this->inUpdateMode() ) {
-			$this->update[ $input::class ][ $input->name ] = $arguments;
+			$this->update[ $input::class ][ $input->name ] = $namedArguments;
 		}
 
 		$this->collection[ $input::class ][ $input->name ]              = $input;
-		$this->source[ $target->name ][ $input::class ][ $input->name ] = $properties;
+		$this->source[ $target->name ][ $input::class ][ $input->name ] = array_keys( $namedArguments );
 
 		$this->toSuggestionStack( $input );
 
@@ -355,7 +357,7 @@ class InputAttribute {
 			return false;
 		}
 
-		foreach ( $this->currentArgumentsToNamedArguments() as $this->current['prop'] => $value ) {
+		foreach ( $this->current['args'] as $this->current['prop'] => $value ) {
 			$this->currentPropertyInUpdateStack() || $this->currentPropertyValueToUpdateStack( $value );
 		}
 
@@ -399,21 +401,25 @@ class InputAttribute {
 		return $previous;
 	}
 
-	/** @param ReflectionAttribute<object> $attribute */
-	private function ensureInput( ReflectionAttribute $attribute ): bool {
-		if ( ! $this->isInputVariant( $attribute ) ) {
-			return false;
-		}
+	private function registerCurrentInput(): bool {
+		$this->toNamedArguments() && ( $this->toCollectionStack() || $this->toUpdateStack() );
 
-		$this->registerCurrent( input: $attribute->newInstance(), args: $attribute->getArguments() );
-
-		return true;
+		return $this->current['input']->purgePure();
 	}
 
-	private function parseAttributes(): void {
-		foreach ( $this->current['ref']->getAttributes() as $attribute ) {
-			$this->ensureInput( $attribute ) && ( $this->toCollectionStack() || $this->toUpdateStack() );
+	/** @param ReflectionAttribute<object> $attribute */
+	private function ensureInput( ReflectionAttribute $attribute ): bool {
+		return $this->isInputVariant( $attribute )
+			&& ! ! $this->registerCurrent( $attribute->newInstance(), args: $attribute->getArguments() );
+	}
+
+	/** @return ReflectionClass<Console> */
+	private function useAttributes(): ReflectionClass {
+		foreach ( ( $target = $this->current['ref'] )->getAttributes() as $attribute ) {
+			$this->ensureInput( $attribute ) && $this->registerCurrentInput();
 		}
+
+		return $target;
 	}
 
 	private function isCurrentTargetLastParent(): bool {
@@ -442,18 +448,14 @@ class InputAttribute {
 	}
 
 	private function infer(): self {
-		$this->withCurrentTarget()->parseAttributes();
-
-		$parent = $this->target->getParentClass();
+		$parent = $this->withCurrentTarget()->useAttributes()->getParentClass();
 
 		while ( $parent ) {
 			if ( $this->isCurrentTargetLastParent() ) {
 				break;
 			}
 
-			$this->withCurrentTarget( $parent )->parseAttributes();
-
-			$parent = $parent->getParentClass();
+			$parent = $this->withCurrentTarget( $parent )->useAttributes()->getParentClass();
 		}
 
 		$this->inUpdateMode() && $this->walkCollectionWithUpdatedInputProperties();
@@ -461,7 +463,23 @@ class InputAttribute {
 		return $this;
 	}
 
-	private function flush(): self {
+	/**
+	 * @param self::INFER_AND* $mode
+	 * @param null|array{
+	 *   ref:   ReflectionClass<Console>,
+	 *   input: Pos|Assoc|Flag,
+	 *   prop:  int|string,args:mixed[],
+	 *   names: string[],
+	 *   args:  mixed[]
+	 * } $current
+	 */
+	private function resetWith( int $mode, ?array $current ): void {
+		$this->mode = $mode;
+
+		$current && ( $this->current = $current );
+	}
+
+	private function purge(): self {
 		$this->lastTarget = $this->current['ref']->name;
 
 		unset( $this->inputClassNames, $this->current, $this->update );
