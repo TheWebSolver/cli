@@ -111,7 +111,7 @@ class Console extends Command {
 	): array {
 		$attributes = InputAttribute::from( static::class )->register( $mode, ...$variant )->parse();
 
-		return $asDefinition ? $attributes->toInput() : $attributes->getCollection();
+		return $asDefinition ? $attributes->toSymfonyInput() : $attributes->getCollection();
 	}
 
 	final public function setDefined( bool $isDefined = true ): static {
@@ -202,7 +202,7 @@ class Console extends Command {
 			return $this;
 		}
 
-		$this->inputAttribute->parse()->toInput( $this->getDefinition() );
+		$this->inputAttribute->parse()->toSymfonyInput( $this->getDefinition() );
 
 		return $this->setDefined();
 	}

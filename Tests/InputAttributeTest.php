@@ -265,7 +265,7 @@ class InputAttributeTest extends TestCase {
 	#[Test]
 	#[Depends( 'itParsesAttributesFromMultiInheritanceHierarchy' )]
 	public function itTransformsParsedCollectionToDefinitions( InputAttribute $parser ): void {
-		$this->assertCount( 3, $definitions = $parser->toInput() );
+		$this->assertCount( 3, $definitions = $parser->toSymfonyInput() );
 
 		foreach ( $definitions as $attributeName => $collection ) {
 			$this->assertCount( Associative::class === $attributeName ? 2 : 1, $collection );

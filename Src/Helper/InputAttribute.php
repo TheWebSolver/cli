@@ -212,7 +212,7 @@ class InputAttribute {
 	}
 
 	/** @return array<class-string<Pos|Assoc|Flag>,array<string,InputArgument|InputOption>> */
-	public function toInput( ?InputDefinition $definition = null ): array {
+	public function toSymfonyInput( ?InputDefinition $definition = null ): array {
 		$collection = $this->getCollection();
 
 		array_walk( $collection, self::toSymfonyInputs( ... ), $definition );
