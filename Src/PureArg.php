@@ -3,13 +3,19 @@ declare( strict_types = 1 );
 
 namespace TheWebSolver\Codegarage\Cli;
 
+use TheWebSolver\Codegarage\Cli\Helper\Parser;
+
 /** Intended to be used by class that can also be used as an attribute. */
 trait PureArg {
 	/** @var mixed[] */
 	private array $pureArgs;
 
+	public function hasPure(): bool {
+		return ! ! ( $this->pureArgs ?? false );
+	}
+
 	/**
-	 * Gets user provided arguments that are explicitly passed. i.e. whose values cannot be `null`.
+	 * Gets user provided values that are explicitly passed. i.e. not `null` values.
 	 *
 	 * @return mixed[] Empty array if already purged.
 	 */
@@ -29,21 +35,31 @@ trait PureArg {
 	}
 
 	/**
-	 * Sets user provided arguments. It can only be used once.
+	 * Sets user provided arguments. It can only be used once if not purged yet.
 	 *
-	 * @param mixed[] $args
+	 * @param mixed[] $values
 	 */
-	private function setPure( array $args ): static {
-		$this->pureArgs ??= $args;
+	private function setPure( array $values ): static {
+		$this->pureArgs ??= $values;
 
 		return $this;
 	}
 
 	/**
-	 * @param mixed               $value The `null` value is never collected.
-	 * @param array<string,mixed> $pure  Collection with `$arg` as key and NOT NULL `$value` as value.
+	 * Discovers user provided value (not null) for the given method.
+	 *
+	 * @param string  $methodName Usually `__FUNCTION__` constant value.
+	 * @param mixed[] $values     Usually `func_get_args()` of the `$methodName`.
 	 */
-	private function collectPure( string $arg, mixed $value, array &$pure ): void {
-		null !== $value && ( $pure[ $arg ] = $value );
+	private function discoverPureFrom( string $methodName, array $values ): void {
+		$paramNames = Parser::parseParamNamesOf( $this, $methodName );
+		$validArgs  = Parser::combineParamNamesWithUserArgs( $paramNames, paramValues: $values );
+
+		array_walk( $validArgs, $this->walkPure( ... ) );
+	}
+
+	/** @param mixed $value The `null` value is never collected (assumed user skipped that key). */
+	private function walkPure( mixed $value, string $key ): void {
+		null === $value || $this->pureArgs[ $key ] = $value;
 	}
 }

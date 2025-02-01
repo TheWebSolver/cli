@@ -51,13 +51,7 @@ class Positional {
 		string|bool|int|float|array|callable $default = null,
 		string|array|callable $suggestedValues = null
 	) {
-		$pure = compact( 'name' );
-
-		foreach ( array( 'desc', 'isVariadic', 'isOptional', 'default', 'suggestedValues' ) as $prop ) {
-			$this->collectPure( $prop, $$prop, $pure );
-		}
-
-		$this->setPure( $pure );
+		$this->discoverPureFrom( methodName: __FUNCTION__, values: func_get_args() );
 
 		$this->desc        = $desc ?? '';
 		$this->isVariadic  = $isVariadic ?? false;

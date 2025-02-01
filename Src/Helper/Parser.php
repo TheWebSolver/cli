@@ -6,8 +6,10 @@ namespace TheWebSolver\Codegarage\Cli\Helper;
 use Closure;
 use BackedEnum;
 use ReflectionClass;
+use ReflectionMethod;
 use ReflectionAttribute;
 use ReflectionException;
+use ReflectionParameter;
 use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Completion\Suggestion;
@@ -58,5 +60,22 @@ class Parser {
 		} catch ( ReflectionException ) {
 			return null;
 		}
+	}
+
+	/** @return string[] The parameter names of target class method's accepted parameters. */
+	public static function parseParamNamesOf( object|string $target, string $methodName ): array {
+		return array_map(
+			callback: static fn( ReflectionParameter $param ): string => $param->name,
+			array: ( new ReflectionMethod( $target, $methodName ) )->getParameters()
+		);
+	}
+
+	/**
+	 * @param string[] $paramNames  Names parsed using `Parser::parseParamNamesOf()`.
+	 * @param mixed[]  $paramValues Values of `func_get_args()`.
+	 * @return array<string,mixed>
+	 */
+	public static function combineParamNamesWithUserArgs( array $paramNames, array $paramValues ): array {
+		return array_combine( keys: array_intersect_key( $paramNames, $paramValues ), values: $paramValues );
 	}
 }

@@ -34,13 +34,7 @@ class Flag {
 		bool $isNegatable = null,
 		string|array $shortcut = null
 	) {
-		$pure = compact( 'name' );
-
-		foreach ( array( 'desc', 'isNegatable', 'shortcut' ) as $prop ) {
-			$this->collectPure( $prop, $$prop, $pure );
-		}
-
-		$this->setPure( $pure );
+		$this->discoverPureFrom( methodName: __FUNCTION__, values: func_get_args() );
 
 		$this->desc        = $desc ?? '';
 		$this->shortcut    = $shortcut;
