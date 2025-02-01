@@ -27,8 +27,6 @@ class InputAttribute {
 	 */
 	final public const INFER_AND_UPDATE = 2;
 
-	final public const IMMUTABLE_INPUT_PROPERTIES = array( 'name', 'mode' );
-
 	/** @var self::INFER_AND* */
 	private int $mode = self::INFER_AND_REPLACE;
 
@@ -58,20 +56,12 @@ class InputAttribute {
 	| exist on some another dependant class (eg: by default, on command classes).
 	|
 	| ----------------------------------------------------------------------------------
-	| @see self::do()
+	| @see self::parse()
 	| @see self::purge()
 	| ----------------------------------------------------------------------------------
 	*/
 
-	/**
-	 * @var array{
-	 *   ref:   ReflectionClass<Console>,
-	 *   input: Pos|Assoc|Flag,
-	 *   prop:  int|string,args:mixed[],
-	 *   names: string[],
-	 *   args:  mixed[]
-	 * }
-	 */
+	/** @var array{ref:ReflectionClass<Console>,input:Pos|Assoc|Flag,prop:int|string,args:mixed[],args:mixed[]} */
 	private array $current;
 	/** @var array<class-string<Pos|Assoc|Flag>> */
 	private array $inputClassNames;
@@ -200,13 +190,13 @@ class InputAttribute {
 	 * @return bool True of input's user provided arguments are purged, false otherwise.
 	 */
 	public function add( Pos|Assoc|Flag $input, ?int $mode = null ): bool {
-		$previous      = $this->registerCurrent( $input );
-		$isInputPurged = $this->registerCurrentInput( ignoreIfExists: self::INFER_AND_REPLACE === $mode );
+		$previous     = $this->registerCurrent( $input );
+		$isRegistered = $this->registerCurrentInput( ignoreIfExists: self::INFER_AND_REPLACE === $mode );
 
 		$this->inUpdateMode() && $this->walkCollectionWithUpdatedInputProperties();
 		$this->reset( current: $previous );
 
-		return $isInputPurged;
+		return $isRegistered;
 	}
 
 	/** @return array<class-string<Pos|Assoc|Flag>,array<string,InputArgument|InputOption>> */
@@ -299,7 +289,7 @@ class InputAttribute {
 	}
 
 	private function toUpdateStack(): bool {
-		if ( ! $this->inUpdateMode() ) {
+		if ( ! $this->inUpdateMode() || ! $this->current['input']->hasPure() ) {
 			return false;
 		}
 
@@ -327,18 +317,9 @@ class InputAttribute {
 		return in_array( $reflection->getName(), $this->inputClassNames, true );
 	}
 
-	/**
-	 * @return ?array{
-	 *   ref:   ReflectionClass<Console>,
-	 *   input: Pos|Assoc|Flag,
-	 *   prop:  int|string,args:mixed[],
-	 *   names: string[],
-	 *   args:  mixed[]
-	 * }
-	 */
+	/** @return ?array{ref:ReflectionClass<Console>,input:Pos|Assoc|Flag,prop:int|string,args:mixed[],args:mixed[]} */
 	private function registerCurrent( Pos|Assoc|Flag $input ): ?array {
 		$previous = $this->current ?? null;
-		$names    = array_keys( (array) $input->__debugInfo() );
 		$prop     = '';
 		$args     = $input->getPure();
 		$ref      = $previous['ref'] ?? $this->target;
@@ -346,7 +327,7 @@ class InputAttribute {
 		// Pragmatically excluded "name" property.
 		unset( $args['name'] );
 
-		$this->current = compact( 'input', 'prop', 'args', 'names', 'ref' );
+		$this->current = compact( 'input', 'prop', 'args', 'ref' );
 
 		return $previous;
 	}
@@ -359,8 +340,7 @@ class InputAttribute {
 
 	/** @param ReflectionAttribute<object> $attribute */
 	private function ensureInput( ReflectionAttribute $attribute ): bool {
-		return $this->isInputVariant( $attribute )
-			&& ! ! $this->registerCurrent( $attribute->newInstance() );
+		return $this->isInputVariant( $attribute ) && ! ! $this->registerCurrent( $attribute->newInstance() );
 	}
 
 	/** @return ReflectionClass<Console> */
@@ -413,15 +393,7 @@ class InputAttribute {
 		return $this;
 	}
 
-	/**
-	 * @param null|array{
-	 *   ref:   ReflectionClass<Console>,
-	 *   input: Pos|Assoc|Flag,
-	 *   prop:  int|string,args:mixed[],
-	 *   names: string[],
-	 *   args:  mixed[]
-	 * } $current
-	 */
+	/** @param ?array{ref:ReflectionClass<Console>,input:Pos|Assoc|Flag,prop:int|string,args:mixed[],args:mixed[]} $current */
 	private function reset( ?array $current ): void {
 		$current && ( $this->current = $current );
 	}
