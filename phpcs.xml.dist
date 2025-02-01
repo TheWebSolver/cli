@@ -72,6 +72,11 @@
 		<exclude name="Universal.NamingConventions.NoReservedKeywordParameterNames.abstractFound"/>
 	</rule>
 
+	<!-- Allow using double negation "!!". -->
+	<rule ref="Universal.CodeAnalysis">
+		<exclude name="Universal.CodeAnalysis.NoDoubleNegative.FoundDouble"/>
+	</rule>
+
 	<!--
 	#############################################################################
 	GENERIC SNIFF RULE CONFIGURATIONS:
@@ -117,10 +122,12 @@
 		<exclude name="Squiz.Commenting.FunctionComment.ParamCommentFullStop"/>
 		<exclude name="Squiz.Commenting.FunctionComment.MissingParamComment"/>
 		<exclude name="Squiz.Commenting.VariableComment.MissingVar"/>
-		<!-- Comments can appear on same line as code. -->
+		<!-- Allow comments on same line as code. -->
 		<exclude name="Squiz.Commenting.PostStatementComment.Found"/>
+		<!-- Allow annotations (such as silencing PHPStan error that starts with "@") on same line as code. -->
+		<exclude name="Squiz.Commenting.PostStatementComment.AnnotationFound"/>
 		<exclude name="Squiz.Commenting.FunctionComment.ParamNameNoMatch"/>
-		<!-- Comments about @param & @throws in docComment. -->
+		<!-- Do not sniff comments about @param & @throws in docComment. -->
 		<exclude name="Squiz.Commenting.FunctionComment.MissingParamTag"/>
 		<exclude name="Squiz.Commenting.FunctionComment.MissingParamName"/>
 		<exclude name="Squiz.Commenting.FunctionComment.IncorrectTypeHint"/>
