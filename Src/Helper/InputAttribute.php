@@ -199,14 +199,12 @@ class InputAttribute {
 	 * @param ?self::INFER_AND* $mode Defaults to whatever mode was registered with: `$this->register()`.
 	 * @return bool True of input's user provided arguments are purged, false otherwise.
 	 */
-	public function addInput( Pos|Assoc|Flag $input, ?int $mode = null ): bool {
-		$previousMode  = $this->mode;
-		$this->mode    = $mode ?? $previousMode;
-		$previous      = $this->registerCurrent( $input, args: $input->getPure() );
-		$isInputPurged = $this->registerCurrentInput();
+	public function add( Pos|Assoc|Flag $input, ?int $mode = null ): bool {
+		$previous      = $this->registerCurrent( $input );
+		$isInputPurged = $this->registerCurrentInput( ignoreIfExists: self::INFER_AND_REPLACE === $mode );
 
 		$this->inUpdateMode() && $this->walkCollectionWithUpdatedInputProperties();
-		$this->resetWith( $previousMode, current: $previous );
+		$this->reset( current: $previous );
 
 		return $isInputPurged;
 	}
@@ -224,58 +222,6 @@ class InputAttribute {
 	/** @return array<Pos|Assoc|Flag> */
 	public function toFlattenedArray(): array {
 		return array_reduce( $this->collection, self::toSingleArray( ... ), array() );
-	}
-
-	/**
-	 * @param array<TValue> $haystack
-	 * @template TValue
-	 */
-	private function getPositionOf( string $key, array $haystack ): string|int|null {
-		return false !== ( $position = array_search( $key, $haystack, strict: true ) ) ? $position : null;
-	}
-
-	/**
-	 * @param array<TKey,TValue> $haystack
-	 * @return array<TKey,TValue>
-	 * @template TKey
-	 * @template TValue
-	 */
-	private function withoutKey( string|int $nameOrPosition, array $haystack ): array {
-		if ( is_string( $nameOrPosition ) ) {
-			unset( $haystack[ $this->getPositionOf( $nameOrPosition, $haystack ) ] );
-
-			return $haystack;
-		}
-
-		unset( $haystack[ $nameOrPosition ] );
-
-		return $haystack;
-	}
-
-	private function getPropertyName( string|int $index ): string {
-		return is_int( $index ) ? $this->current['names'][ $index ] : $index;
-	}
-
-	/** @return string[] Pragmatically excluded ***name*** property. */
-	private function discoverPropertyNames(): array {
-		$keys            = array_keys( $args = $this->current['args'] );
-		$withoutNameKeys = $this->withoutKey( array_key_exists( 0, $args ) ? 0 : 'name', $keys );
-		$isAllString     = count( array_filter( $keys, is_string( ... ) ) ) === ( count( $withoutNameKeys ) );
-
-		return $isAllString ? $withoutNameKeys : array_map( $this->getPropertyName( ... ), $withoutNameKeys );
-	}
-
-	private function toNamedArguments(): bool {
-		if ( ! $userProvidedArgs = ( $this->current['args'] ?? null ) ) {
-			return false;
-		}
-
-		// Pragmatically excluded "name" property.
-		unset( $userProvidedArgs['name'], $userProvidedArgs[0] );
-
-		$this->current['args'] = array_combine( $this->discoverPropertyNames(), $userProvidedArgs );
-
-		return true;
 	}
 
 	private function inUpdateMode(): bool {
@@ -320,8 +266,8 @@ class InputAttribute {
 		return true;
 	}
 
-	private function toCollectionStack(): bool {
-		return ! $this->inCollectionStack() && $this->pushCurrentInputToCollectionStack();
+	private function toCollectionStack( bool $ignoreIfExists = false ): bool {
+		return ( $ignoreIfExists || ! $this->inCollectionStack() ) && $this->pushCurrentInputToCollectionStack();
 	}
 
 	/**
@@ -382,7 +328,6 @@ class InputAttribute {
 	}
 
 	/**
-	 * @param mixed[] $args
 	 * @return ?array{
 	 *   ref:   ReflectionClass<Console>,
 	 *   input: Pos|Assoc|Flag,
@@ -391,18 +336,23 @@ class InputAttribute {
 	 *   args:  mixed[]
 	 * }
 	 */
-	private function registerCurrent( Pos|Assoc|Flag $input, array $args ): ?array {
-		$previous      = $this->current ?? null;
-		$names         = array_keys( (array) $input->__debugInfo() );
-		$prop          = '';
-		$ref           = $previous['ref'] ?? $this->target;
+	private function registerCurrent( Pos|Assoc|Flag $input ): ?array {
+		$previous = $this->current ?? null;
+		$names    = array_keys( (array) $input->__debugInfo() );
+		$prop     = '';
+		$args     = $input->getPure();
+		$ref      = $previous['ref'] ?? $this->target;
+
+		// Pragmatically excluded "name" property.
+		unset( $args['name'] );
+
 		$this->current = compact( 'input', 'prop', 'args', 'names', 'ref' );
 
 		return $previous;
 	}
 
-	private function registerCurrentInput(): bool {
-		$this->toNamedArguments() && ( $this->toCollectionStack() || $this->toUpdateStack() );
+	private function registerCurrentInput( bool $ignoreIfExists = false ): bool {
+		$this->toCollectionStack( $ignoreIfExists ) || $this->toUpdateStack();
 
 		return $this->current['input']->purgePure();
 	}
@@ -410,13 +360,13 @@ class InputAttribute {
 	/** @param ReflectionAttribute<object> $attribute */
 	private function ensureInput( ReflectionAttribute $attribute ): bool {
 		return $this->isInputVariant( $attribute )
-			&& ! ! $this->registerCurrent( $attribute->newInstance(), args: $attribute->getArguments() );
+			&& ! ! $this->registerCurrent( $attribute->newInstance() );
 	}
 
 	/** @return ReflectionClass<Console> */
 	private function useAttributes(): ReflectionClass {
 		foreach ( ( $target = $this->current['ref'] )->getAttributes() as $attribute ) {
-			$this->ensureInput( $attribute ) && $this->registerCurrentInput();
+			$this->ensureInput( $attribute ) && $this->registerCurrentInput( ignoreIfExists: false );
 		}
 
 		return $target;
@@ -464,7 +414,6 @@ class InputAttribute {
 	}
 
 	/**
-	 * @param self::INFER_AND* $mode
 	 * @param null|array{
 	 *   ref:   ReflectionClass<Console>,
 	 *   input: Pos|Assoc|Flag,
@@ -473,9 +422,7 @@ class InputAttribute {
 	 *   args:  mixed[]
 	 * } $current
 	 */
-	private function resetWith( int $mode, ?array $current ): void {
-		$this->mode = $mode;
-
+	private function reset( ?array $current ): void {
 		$current && ( $this->current = $current );
 	}
 

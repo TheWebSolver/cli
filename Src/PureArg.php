@@ -9,23 +9,12 @@ trait PureArg {
 	private array $pureArgs;
 
 	/**
-	 * Gets user provided arguments that mimics `$attribute->getArguments()` feature.
+	 * Gets user provided arguments that are explicitly passed. i.e. whose values cannot be `null`.
 	 *
 	 * @return mixed[] Empty array if already purged.
 	 */
 	public function getPure(): array {
 		return $this->pureArgs ?? array();
-	}
-
-	/**
-	 * Sets user provided arguments: `func_get_args()`. It can only be used once.
-	 *
-	 * @param mixed[] $args
-	 */
-	private function setPure( array $args ): static {
-		$this->pureArgs ??= $args;
-
-		return $this;
 	}
 
 	/** @return bool True if not purged before, false otherwise. */
@@ -37,5 +26,24 @@ trait PureArg {
 		}
 
 		return false;
+	}
+
+	/**
+	 * Sets user provided arguments. It can only be used once.
+	 *
+	 * @param mixed[] $args
+	 */
+	private function setPure( array $args ): static {
+		$this->pureArgs ??= $args;
+
+		return $this;
+	}
+
+	/**
+	 * @param mixed               $value The `null` value is never collected.
+	 * @param array<string,mixed> $pure  Collection with `$arg` as key and NOT NULL `$value` as value.
+	 */
+	private function collectPure( string $arg, mixed $value, array &$pure ): void {
+		null !== $value && ( $pure[ $arg ] = $value );
 	}
 }

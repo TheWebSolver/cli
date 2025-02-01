@@ -18,37 +18,55 @@ class Positional {
 
 	/** @var int-mask-of<InputArgument::*> The input mode. */
 	public readonly int $mode;
-
+	/** @var string The short description about the argument. */
+	public readonly string $desc;
+	/** @var bool Whether the argument can be repeated or not. Repeated args'll be converted to an array. Defaults to `false`. */
+	public readonly bool $isVariadic;
+	/** @var bool Whether the argument can be omitted. Defaults to `true`. */
+	public readonly bool $isOptional;
 	/** @var array<string|int>|Closure(CompletionInput): list<string|Suggestion> The argument's suggested values. */
 	public readonly array|Closure $suggestedValues;
-
-	/** @var null|string|bool|int|float|array{} */
+	/** @var null|string|bool|int|float|array{} The argument's default value. */
 	public readonly null|string|bool|int|float|array $default;
 
 	/** @var null|string|class-string<BackedEnum>|bool|int|float|array{}|(callable(): string|bool|int|float|array{}) */
 	private mixed $userDefault;
 
 	/**
-	 * @param string                                                                                                  $name            The argument name.
-	 * @param string                                                                                                  $desc            The short description about the argument.
-	 * @param bool                                                                                                    $isVariadic      Whether the argument can be repeated or not.
-	 *                                                                                                                                 Repeated args'll be converted to an array.
-	 * @param bool                                                                                                    $isOptional      Whether the argument can be omitted.
-	 * @param null|string|class-string<BackedEnum>|bool|int|float|array{}|(callable(): string|bool|int|float|array{}) $default         The argument's default value.
-	 * @param class-string<BackedEnum>|array<string|int>|callable(CompletionInput): list<string|Suggestion>           $suggestedValues The argument's suggested values.
+	 * @param string                                                                                             $name            The argument name.
+	 * @param string                                                                                             $desc            The short description about the argument.
+	 * @param bool                                                                                               $isVariadic      Whether the argument can be repeated or not.
+	 *                                                                                                                            Repeated args'll be converted to an array.
+	 *                                                                                                                            Defaults to `false`.
+	 * @param bool                                                                                               $isOptional      Whether the argument can be omitted.
+	 *                                                                                                                            Defaults to `true`.
+	 * @param string|class-string<BackedEnum>|bool|int|float|array{}|(callable(): string|bool|int|float|array{}) $default         The argument's default value.
+	 * @param class-string<BackedEnum>|array<string|int>|callable(CompletionInput): list<string|Suggestion>      $suggestedValues The argument's suggested values.
 	 */
 	public function __construct(
 		public readonly string $name,
-		public readonly string $desc = '',
-		public readonly bool $isVariadic = false,
-		public readonly bool $isOptional = true,
-		null|string|bool|int|float|array|callable $default = null,
-		string|array|callable $suggestedValues = array(),
+		string $desc = null,
+		bool $isVariadic = null,
+		bool $isOptional = null,
+		string|bool|int|float|array|callable $default = null,
+		string|array|callable $suggestedValues = null
 	) {
-		$this->mode            = $this->setPure( func_get_args() )->normalizeMode();
+		$pure = compact( 'name' );
+
+		foreach ( array( 'desc', 'isVariadic', 'isOptional', 'default', 'suggestedValues' ) as $prop ) {
+			$this->collectPure( $prop, $$prop, $pure );
+		}
+
+		$this->setPure( $pure );
+
+		$this->desc        = $desc ?? '';
+		$this->isVariadic  = $isVariadic ?? false;
+		$this->isOptional  = $isOptional ?? true;
+		$this->userDefault = $default;
+
+		$this->mode            = $this->normalizeMode();
 		$this->default         = $this->normalizeDefault( $default );
-		$this->userDefault     = $default;
-		$this->suggestedValues = Parser::parseInputSuggestion( $suggestedValues );
+		$this->suggestedValues = Parser::parseInputSuggestion( $suggestedValues ?? array() );
 	}
 
 	public static function from( InputArgument $input ): self {

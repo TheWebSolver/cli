@@ -18,41 +18,62 @@ class Associative {
 
 	/** @var int-mask-of<InputOption::*> The input mode. */
 	public readonly int $mode;
-
+	/** @var string The short description about the option. */
+	public readonly string $desc;
+	/** @var bool Whether the option can be repeated or not. Eg: `--path=first/dir/ --path=next/dir/`. Defaults to `false`. */
+	public readonly bool $isVariadic;
+	/** @var bool Whether the option's value can be omitted. Meaning, value may or may not be passed. Eg: '--show` or `--show=yes". Defaults to `false`. */
+	public readonly bool $isOptional;
+	/** @var null|string|string[] The option's shortcut. For eg: "-s" for "--show". */
+	public readonly null|string|array $shortcut;
 	/** @var array<string|int>|(Closure(CompletionInput): list<string|Suggestion>) The option's suggested values. */
 	public readonly array|Closure $suggestedValues;
-
-	/** @var null|string|bool|int|float|array{} */
+	/** @var null|string|bool|int|float|array{} The option's default value. */
 	public readonly null|string|bool|int|float|array $default;
 
 	/** @var null|string|bool|int|float|array{}|class-string<BackedEnum>|(callable(): string|bool|int|float|array{}) */
 	private mixed $userDefault;
 
 	/**
-	 * @param string                                                                                                  $name            The option name. Eg: "show".
-	 * @param string                                                                                                  $desc            The short description about the option.
-	 * @param bool                                                                                                    $isVariadic      Whether the option can be repeated or not.
-	 *                                                                                                                                 Eg: `--path=first/dir/ --path=next/dir/`.
-	 * @param bool                                                                                                    $valueOptional   Whether the option's value can be omitted.
-	 *                                                                                                                                 Meaning, value may or may not be passed.
-	 *                                                                                                                                 Eg: '--show` or `--show=yes".
-	 * @param null|string|bool|int|float|array{}|class-string<BackedEnum>|(callable(): string|bool|int|float|array{}) $default         The option's default value.
-	 * @param null|string|array<string|callable>                                                                      $shortcut        Shortcut. For eg: "-s" for "--show".
-	 * @param class-string<BackedEnum>|array<string|int>|(callable(CompletionInput): list<string|Suggestion>)         $suggestedValues The option's suggested values.
+	 * @param string                                                                                             $name            The option name. Eg: "show".
+	 * @param string                                                                                             $desc            The short description about the option.
+	 * @param bool                                                                                               $isVariadic      Whether the option can be repeated or not.
+	 *                                                                                                                            Eg: `--path=first/dir/ --path=next/dir/`.
+	 *                                                                                                                            Defaults to `false`.
+	 * @param bool                                                                                               $isOptional      Whether the option's value can be omitted.
+	 *                                                                                                                            Meaning, value may or may not be passed.
+	 *                                                                                                                            Eg: '--show` or `--show=yes".
+	 *                                                                                                                            Defaults to `false`.
+	 * @param string|bool|int|float|array{}|class-string<BackedEnum>|(callable(): string|bool|int|float|array{}) $default         The option's default value.
+	 * @param string|string[]                                                                                    $shortcut        Shortcut. For eg: "-s" for "--show".
+	 * @param class-string<BackedEnum>|array<string|int>|(callable(CompletionInput): list<string|Suggestion>)    $suggestedValues The option's suggested values.
 	 */
 	public function __construct(
 		public readonly string $name,
-		public readonly string $desc = '',
-		public readonly bool $isVariadic = false,
-		public readonly bool $valueOptional = false,
-		null|string|bool|int|float|array|callable $default = null,
-		public readonly null|string|array $shortcut = null,
-		string|array|callable $suggestedValues = array(),
+		string $desc = null,
+		bool $isVariadic = null,
+		bool $isOptional = null,
+		string|bool|int|float|array|callable $default = null,
+		string|array $shortcut = null,
+		string|array|callable $suggestedValues = null,
 	) {
-		$this->mode            = $this->setPure( func_get_args() )->normalizeMode();
+		$pure = compact( 'name' );
+
+		foreach ( array( 'desc', 'isVariadic', 'isOptional', 'default', 'shortcut', 'suggestedValues' ) as $prop ) {
+			$this->collectPure( $prop, $$prop, $pure );
+		}
+
+		$this->setPure( $pure );
+
+		$this->desc        = $desc ?? '';
+		$this->shortcut    = $shortcut;
+		$this->isVariadic  = $isVariadic ?? false;
+		$this->isOptional  = $isOptional ?? false;
+		$this->userDefault = $default;
+
+		$this->mode            = $this->normalizeMode();
 		$this->default         = $this->normalizeDefault( $default );
-		$this->userDefault     = $default;
-		$this->suggestedValues = Parser::parseInputSuggestion( $suggestedValues );
+		$this->suggestedValues = Parser::parseInputSuggestion( $suggestedValues ?? array() );
 	}
 
 	public static function from( InputOption $input ): self {
@@ -60,7 +81,7 @@ class Associative {
 			name: $input->getName(),
 			desc: $input->getDescription(),
 			isVariadic: $input->isArray(),
-			valueOptional: ! $input->isValueRequired(),
+			isOptional: ! $input->isValueRequired(),
 			default: $input->getDefault(),
 			shortcut: $input->getShortcut(),
 			suggestedValues: Parser::suggestedValuesFrom( $input ) ?? array()
@@ -81,7 +102,7 @@ class Associative {
 			'name'            => $this->name,
 			'desc'            => $this->desc,
 			'isVariadic'      => $this->isVariadic,
-			'valueOptional'   => $this->valueOptional,
+			'isOptional'      => $this->isOptional,
 			'default'         => $this->userDefault,
 			'shortcut'        => $this->shortcut,
 			'suggestedValues' => $this->suggestedValues,
@@ -92,7 +113,7 @@ class Associative {
 	 * @param array{
 	 *  desc?:            string,
 	 *  isVariadic?:      bool,
-	 *  valueOptional?:   bool,
+	 *  isOptional?:      bool,
 	 *  default?:         string,
 	 *  shortcut?:        string|string[],
 	 *  suggestedValues?: class-string<BackedEnum>|array<string|int,string|int>|callable(CompletionInput): list<string|Suggestion>
@@ -103,7 +124,7 @@ class Associative {
 			name: $this->name,
 			desc: $args['desc'] ?? $this->desc,
 			isVariadic: $args['isVariadic'] ?? $this->isVariadic,
-			valueOptional: $args['valueOptional'] ?? $this->valueOptional,
+			isOptional: $args['isOptional'] ?? $this->isOptional,
 			default: $args['default'] ?? $this->default,
 			shortcut: $args['shortcut'] ?? $this->shortcut,
 			suggestedValues: $args['suggestedValues'] ?? $this->suggestedValues
@@ -123,7 +144,7 @@ class Associative {
 
 	/** @return int-mask-of<InputOption::*> */
 	private function normalizeMode(): int {
-		$mode = $this->valueOptional ? InputOption::VALUE_OPTIONAL : InputOption::VALUE_REQUIRED;
+		$mode = $this->isOptional ? InputOption::VALUE_OPTIONAL : InputOption::VALUE_REQUIRED;
 
 		$this->isVariadic && ( $mode |= InputOption::VALUE_IS_ARRAY );
 
@@ -146,7 +167,7 @@ class Associative {
 	}
 
 	private function isOptionalDefault( mixed $value ): bool {
-		return $this->valueOptional && null === $value;
+		return $this->isOptional && null === $value;
 	}
 
 	/** @return array{} */

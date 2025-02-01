@@ -78,10 +78,10 @@ class InputAttributeTest extends TestCase {
 		$onlyInMiddleSource = $middleClassSource[ Associative::class ]['onlyInMiddle'];
 		$onlyInMiddleInput  = $parser->getInputBy( 'onlyInMiddle', Associative::class );
 
-		$this->assertEqualsCanonicalizing( array( 'desc', 'shortcut', 'valueOptional', 'isVariadic' ), $onlyInMiddleSource );
+		$this->assertEqualsCanonicalizing( array( 'desc', 'shortcut', 'isOptional', 'isVariadic' ), $onlyInMiddleSource );
 		$this->assertTrue( $onlyInMiddleInput->isVariadic );
 		$this->assertSame( 'o', $onlyInMiddleInput->shortcut );
-		$this->assertTrue( $onlyInMiddleInput->valueOptional );
+		$this->assertTrue( $onlyInMiddleInput->isOptional );
 		$this->assertSame( 'no update or replace', $onlyInMiddleInput->desc );
 
 		$this->assertCount( 1, $baseClassSource = $source[ BaseClass::class ] );
@@ -113,11 +113,11 @@ class InputAttributeTest extends TestCase {
 		$keyValueInput  = $parser->getInputBy( 'keyValue', Associative::class );
 
 		$this->assertEqualsCanonicalizing(
-			array( 'desc', 'isVariadic', 'valueOptional', 'default' ),
+			array( 'desc', 'isVariadic', 'isOptional', 'default' ),
 			$keyValueSource
 		);
 		$this->assertTrue( $keyValueInput->isVariadic );
-		$this->assertTrue( $keyValueInput->valueOptional );
+		$this->assertTrue( $keyValueInput->isOptional );
 		$this->assertSame( 'updated irrespective of no-named argument', $keyValueInput->desc );
 
 		$switchSource = $topClassSource[ Flag::class ]['switch'];
@@ -133,10 +133,10 @@ class InputAttributeTest extends TestCase {
 		$onlyInMiddleSource = $middleClassSource[ Associative::class ]['onlyInMiddle'];
 		$onlyInMiddleInput  = $parser->getInputBy( 'onlyInMiddle', Associative::class );
 
-		$this->assertEqualsCanonicalizing( array( 'desc', 'shortcut', 'valueOptional', 'isVariadic' ), $onlyInMiddleSource );
+		$this->assertEqualsCanonicalizing( array( 'desc', 'shortcut', 'isOptional', 'isVariadic' ), $onlyInMiddleSource );
 		$this->assertTrue( $onlyInMiddleInput->isVariadic );
 		$this->assertSame( 'o', $onlyInMiddleInput->shortcut );
-		$this->assertTrue( $onlyInMiddleInput->valueOptional );
+		$this->assertTrue( $onlyInMiddleInput->isOptional );
 		$this->assertSame( 'no update or replace', $onlyInMiddleInput->desc );
 
 		$this->assertArrayNotHasKey( BaseClass::class, $source );
@@ -176,7 +176,7 @@ class InputAttributeTest extends TestCase {
 		$this->assertSame( 'test based on infer mode', $switchInput->desc );
 
 		$this->assertEqualsCanonicalizing(
-			array( 'desc', 'shortcut', 'valueOptional', 'isVariadic' ),
+			array( 'desc', 'shortcut', 'isOptional', 'isVariadic' ),
 			$middleClassSource[ Associative::class ]['onlyInMiddle']
 		);
 
@@ -184,7 +184,7 @@ class InputAttributeTest extends TestCase {
 
 		$this->assertTrue( $onlyInMiddleInput->isVariadic );
 		$this->assertSame( 'o', $onlyInMiddleInput->shortcut );
-		$this->assertTrue( $onlyInMiddleInput->valueOptional );
+		$this->assertTrue( $onlyInMiddleInput->isOptional );
 		$this->assertSame( 'no update or replace', $onlyInMiddleInput->desc );
 
 		$this->assertEqualsCanonicalizing( array( 'desc' ), $baseClassSource[ Associative::class ]['keyValue'] );
@@ -229,13 +229,13 @@ class InputAttributeTest extends TestCase {
 
 		$keyValueInput = $parser->getInputBy( 'keyValue', Associative::class );
 		$this->assertEqualsCanonicalizing(
-			array( 'desc', 'isVariadic', 'valueOptional', 'default' ),
+			array( 'desc', 'isVariadic', 'isOptional', 'default' ),
 			$topClassSource[ Associative::class ]['keyValue']
 		);
 		$this->assertArrayNotHasKey( Associative::class, $baseClassSource );
 
 		$this->assertTrue( $keyValueInput->isVariadic );
-		$this->assertTrue( $keyValueInput->valueOptional );
+		$this->assertTrue( $keyValueInput->isOptional );
 		$this->assertSame( 'updated irrespective of no-named argument', $keyValueInput->desc );
 
 		return $parser;
@@ -298,7 +298,7 @@ class InputAttributeTest extends TestCase {
 	}
 
 	#[Test]
-	public function itEnsuresParsingStopsOnBaseClass(): void {
+	public function itEnsuresParsingStopsOnTheGivenInheritanceHierarchyParentClass(): void {
 		$parser = InputAttribute::from( TopClass::class )->till( BaseClass::class )->register()->parse();
 		$debug  = $parser->__debugInfo();
 
@@ -306,6 +306,14 @@ class InputAttributeTest extends TestCase {
 		$this->assertSame( MiddleClass::class, $debug['target']['till'] );
 		$this->assertSame( BaseClass::class, $debug['target']['base'] );
 		$this->assertSame( array( TopClass::class, MiddleClass::class ), $debug['hierarchy'] );
+
+		$parser = InputAttribute::from( UnnamedTarget::class )->till( MiddleTarget::class )->register()->parse();
+		$debug  = $parser->__debugInfo();
+
+		$this->assertSame( $debug['target']['from'], UnnamedTarget::class );
+		$this->assertSame( $debug['target']['till'], UnnamedTarget::class );
+		$this->assertSame( $debug['target']['base'], MiddleTarget::class );
+		$this->assertSame( array( UnnamedTarget::class ), $debug['hierarchy'] );
 	}
 
 	#[Test]
@@ -317,11 +325,40 @@ class InputAttributeTest extends TestCase {
 		$this->assertFalse( $positional->isOptional );
 		$this->assertSame( 'target desc', $positional->desc );
 
-		$parser->addInput( new Positional( 'unnamed', 'later added' ) );
+		$parser->add( new Positional( 'unnamed', 'later added' ) );
 
 		$unnamed = $parser->getInputBy( 'unnamed', Positional::class );
 
 		$this->assertSame( 'later added', $unnamed->desc );
+	}
+
+	#[Test]
+	public function itEnsuesNewlyAddedInputCanOverrideParsed(): void {
+		$parser = InputAttribute::from( TopClass::class )->register()->parse();
+		$parsed = $parser->getInputBy( 'position', Positional::class );
+
+		$this->assertFalse( $parsed->isVariadic );
+		$this->assertFalse( $parsed->isOptional );
+
+		$parser->add( new Positional( 'position', isVariadic: true ) );
+
+		$updated = $parser->getInputBy( 'position', Positional::class );
+
+		$this->assertSame( 'from top class', $updated->desc );
+
+		$this->assertTrue( $updated->isVariadic );
+		$this->assertFalse( $updated->isOptional );
+
+		$parser->add(
+			new Positional( 'position', isVariadic: true ),
+			InputAttribute::INFER_AND_REPLACE
+		);
+
+		$replaced = $parser->getInputBy( 'position', Positional::class );
+
+		$this->assertTrue( $replaced->isVariadic );
+		$this->assertTrue( $replaced->isOptional );
+		$this->assertSame( '', $replaced->desc );
 	}
 }
 
@@ -343,7 +380,7 @@ class BaseClass extends Console {}
 #[Associative(
 	desc: 'no update or replace',
 	shortcut: 'o',
-	valueOptional: true,
+	isOptional: true,
 	name: 'onlyInMiddle',
 	isVariadic: true
 )]
@@ -361,6 +398,7 @@ class TopClass extends MiddleClass {}
 
 #[Positional( 'unnamed', '', false, false )]
 class BaseTarget extends Console {}
+
 #[Positional( 'unnamed', '', true )]
 class MiddleTarget extends BaseTarget {}
 

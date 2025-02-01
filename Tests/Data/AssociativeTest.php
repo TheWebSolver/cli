@@ -22,7 +22,7 @@ class AssociativeTest extends TestCase {
 		$this->assertSame( $expected, $option->mode );
 		$this->assertSame( 'This is test', $option->desc );
 		$this->assertSame( $isVariadic, $option->isVariadic );
-		$this->assertSame( $isOptional, $option->valueOptional );
+		$this->assertSame( $isOptional, $option->isOptional );
 		$this->assertInstanceOf( InputOption::class, $option->input() );
 	}
 
@@ -88,7 +88,7 @@ class AssociativeTest extends TestCase {
 
 		$this->assertTrue( $option->isVariadic );
 		$this->assertSame( 'test', $option->name );
-		$this->assertTrue( $option->valueOptional );
+		$this->assertTrue( $option->isOptional );
 		$this->assertSame( 'as Desc', $option->desc );
 		$this->assertSame( array( 's' ), $option->shortcut );
 		$this->assertSame( array( 'argument', 'option', 'flag' ), $option->suggestedValues );
@@ -110,7 +110,7 @@ class AssociativeTest extends TestCase {
 		$this->assertSame( 'arg', $associative->name );
 		$this->assertSame( 'a short details', $associative->desc );
 		$this->assertTrue( $associative->isVariadic );
-		$this->assertTrue( $associative->valueOptional );
+		$this->assertTrue( $associative->isOptional );
 		$this->assertSame( $variants = array( 'argument', 'option', 'flag' ), $associative->default );
 		$this->assertSame( 's', $associative->shortcut );
 		$this->assertSame( $variants, ( $associative->suggestedValues )() );

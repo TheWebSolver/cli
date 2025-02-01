@@ -13,21 +13,40 @@ class Flag {
 
 	/** @var int-mask-of<InputOption::*> The input mode. */
 	public readonly int $mode;
+	/** @var string The short description about the flag. */
+	public readonly string $desc;
+	/** @var bool Whether the option can be negated. Eg: if the flag is `--show`, the negated flag'll be `--no-show`. Defaults to `false`. */
+	public readonly bool $isNegatable;
+	/** @var null|string|string[] The flag's shortcut. For eg: "-s" for "--show". */
+	public readonly string|array|null $shortcut;
 
 	/**
-	 * @param string               $name        The option name. Eg: "show".
-	 * @param string               $desc        The short description about the option.
-	 * @param bool                 $isNegatable Whether the option can be negated. Eg: if the flag
-	 *                                          is `--show`, the negated flag'll be `--no-show`.
-	 * @param null|string|string[] $shortcut Shortcut. For eg: "-s" for "--show".
+	 * @param string          $name        The option name. Eg: "show".
+	 * @param string          $desc        The short description about the flag.
+	 * @param bool            $isNegatable Whether the option can be negated. Eg: if the flag
+	 *                                     is `--show`, the negated flag'll be `--no-show`.
+	 *                                     Defaults to `false`.
+	 * @param string|string[] $shortcut    Shortcut. For eg: "-s" for "--show".
 	 */
 	public function __construct(
 		public readonly string $name,
-		public readonly string $desc = '',
-		public readonly bool $isNegatable = false,
-		public readonly null|string|array $shortcut = null
+		string $desc = null,
+		bool $isNegatable = null,
+		string|array $shortcut = null
 	) {
-		$this->mode = $this->setPure( func_get_args() )->normalizeMode();
+		$pure = compact( 'name' );
+
+		foreach ( array( 'desc', 'isNegatable', 'shortcut' ) as $prop ) {
+			$this->collectPure( $prop, $$prop, $pure );
+		}
+
+		$this->setPure( $pure );
+
+		$this->desc        = $desc ?? '';
+		$this->shortcut    = $shortcut;
+		$this->isNegatable = $isNegatable ?? false;
+
+		$this->mode = $this->normalizeMode();
 	}
 
 	public static function from( InputOption $input ): self {
