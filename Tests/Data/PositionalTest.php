@@ -107,6 +107,27 @@ class PositionalTest extends TestCase {
 		$this->assertSame( $variants = array( 'argument', 'option', 'flag' ), $positional->default );
 		$this->assertSame( $variants, ( $positional->suggestedValues )() );
 	}
+
+	#[Test]
+	public function itMapsConstructorArgs(): void {
+		$positional = new Positional( 'test', 'brief', true, false, 5, array( 1 ) );
+
+		$this->assertArrayHasKey( 'default', $info = $positional->__debugInfo() );
+
+		// Default is tested separately for normalization.
+		unset( $info['default'] );
+
+		$this->assertSame(
+			array(
+				'name'            => 'test',
+				'desc'            => 'brief',
+				'isVariadic'      => true,
+				'isOptional'      => false,
+				'suggestedValues' => array( 1 ),
+			),
+			$info
+		);
+	}
 }
 
 #[Positional( 'test', 'Using as attribute', true, false, suggestedValues: InputVariant::class )]

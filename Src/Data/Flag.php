@@ -6,10 +6,12 @@ namespace TheWebSolver\Codegarage\Cli\Data;
 use Attribute;
 use TheWebSolver\Codegarage\Cli\PureArg;
 use Symfony\Component\Console\Input\InputOption;
+use TheWebSolver\Codegarage\Cli\Traits\ConstructorAware;
 
 #[Attribute( Attribute::TARGET_CLASS | Attribute::IS_REPEATABLE )]
 class Flag {
-	use PureArg;
+	/** @use ConstructorAware<'name'|'desc'|'isNegatable'|'shortcut'> */
+	use PureArg, ConstructorAware;
 
 	/** @var int-mask-of<InputOption::*> The input mode. */
 	public readonly int $mode;
@@ -57,22 +59,12 @@ class Flag {
 	}
 
 	public function __debugInfo() {
-		return array(
-			'name'        => $this->name,
-			'desc'        => $this->desc,
-			'isNegatable' => $this->isNegatable,
-			'shortcut'    => $this->shortcut,
-		);
+		return $this->mapConstructor( withParamNames: true );
 	}
 
 	/** @param array{desc?:string,isNegatable?:bool,shortcut?:null|string|array{}} $args */
 	public function with( array $args ): self {
-		return new self(
-			name: $this->name,
-			desc: $args['desc'] ?? $this->desc,
-			isNegatable: $args['isNegatable'] ?? $this->isNegatable,
-			shortcut: $args['shortcut'] ?? $this->shortcut
-		);
+		return $this->selfFrom( $args );
 	}
 
 	public function input(): InputOption {

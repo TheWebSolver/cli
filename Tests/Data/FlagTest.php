@@ -59,6 +59,21 @@ class FlagTest extends TestCase {
 		$this->assertTrue( $flag->isNegatable );
 		$this->assertSame( 's', $flag->shortcut );
 	}
+
+	#[Test]
+	public function itMapsConstructorArgs(): void {
+		$flag = new Flag( 'test', 'brief', true, 's' );
+
+		$this->assertSame(
+			array(
+				'name'        => 'test',
+				'desc'        => 'brief',
+				'isNegatable' => true,
+				'shortcut'    => 's',
+			),
+			$flag->__debugInfo()
+		);
+	}
 }
 
 #[Flag( 'test', 'Using as attribute', isNegatable: true, shortcut: 't' )]

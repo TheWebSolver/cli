@@ -10,11 +10,13 @@ use TheWebSolver\Codegarage\Cli\PureArg;
 use TheWebSolver\Codegarage\Cli\Helper\Parser;
 use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Completion\Suggestion;
+use TheWebSolver\Codegarage\Cli\Traits\ConstructorAware;
 use Symfony\Component\Console\Completion\CompletionInput;
 
 #[Attribute( Attribute::TARGET_CLASS | Attribute::IS_REPEATABLE )]
 class Associative {
-	use PureArg;
+	/** @use ConstructorAware<'name'|'desc'|'isVariadic'|'isOptional'|'default'|'shortcut'|'suggestedValues'> */
+	use PureArg, ConstructorAware;
 
 	/** @var int-mask-of<InputOption::*> The input mode. */
 	public readonly int $mode;
@@ -92,15 +94,7 @@ class Associative {
 	}
 
 	public function __debugInfo() {
-		return array(
-			'name'            => $this->name,
-			'desc'            => $this->desc,
-			'isVariadic'      => $this->isVariadic,
-			'isOptional'      => $this->isOptional,
-			'default'         => $this->userDefault,
-			'shortcut'        => $this->shortcut,
-			'suggestedValues' => $this->suggestedValues,
-		);
+		return $this->mapConstructor( withParamNames: true );
 	}
 
 	/**
@@ -114,15 +108,7 @@ class Associative {
 	 * } $args
 	 */
 	public function with( array $args ): self {
-		return new self(
-			name: $this->name,
-			desc: $args['desc'] ?? $this->desc,
-			isVariadic: $args['isVariadic'] ?? $this->isVariadic,
-			isOptional: $args['isOptional'] ?? $this->isOptional,
-			default: $args['default'] ?? $this->default,
-			shortcut: $args['shortcut'] ?? $this->shortcut,
-			suggestedValues: $args['suggestedValues'] ?? $this->suggestedValues
-		);
+		return $this->selfFrom( $args );
 	}
 
 	public function input(): InputOption {

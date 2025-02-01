@@ -10,11 +10,13 @@ use TheWebSolver\Codegarage\Cli\PureArg;
 use TheWebSolver\Codegarage\Cli\Helper\Parser;
 use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Completion\Suggestion;
+use TheWebSolver\Codegarage\Cli\Traits\ConstructorAware;
 use Symfony\Component\Console\Completion\CompletionInput;
 
 #[Attribute( Attribute::TARGET_CLASS | Attribute::IS_REPEATABLE )]
 class Positional {
-	use PureArg;
+	/** @use ConstructorAware<'name'|'desc'|'isVariadic'|'isOptional'|'default'|'suggestedValues'> */
+	use PureArg, ConstructorAware;
 
 	/** @var int-mask-of<InputArgument::*> The input mode. */
 	public readonly int $mode;
@@ -83,15 +85,9 @@ class Positional {
 		return $this->name;
 	}
 
+	/** @return array<'name'|'desc'|'isVariadic'|'isOptional'|'default'|'suggestedValues',mixed> */
 	public function __debugInfo() {
-		return array(
-			'name'            => $this->name,
-			'desc'            => $this->desc,
-			'isVariadic'      => $this->isVariadic,
-			'isOptional'      => $this->isOptional,
-			'default'         => $this->userDefault,
-			'suggestedValues' => $this->suggestedValues,
-		);
+		return $this->mapConstructor( withParamNames: true );
 	}
 
 	/**
@@ -99,19 +95,12 @@ class Positional {
 	 *  desc?:            string,
 	 *  isVariadic?:      bool,
 	 *  isOptional?:      bool,
-	 *  default?:         string,
+	 *  default?:         null|string|bool|int|float|array{},
 	 *  suggestedValues?: class-string<BackedEnum>|array<string|int,string|int>|callable(CompletionInput): list<string|Suggestion>
 	 * } $args
 	 */
 	public function with( array $args ): self {
-		return new self(
-			name: $this->name,
-			desc: $args['desc'] ?? $this->desc,
-			isVariadic: $args['isVariadic'] ?? $this->isVariadic,
-			isOptional: $args['isOptional'] ?? $this->isOptional,
-			default: $args['default'] ?? $this->default,
-			suggestedValues: $args['suggestedValues'] ?? $this->suggestedValues
-		);
+		return $this->selfFrom( $args );
 	}
 
 	public function input(): InputArgument {

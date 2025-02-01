@@ -115,6 +115,28 @@ class AssociativeTest extends TestCase {
 		$this->assertSame( 's', $associative->shortcut );
 		$this->assertSame( $variants, ( $associative->suggestedValues )() );
 	}
+
+	#[Test]
+	public function itMapsConstructorArgs(): void {
+		$associative = new Associative( 'test', 'brief', true, false, 5, 's', array( 1 ) );
+
+		$this->assertArrayHasKey( 'default', $info = $associative->__debugInfo() );
+
+		// Default is tested separately for normalization.
+		unset( $info['default'] );
+
+		$this->assertSame(
+			array(
+				'name'            => 'test',
+				'desc'            => 'brief',
+				'isVariadic'      => true,
+				'isOptional'      => false,
+				'shortcut'        => 's',
+				'suggestedValues' => array( 1 ),
+			),
+			$info
+		);
+	}
 }
 
 #[Associative( 'test', 'as Desc', true, true, suggestedValues: InputVariant::class, shortcut: array( 's' ) )]

@@ -13,3 +13,7 @@ parameters:
 		-
 			path: Src/Helper/Parser.php
 			identifier: return.type # Parser::parseInputSuggestion() -> BackedEnum is never callable.
+		-
+			path: Src/Traits/ConstructorAware.php
+			identifier: argument.type # Internal data for setting value (that's the intent).
+			count: 3                  # Positional|Associative|Flag classes use it.

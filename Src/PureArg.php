@@ -9,6 +9,8 @@ use TheWebSolver\Codegarage\Cli\Helper\Parser;
 trait PureArg {
 	/** @var mixed[] */
 	private array $pureArgs;
+	/** @var string[] */
+	private array $paramNames;
 
 	public function hasPure(): bool {
 		return ! ! ( $this->pureArgs ?? false );
@@ -52,8 +54,8 @@ trait PureArg {
 	 * @param mixed[] $values     Usually `func_get_args()` of the `$methodName`.
 	 */
 	private function discoverPureFrom( string $methodName, array $values ): void {
-		$paramNames = Parser::parseParamNamesOf( $this, $methodName );
-		$validArgs  = Parser::combineParamNamesWithUserArgs( $paramNames, paramValues: $values );
+		$this->paramNames = Parser::parseParamNamesOf( $this, $methodName );
+		$validArgs        = Parser::combineParamNamesWithUserArgs( $this->paramNames, $values );
 
 		array_walk( $validArgs, $this->walkPure( ... ) );
 	}
