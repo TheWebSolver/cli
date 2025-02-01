@@ -51,9 +51,8 @@
       "@sniff"
     ],
     "test:dev": [
-      "phpunit",
       "phpstan",
-      "phpcs"
+      "phpunit"
     ]
   },
   "require-dev": {
