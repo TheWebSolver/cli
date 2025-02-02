@@ -7,7 +7,7 @@ use TheWebSolver\Codegarage\Cli\Helper\Parser;
 
 /** Intended to be used by class that can also be used as an attribute. */
 trait PureArg {
-	/** @var mixed[] */
+	/** @var array<string,mixed> */
 	private array $pureArgs;
 
 	public function hasPure(): bool {
@@ -17,25 +17,25 @@ trait PureArg {
 	/**
 	 * Gets user provided values that are explicitly passed. i.e. not `null` values.
 	 *
-	 * @return mixed[] Empty array if already purged.
+	 * @return array<string,mixed> Empty array if already purged.
 	 */
 	public function getPure(): array {
 		return $this->pureArgs ?? array();
 	}
 
 	/**
-	 * @param string|int|(string|int)[] $argKey
-	 * @return mixed[]
+	 * @param string|(string)[] $argKey
+	 * @return array<string,mixed>
 	 */
-	public function getPureWith( string|int|array $argKey ): array {
+	public function getPureWith( string|array $argKey ): array {
 		return ! $this->hasPure() ? array() : $this->filterPure( (array) $argKey, ignore: false );
 	}
 
 	/**
-	 * @param string|int|(string|int)[] $argKey
-	 * @return mixed[]
+	 * @param string|(string)[] $argKey
+	 * @return array<string,mixed>
 	 */
-	public function getPureWithout( string|int|array $argKey ): array {
+	public function getPureWithout( string|array $argKey ): array {
 		return ! $this->hasPure() ? array() : $this->filterPure( (array) $argKey, ignore: true );
 	}
 
@@ -53,7 +53,7 @@ trait PureArg {
 	/**
 	 * Sets user provided arguments. It can only be used once if not purged yet.
 	 *
-	 * @param mixed[] $values
+	 * @param array<string,mixed> $values
 	 */
 	private function setPure( array $values ): static {
 		$this->pureArgs ??= $values;
@@ -83,13 +83,13 @@ trait PureArg {
 	}
 
 	/**
-	 * @param (string|int)[] $argKeys
-	 * @return mixed[]
+	 * @param string[] $argKeys
+	 * @return array<string,mixed>
 	 */
 	private function filterPure( array $argKeys, bool $ignore = false ): array {
 		$filter = $ignore
-			? static fn( string|int $key ) => ! in_array( $key, $argKeys, strict: true )
-			: static fn( string|int $key ) => in_array( $key, $argKeys, strict: true );
+			? static fn( string $key ) => ! in_array( $key, $argKeys, strict: true )
+			: static fn( string $key ) => in_array( $key, $argKeys, strict: true );
 
 		return array_filter( $this->getPure(), $filter( ... ), ARRAY_FILTER_USE_KEY );
 	}
