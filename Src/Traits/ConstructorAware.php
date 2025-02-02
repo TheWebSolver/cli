@@ -19,7 +19,7 @@ trait ConstructorAware {
 	}
 
 	/** @param array<TParam,mixed> $values */
-	private function selfFrom( array $values, bool $namedArguments = false ): self {
-		return new self( ...$this->mapConstructor( $values, $namedArguments ) );
+	private function selfFrom( array $values ): self {
+		return new self( ...$this->mapConstructor( $values ) );
 	}
 }
