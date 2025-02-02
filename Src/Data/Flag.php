@@ -41,8 +41,7 @@ class Flag {
 		$this->desc        = $desc ?? '';
 		$this->shortcut    = $shortcut;
 		$this->isNegatable = $isNegatable ?? false;
-
-		$this->mode = $this->normalizeMode();
+		$this->mode        = $this->normalizeMode();
 	}
 
 	public static function from( InputOption $input ): self {
@@ -54,11 +53,12 @@ class Flag {
 		);
 	}
 
-	public function __toString() {
+	public function __toString(): string {
 		return $this->name;
 	}
 
-	public function __debugInfo() {
+	/** @return array<'name'|'desc'|'isNegatable'|'shortcut',mixed> */
+	public function __debugInfo(): array {
 		return $this->mapConstructor( withParamNames: true );
 	}
 

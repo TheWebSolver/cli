@@ -3,52 +3,42 @@ declare( strict_types = 1 );
 
 namespace TheWebSolver\Codegarage\Cli\Data;
 
-use Closure;
 use Attribute;
 use BackedEnum;
 use TheWebSolver\Codegarage\Cli\PureArg;
 use TheWebSolver\Codegarage\Cli\Helper\Parser;
 use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Completion\Suggestion;
+use TheWebSolver\Codegarage\Cli\Traits\InputProperties;
 use TheWebSolver\Codegarage\Cli\Traits\ConstructorAware;
 use Symfony\Component\Console\Completion\CompletionInput;
 
 #[Attribute( Attribute::TARGET_CLASS | Attribute::IS_REPEATABLE )]
 class Associative {
 	/** @use ConstructorAware<'name'|'desc'|'isVariadic'|'isOptional'|'default'|'shortcut'|'suggestedValues'> */
-	use PureArg, ConstructorAware;
+	use InputProperties, PureArg, ConstructorAware;
 
 	/** @var int-mask-of<InputOption::*> The input mode. */
 	public readonly int $mode;
-	/** @var string The short description about the option. */
-	public readonly string $desc;
-	/** @var bool Whether the option can be repeated or not. Eg: `--path=first/dir/ --path=next/dir/`. Defaults to `false`. */
-	public readonly bool $isVariadic;
-	/** @var bool Whether the option's value can be omitted. Meaning, value may or may not be passed. Eg: '--show` or `--show=yes". Defaults to `false`. */
-	public readonly bool $isOptional;
 	/** @var null|string|string[] The option's shortcut. For eg: "-s" for "--show". */
 	public readonly null|string|array $shortcut;
-	/** @var array<string|int>|(Closure(CompletionInput): list<string|Suggestion>) The option's suggested values. */
-	public readonly array|Closure $suggestedValues;
-	/** @var null|string|bool|int|float|array{} The option's default value. */
-	public readonly null|string|bool|int|float|array $default;
-
 	/** @var null|string|bool|int|float|array{}|class-string<BackedEnum>|(callable(): string|bool|int|float|array{}) */
 	private mixed $userDefault;
 
 	/**
-	 * @param string                                                                                             $name            The option name. Eg: "show".
-	 * @param string                                                                                             $desc            The short description about the option.
-	 * @param bool                                                                                               $isVariadic      Whether the option can be repeated or not.
-	 *                                                                                                                            Eg: `--path=first/dir/ --path=next/dir/`.
-	 *                                                                                                                            Defaults to `false`.
-	 * @param bool                                                                                               $isOptional      Whether the option's value can be omitted.
-	 *                                                                                                                            Meaning, value may or may not be passed.
-	 *                                                                                                                            Eg: '--show` or `--show=yes".
-	 *                                                                                                                            Defaults to `false`.
-	 * @param string|bool|int|float|array{}|class-string<BackedEnum>|(callable(): string|bool|int|float|array{}) $default         The option's default value.
-	 * @param string|string[]                                                                                    $shortcut        Shortcut. For eg: "-s" for "--show".
-	 * @param class-string<BackedEnum>|array<string|int>|(callable(CompletionInput): list<string|Suggestion>)    $suggestedValues The option's suggested values.
+	 * @param string          $name       The option name. Eg: "show".
+	 * @param string          $desc       The short description about the option.
+	 * @param bool            $isVariadic Whether the option can be repeated or not. Eg: `--path=first/dir/
+	 *                                    --path=next/dir/`. Defaults to `false`.
+	 * @param bool            $isOptional Whether the option's value can be omitted. Eg: '--show` or `--show=yes".
+	 *                                    Defaults to `false`.
+	 * @param (
+	 *   string|bool|int|float|array{}|class-string<BackedEnum>|(callable(): string|bool|int|float|array{})
+	 * )                      $default  The option's default value.
+	 * @param string|string[] $shortcut Shortcut. For eg: "-s" for "--show".
+	 * @param (
+	 *   class-string<BackedEnum>|array<string|int>|(callable(CompletionInput): list<string|Suggestion>)
+	 * )                      $suggestedValues The option's suggested values.
 	 */
 	public function __construct(
 		public readonly string $name,
@@ -61,15 +51,17 @@ class Associative {
 	) {
 		$this->discoverPureFrom( methodName: __FUNCTION__, values: func_get_args() );
 
-		$this->desc        = $desc ?? '';
 		$this->shortcut    = $shortcut;
-		$this->isVariadic  = $isVariadic ?? false;
-		$this->isOptional  = $isOptional ?? false;
 		$this->userDefault = $default;
 
-		$this->mode            = $this->normalizeMode();
-		$this->default         = $this->normalizeDefault( $default );
-		$this->suggestedValues = Parser::parseInputSuggestion( $suggestedValues ?? array() );
+		/** @disregard P1056 */ $this->desc       = $desc ?? '';
+		/** @disregard P1056 */ $this->isVariadic = $isVariadic ?? false;
+		/** @disregard P1056 */ $this->isOptional = $isOptional ?? false;
+
+		$this->mode = $this->normalizeMode();
+
+		/** @disregard P1056 */ $this->default         = $this->normalizeDefault( $default );
+		/** @disregard P1056 */ $this->suggestedValues = Parser::parseInputSuggestion( $suggestedValues ?? array() );
 	}
 
 	public static function from( InputOption $input ): self {
@@ -89,22 +81,19 @@ class Associative {
 		return $this->userDefault;
 	}
 
-	public function __toString() {
+	public function __toString(): string {
 		return $this->name;
 	}
 
-	public function __debugInfo() {
+	/** @return array<'name'|'desc'|'isVariadic'|'isOptional'|'default'|'shortcut'|'suggestedValues',mixed> */
+	public function __debugInfo(): array {
 		return $this->mapConstructor( withParamNames: true );
 	}
 
 	/**
 	 * @param array{
-	 *  desc?:            string,
-	 *  isVariadic?:      bool,
-	 *  isOptional?:      bool,
-	 *  default?:         string,
-	 *  shortcut?:        string|string[],
-	 *  suggestedValues?: class-string<BackedEnum>|array<string|int,string|int>|callable(CompletionInput): list<string|Suggestion>
+	 *   desc?:string, isVariadic?:bool, isOptional?:bool, default?:string, shortcut?:string|string[],
+	 *   suggestedValues?: class-string<BackedEnum>|array<string|int,string|int>|callable(CompletionInput): list<string|Suggestion>
 	 * } $args
 	 */
 	public function with( array $args ): self {
@@ -142,7 +131,7 @@ class Associative {
 			is_callable( $value )                   => $this->normalizeDefault( $value() ),
 			$this->isVariadic                       => $this->getVariadicDefault( $value ),
 			is_string( $value )                     => Parser::parseBackedEnumValue( $value ),
-			is_scalar( $value ), is_array( $value ) =>  $value,
+			is_scalar( $value ), is_array( $value ) => $value,
 		};
 	}
 
