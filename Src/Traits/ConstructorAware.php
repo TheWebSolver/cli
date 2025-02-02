@@ -3,14 +3,14 @@ declare( strict_types = 1 );
 
 namespace TheWebSolver\Codegarage\Cli\Traits;
 
-/** @template TParam of string */
+/** @template TParamNames of string */
 trait ConstructorAware {
-	/** @var array<TParam> */
+	/** @var array<TParamNames> */
 	private array $paramNames;
 
 	/**
-	 * @param array<TParam,mixed> $updates
-	 * @return ($withParamNames is true ? array<TParam,mixed> : mixed[])
+	 * @param array<TParamNames,mixed> $updates
+	 * @return ($withParamNames is true ? array<TParamNames,mixed> : mixed[])
 	 */
 	private function mapConstructor( array $updates = array(), bool $withParamNames = false ): array {
 		$map = array_map( fn( string $name ) => $updates[ $name ] ?? $this->{$name}, $this->paramNames );
@@ -18,7 +18,7 @@ trait ConstructorAware {
 		return $withParamNames ? array_combine( $this->paramNames, $map ) : $map;
 	}
 
-	/** @param array<TParam,mixed> $values */
+	/** @param array<TParamNames,mixed> $values */
 	private function selfFrom( array $values ): self {
 		return new self( ...$this->mapConstructor( $values ) );
 	}

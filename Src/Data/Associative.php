@@ -6,24 +6,22 @@ namespace TheWebSolver\Codegarage\Cli\Data;
 use Attribute;
 use BackedEnum;
 use TheWebSolver\Codegarage\Cli\Helper\Parser;
-use TheWebSolver\Codegarage\Cli\Traits\PureArg;
 use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Completion\Suggestion;
 use TheWebSolver\Codegarage\Cli\Traits\InputProperties;
-use TheWebSolver\Codegarage\Cli\Traits\ConstructorAware;
 use Symfony\Component\Console\Completion\CompletionInput;
 
 #[Attribute( Attribute::TARGET_CLASS | Attribute::IS_REPEATABLE )]
 class Associative {
-	/** @use ConstructorAware<'name'|'desc'|'isVariadic'|'isOptional'|'default'|'shortcut'|'suggestedValues'> */
-	use InputProperties, PureArg, ConstructorAware;
+	/** @use InputProperties<'name'|'desc'|'isVariadic'|'isOptional'|'default'|'shortcut'|'suggestedValues'> */
+	use InputProperties {
+		InputProperties::__construct as constructor;
+	}
 
 	/** @var int-mask-of<InputOption::*> The input mode. */
 	public readonly int $mode;
 	/** @var null|string|string[] The option's shortcut. For eg: "-s" for "--show". */
 	public readonly null|string|array $shortcut;
-	/** @var null|string|bool|int|float|array{}|class-string<BackedEnum>|(callable(): string|bool|int|float|array{}) */
-	private mixed $userDefault;
 
 	/**
 	 * @param string          $name       The option name. Eg: "show".
@@ -49,19 +47,16 @@ class Associative {
 		string|array $shortcut = null,
 		string|array|callable $suggestedValues = null,
 	) {
-		$this->paramNames  = $this->discoverPureFrom( methodName: __FUNCTION__, values: func_get_args() );
-		$this->shortcut    = $shortcut;
-		$this->userDefault = $default;
+		/** @var array<'name'|'desc'|'isVariadic'|'isOptional'|'default'|'shortcut'|'suggestedValues'> */
+		$names            = $this->discoverPureFrom( methodName: __FUNCTION__, values: func_get_args() );
+		$this->paramNames = $names;
+		$this->shortcut   = $shortcut;
 
-		/** @disregard P1056 */ $this->name       = $name;
-		/** @disregard P1056 */ $this->desc       = $desc ?? '';
-		/** @disregard P1056 */ $this->isVariadic = $isVariadic ?? false;
-		/** @disregard P1056 */ $this->isOptional = $isOptional ?? false;
+		$this->constructor( $name, $desc, $isVariadic, $isOptional, $default, $suggestedValues );
+	}
 
-		$this->mode = $this->normalizeMode();
-
-		/** @disregard P1056 */ $this->default         = $this->normalizeDefault( $default );
-		/** @disregard P1056 */ $this->suggestedValues = Parser::parseInputSuggestion( $suggestedValues ?? array() );
+	private function isOptional(): bool {
+		return false;
 	}
 
 	public static function from( InputOption $input ): self {
@@ -76,23 +71,9 @@ class Associative {
 		);
 	}
 
-	/** @return null|string|bool|int|float|array{}|class-string<BackedEnum>|(callable(): string|bool|int|float|array{}) */
-	public function getUserDefault(): null|string|bool|int|float|array|callable {
-		return $this->userDefault;
-	}
-
-	public function __toString(): string {
-		return $this->name;
-	}
-
-	/** @return array<'name'|'desc'|'isVariadic'|'isOptional'|'default'|'shortcut'|'suggestedValues',mixed> */
-	public function __debugInfo(): array {
-		return $this->mapConstructor( withParamNames: true );
-	}
-
 	/**
 	 * @param array{
-	 *   desc?:string, isVariadic?:bool, isOptional?:bool, default?:string, shortcut?:string|string[],
+	 *   desc?:string, isVariadic?:bool, isOptional?:bool, default?:null|string|bool|int|float|array{}, shortcut?:string|string[],
 	 *   suggestedValues?: class-string<BackedEnum>|array<string|int,string|int>|callable(CompletionInput): list<string|Suggestion>
 	 * } $args
 	 */
@@ -118,11 +99,8 @@ class Associative {
 		return $this->isVariadic ? $mode |= InputOption::VALUE_IS_ARRAY : $mode;
 	}
 
-	/**
-	 * @param mixed $value
-	 * @return null|string|bool|int|float|array{}
-	 */
-	private function normalizeDefault( $value ): null|string|bool|int|float|array {
+	/** @return null|string|bool|int|float|array{} */
+	private function normalizeDefault( mixed $value ): null|string|bool|int|float|array {
 		return match ( true ) {
 			default                                 => $this->isVariadic ? array() : null,
 			$this->isOptionalDefault( $value )      => $this->isVariadic ? array() : '',
@@ -139,6 +117,6 @@ class Associative {
 
 	/** @return array{} */
 	private function getVariadicDefault( mixed $value ): array {
-		return is_array( $value ) ? $value : ( Positional::variadicFromEnum( $value ) ?? array() );
+		return is_array( $value ) ? $value : ( $this->variadicFromEnum( $value ) ?? array() );
 	}
 }
