@@ -49,8 +49,7 @@ class Associative {
 		string|array $shortcut = null,
 		string|array|callable $suggestedValues = null,
 	) {
-		$this->discoverPureFrom( methodName: __FUNCTION__, values: func_get_args() );
-
+		$this->paramNames  = $this->discoverPureFrom( methodName: __FUNCTION__, values: func_get_args() );
 		$this->shortcut    = $shortcut;
 		$this->userDefault = $default;
 

@@ -36,8 +36,7 @@ class Flag {
 		bool $isNegatable = null,
 		string|array $shortcut = null
 	) {
-		$this->discoverPureFrom( methodName: __FUNCTION__, values: func_get_args() );
-
+		$this->paramNames  = $this->discoverPureFrom( methodName: __FUNCTION__, values: func_get_args() );
 		$this->desc        = $desc ?? '';
 		$this->shortcut    = $shortcut;
 		$this->isNegatable = $isNegatable ?? false;

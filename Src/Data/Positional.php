@@ -44,8 +44,7 @@ class Positional {
 		string|bool|int|float|array|callable $default = null,
 		string|array|callable $suggestedValues = null
 	) {
-		$this->discoverPureFrom( methodName: __FUNCTION__, values: func_get_args() );
-
+		$this->paramNames  = $this->discoverPureFrom( methodName: __FUNCTION__, values: func_get_args() );
 		$this->userDefault = $default;
 
 		/** @disregard P1056 */ $this->name       = $name;

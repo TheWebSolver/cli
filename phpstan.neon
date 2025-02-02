@@ -17,3 +17,15 @@ parameters:
 			path: Src/Traits/ConstructorAware.php
 			identifier: argument.type # Internal data for setting value (that's the intent).
 			count: 3                  # Positional|Associative|Flag classes use it.
+		-
+			path: Src/Data/Positional.php
+			identifier: assign.propertyType
+			count: 1 # Param names are __construct method's parameter names.
+		-
+			path: Src/Data/Associative.php
+			identifier: assign.propertyType
+			count: 1 # Param names are __construct method's parameter names.
+		-
+			path: Src/Data/Flag.php
+			identifier: assign.propertyType
+			count: 1 # Param names are __construct method's parameter names.

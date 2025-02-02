@@ -9,8 +9,6 @@ use TheWebSolver\Codegarage\Cli\Helper\Parser;
 trait PureArg {
 	/** @var mixed[] */
 	private array $pureArgs;
-	/** @var string[] */
-	private array $paramNames;
 
 	public function hasPure(): bool {
 		return ! ! ( $this->pureArgs ?? false );
@@ -48,16 +46,19 @@ trait PureArg {
 	}
 
 	/**
-	 * Discovers user provided value (not null) for the given method.
+	 * Discovers user provided (not null) value for the given method.
 	 *
 	 * @param string  $methodName Usually `__FUNCTION__` constant value.
 	 * @param mixed[] $values     Usually `func_get_args()` of the `$methodName`.
+	 * @return string[] The parameter names of the provided method name.
 	 */
-	private function discoverPureFrom( string $methodName, array $values ): void {
-		$this->paramNames = Parser::parseParamNamesOf( $this, $methodName );
-		$validArgs        = Parser::combineParamNamesWithUserArgs( $this->paramNames, $values );
+	private function discoverPureFrom( string $methodName, array $values ): array {
+		$paramNames = Parser::parseParamNamesOf( $this, $methodName );
+		$validArgs  = Parser::combineParamNamesWithUserArgs( $paramNames, $values );
 
 		array_walk( $validArgs, $this->walkPure( ... ) );
+
+		return $paramNames;
 	}
 
 	/** @param mixed $value The `null` value is never collected (assumed user skipped that key). */

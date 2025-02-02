@@ -58,6 +58,7 @@ class PureArgTest extends TestCase {
 	#[Test]
 	public function itAutoDiscoversParamNameAndItsValue(): void {
 		$pure = new class() {
+			public array $paramNames;
 			use PureArg {
 				PureArg::discoverPureFrom as public;
 			}
@@ -71,7 +72,7 @@ class PureArgTest extends TestCase {
 				int $integer = 5,
 				bool $simulator = false
 			) {
-				$this->discoverPureFrom( __FUNCTION__, func_get_args() );
+				$this->paramNames = $this->discoverPureFrom( __FUNCTION__, func_get_args() );
 
 				return $this;
 			}
@@ -79,6 +80,11 @@ class PureArgTest extends TestCase {
 
 		// Simulate all values passed by providing last param value.
 		$this->assertCount( 5, $pure->discoverableMethod( simulator: true )->getPure() );
+
+		$this->assertSame(
+			array( 'string', 'second', 'boolean', 'ignored', 'array', 'integer', 'simulator' ),
+			$pure->paramNames
+		);
 
 		foreach ( array( 'string', 'boolean', 'array', 'integer', 'simulator' ) as $expectedKey ) {
 			$this->assertArrayHasKey( $expectedKey, $pure->getPure() );
