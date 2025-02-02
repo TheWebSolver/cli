@@ -5,8 +5,8 @@ namespace TheWebSolver\Codegarage\Cli\Data;
 
 use Attribute;
 use BackedEnum;
-use TheWebSolver\Codegarage\Cli\PureArg;
 use TheWebSolver\Codegarage\Cli\Helper\Parser;
+use TheWebSolver\Codegarage\Cli\Traits\PureArg;
 use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Completion\Suggestion;
 use TheWebSolver\Codegarage\Cli\Traits\InputProperties;

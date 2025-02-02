@@ -5,7 +5,7 @@ namespace TheWebSolver\Codegarage\Test;
 
 use PHPUnit\Framework\TestCase;
 use PHPUnit\Framework\Attributes\Test;
-use TheWebSolver\Codegarage\Cli\PureArg;
+use TheWebSolver\Codegarage\Cli\Traits\PureArg;
 
 class PureArgTest extends TestCase {
 	#[Test]

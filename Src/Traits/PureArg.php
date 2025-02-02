@@ -1,7 +1,7 @@
 <?php
 declare( strict_types = 1 );
 
-namespace TheWebSolver\Codegarage\Cli;
+namespace TheWebSolver\Codegarage\Cli\Traits;
 
 use TheWebSolver\Codegarage\Cli\Helper\Parser;
 

@@ -4,7 +4,7 @@ declare( strict_types = 1 );
 namespace TheWebSolver\Codegarage\Cli\Data;
 
 use Attribute;
-use TheWebSolver\Codegarage\Cli\PureArg;
+use TheWebSolver\Codegarage\Cli\Traits\PureArg;
 use Symfony\Component\Console\Input\InputOption;
 use TheWebSolver\Codegarage\Cli\Traits\ConstructorAware;
 
