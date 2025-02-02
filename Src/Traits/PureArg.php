@@ -23,6 +23,22 @@ trait PureArg {
 		return $this->pureArgs ?? array();
 	}
 
+	/**
+	 * @param string|int|(string|int)[] $argKey
+	 * @return mixed[]
+	 */
+	public function getPureWith( string|int|array $argKey ): array {
+		return ! $this->hasPure() ? array() : $this->filterPure( (array) $argKey, ignore: false );
+	}
+
+	/**
+	 * @param string|int|(string|int)[] $argKey
+	 * @return mixed[]
+	 */
+	public function getPureWithout( string|int|array $argKey ): array {
+		return ! $this->hasPure() ? array() : $this->filterPure( (array) $argKey, ignore: true );
+	}
+
 	/** @return bool True if not purged before, false otherwise. */
 	public function purgePure(): bool {
 		if ( isset( $this->pureArgs ) ) {
@@ -64,5 +80,17 @@ trait PureArg {
 	/** @param mixed $value The `null` value is never collected (assumed user skipped that key). */
 	private function walkPure( mixed $value, string $key ): void {
 		null === $value || $this->pureArgs[ $key ] = $value;
+	}
+
+	/**
+	 * @param (string|int)[] $argKeys
+	 * @return mixed[]
+	 */
+	private function filterPure( array $argKeys, bool $ignore = false ): array {
+		$filter = $ignore
+			? static fn( string|int $key ) => ! in_array( $key, $argKeys, strict: true )
+			: static fn( string|int $key ) => in_array( $key, $argKeys, strict: true );
+
+		return array_filter( $this->getPure(), $filter( ... ), ARRAY_FILTER_USE_KEY );
 	}
 }
