@@ -61,7 +61,7 @@ class InputAttribute {
 	| ----------------------------------------------------------------------------------
 	*/
 
-	/** @var array{ref:ReflectionClass<Console>,input:Pos|Assoc|Flag,prop:int|string,args:mixed[],args:mixed[]} */
+	/** @var array{ref:ReflectionClass<Console>,input:Pos|Assoc|Flag,prop:int|string,args:array<string,mixed>} */
 	private array $current;
 	/** @var array<class-string<Pos|Assoc|Flag>> */
 	private array $inputClassNames;
@@ -161,7 +161,7 @@ class InputAttribute {
 	}
 
 	/**
-	 * Infers inputs from the given `InputVariant`.
+	 * Registers which inputs needs to be inferred and in which mode.
 	 *
 	 * If none of the `InputVariant` given, then all `InputVariant` types will be inferred.
 	 *
@@ -187,16 +187,16 @@ class InputAttribute {
 
 	/**
 	 * @param ?self::INFER_AND* $mode Defaults to whatever mode was registered with: `$this->register()`.
-	 * @return bool True of input's user provided arguments are purged, false otherwise.
+	 * @return bool True if input was added, false otherwise.
 	 */
 	public function add( Pos|Assoc|Flag $input, ?int $mode = null ): bool {
-		$previous     = $this->registerCurrent( $input );
-		$isRegistered = $this->registerCurrentInput( ignoreIfExists: self::INFER_AND_REPLACE === $mode );
+		$previous = $this->registerCurrent( $input );
+		$isAdded  = $this->inferCurrent( ignoreIfExists: self::INFER_AND_REPLACE === $mode );
 
 		$this->inUpdateMode() && $this->walkCollectionWithUpdatedInputProperties();
 		$this->reset( current: $previous );
 
-		return $isRegistered;
+		return $isAdded;
 	}
 
 	/** @return array<class-string<Pos|Assoc|Flag>,array<string,InputArgument|InputOption>> */
@@ -241,10 +241,14 @@ class InputAttribute {
 			&& ( $this->suggestion[ $input->name ] = $value );
 	}
 
+	private function canUpdateCurrentInput(): bool {
+		return $this->inUpdateMode() && $this->current['input']->hasPure();
+	}
+
 	private function pushCurrentInputToCollectionStack(): bool {
 		['input' => $input, 'ref' => $target, 'args' => $namedArguments] = $this->current;
 
-		if ( $this->inUpdateMode() ) {
+		if ( $this->canUpdateCurrentInput() ) {
 			$this->update[ $input::class ][ $input->name ] = $namedArguments;
 		}
 
@@ -260,16 +264,12 @@ class InputAttribute {
 		return ( $ignoreIfExists || ! $this->inCollectionStack() ) && $this->pushCurrentInputToCollectionStack();
 	}
 
-	/**
-	 * @return array{
-	 *   0:bool,
-	 *   1:null|string|class-string<BackedEnum>|bool|int|float|array{}|(callable(): string|bool|int|float|array{})
-	 * }
-	 */
+	/** @return array{0:bool,1:null|string|class-string<BackedEnum>|bool|int|float|array{}|(callable(): string|bool|int|float|array{})}*/
 	private function getCurrentInputDefaultPropertyValue(): array {
-		return 'default' === $this->current['prop'] && ! ( $input = $this->current['input'] ) instanceof Flag
-			? array( true, $input->getUserDefault() )
-			: array( false, null );
+		return array(
+			'default' === $this->current['prop'],
+			$this->suggestibleInput( $this->current['input'] )?->getUserDefault(),
+		);
 	}
 
 	private function currentPropertyInUpdateStack(): bool {
@@ -289,7 +289,7 @@ class InputAttribute {
 	}
 
 	private function toUpdateStack(): bool {
-		if ( ! $this->inUpdateMode() || ! $this->current['input']->hasPure() ) {
+		if ( ! $this->canUpdateCurrentInput() ) {
 			return false;
 		}
 
@@ -317,36 +317,32 @@ class InputAttribute {
 		return in_array( $reflection->getName(), $this->inputClassNames, true );
 	}
 
-	/** @return ?array{ref:ReflectionClass<Console>,input:Pos|Assoc|Flag,prop:int|string,args:mixed[],args:mixed[]} */
+	/** @return ?array{ref:ReflectionClass<Console>,input:Pos|Assoc|Flag,prop:int|string,args:array<string,mixed>} */
 	private function registerCurrent( Pos|Assoc|Flag $input ): ?array {
-		$previous = $this->current ?? null;
-		$prop     = '';
-		$args     = $input->getPure();
-		$ref      = $previous['ref'] ?? $this->target;
-
-		// Pragmatically excluded "name" property.
-		unset( $args['name'] );
-
+		$prop          = '';
+		$args          = $input->getPureWithout( 'name' );  // Pragmatically excluded "name" property.
+		$previous      = $this->current ?? null;            // Parsing already completed.
+		$ref           = $previous['ref'] ?? $this->target; // If so, can only target last child.
 		$this->current = compact( 'input', 'prop', 'args', 'ref' );
 
 		return $previous;
 	}
 
-	private function registerCurrentInput( bool $ignoreIfExists = false ): bool {
+	private function inferCurrent( bool $ignoreIfExists = false ): bool {
 		$this->toCollectionStack( $ignoreIfExists ) || $this->toUpdateStack();
 
 		return $this->current['input']->purgePure();
 	}
 
 	/** @param ReflectionAttribute<object> $attribute */
-	private function ensureInput( ReflectionAttribute $attribute ): bool {
-		return $this->isInputVariant( $attribute ) && ! ! $this->registerCurrent( $attribute->newInstance() );
+	private function isInput( ReflectionAttribute $attribute ): bool {
+		return $this->isInputVariant( $attribute ) && $this->registerCurrent( $attribute->newInstance() );
 	}
 
 	/** @return ReflectionClass<Console> */
 	private function useAttributes(): ReflectionClass {
 		foreach ( ( $target = $this->current['ref'] )->getAttributes() as $attribute ) {
-			$this->ensureInput( $attribute ) && $this->registerCurrentInput( ignoreIfExists: false );
+			$this->isInput( $attribute ) && $this->inferCurrent( ignoreIfExists: false );
 		}
 
 		return $target;
@@ -360,7 +356,7 @@ class InputAttribute {
 	 * @param mixed[]                      $props
 	 * @param class-string<Pos|Assoc|Flag> $attrName
 	 */
-	private function fromUpdateToCollectionStack( array $props, string $name, string $attrName ): void {
+	private function walkUpdateToCollectionStack( array $props, string $name, string $attrName ): void {
 		if ( ! $input = $this->inCollectionStack( $attrName, $name ) ) {
 			return;
 		}
@@ -373,7 +369,7 @@ class InputAttribute {
 
 	private function walkCollectionWithUpdatedInputProperties(): void {
 		foreach ( $this->update ?? array() as $attributeName => $updates ) {
-			array_walk( $updates, $this->fromUpdateToCollectionStack( ... ), $attributeName );
+			array_walk( $updates, $this->walkUpdateToCollectionStack( ... ), $attributeName );
 		}
 	}
 
@@ -393,7 +389,7 @@ class InputAttribute {
 		return $this;
 	}
 
-	/** @param ?array{ref:ReflectionClass<Console>,input:Pos|Assoc|Flag,prop:int|string,args:mixed[],args:mixed[]} $current */
+	/** @param ?array{ref:ReflectionClass<Console>,input:Pos|Assoc|Flag,prop:int|string,args:array<string,mixed>} $current */
 	private function reset( ?array $current ): void {
 		$current && ( $this->current = $current );
 	}
