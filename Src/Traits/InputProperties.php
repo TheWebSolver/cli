@@ -8,7 +8,11 @@ use Symfony\Component\Console\Completion\Suggestion;
 use Symfony\Component\Console\Completion\CompletionInput;
 
 trait InputProperties {
-	/** @var string The short description about input. */
+	/** @var string Input name. */
+	public readonly string $name;
+	/** @var int Input mode. */
+	public readonly int $mode;
+	/** @var string Input short description. */
 	public readonly string $desc;
 	/** @var bool Whether input can be repeated or not. If set to true, multiple values can be passed for same input name. */
 	public readonly bool $isVariadic;

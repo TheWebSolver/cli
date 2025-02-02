@@ -41,7 +41,7 @@ class Associative {
 	 * )                      $suggestedValues The option's suggested values.
 	 */
 	public function __construct(
-		public readonly string $name,
+		string $name,
 		string $desc = null,
 		bool $isVariadic = null,
 		bool $isOptional = null,
@@ -54,6 +54,7 @@ class Associative {
 		$this->shortcut    = $shortcut;
 		$this->userDefault = $default;
 
+		/** @disregard P1056 */ $this->name       = $name;
 		/** @disregard P1056 */ $this->desc       = $desc ?? '';
 		/** @disregard P1056 */ $this->isVariadic = $isVariadic ?? false;
 		/** @disregard P1056 */ $this->isOptional = $isOptional ?? false;

@@ -37,7 +37,7 @@ class Positional {
 	 * ) $suggestedValues The argument's suggested values.
 	 */
 	public function __construct(
-		public readonly string $name,
+		string $name,
 		string $desc = null,
 		bool $isVariadic = null,
 		bool $isOptional = null,
@@ -48,6 +48,7 @@ class Positional {
 
 		$this->userDefault = $default;
 
+		/** @disregard P1056 */ $this->name       = $name;
 		/** @disregard P1056 */ $this->desc       = $desc ?? '';
 		/** @disregard P1056 */ $this->isVariadic = $isVariadic ?? false;
 		/** @disregard P1056 */ $this->isOptional = $isOptional ?? true;
