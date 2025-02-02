@@ -81,8 +81,6 @@ class Flag {
 	private function normalizeMode(): int {
 		$mode = InputOption::VALUE_NONE;
 
-		$this->isNegatable && ( $mode |= InputOption::VALUE_NEGATABLE );
-
-		return $mode;
+		return $this->isNegatable ? $mode |= InputOption::VALUE_NEGATABLE : $mode;
 	}
 }

@@ -115,9 +115,7 @@ class Associative {
 	private function normalizeMode(): int {
 		$mode = $this->isOptional ? InputOption::VALUE_OPTIONAL : InputOption::VALUE_REQUIRED;
 
-		$this->isVariadic && ( $mode |= InputOption::VALUE_IS_ARRAY );
-
-		return $mode;
+		return $this->isVariadic ? $mode |= InputOption::VALUE_IS_ARRAY : $mode;
 	}
 
 	/**

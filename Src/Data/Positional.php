@@ -107,9 +107,7 @@ class Positional {
 	private function normalizeMode(): int {
 		$mode = $this->isOptional ? InputArgument::OPTIONAL : InputArgument::REQUIRED;
 
-		$this->isVariadic && ( $mode |= InputArgument::IS_ARRAY );
-
-		return $mode;
+		return $this->isVariadic ? $mode |= InputArgument::IS_ARRAY : $mode;
 	}
 
 	/**
