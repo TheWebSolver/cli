@@ -83,7 +83,7 @@ class CommandLoader implements Countable {
 	}
 
 	protected function getRootPath(): string {
-		return $this->realDirectoryPath( $this->base['dirpath'] );
+		return $this->base['dirpath'];
 	}
 
 	protected function forCurrentSubDirectory(): void {
@@ -157,7 +157,7 @@ class CommandLoader implements Countable {
 			$dirpath    = $base[ $namespace = (string) array_key_first( $base ) ];
 			$this->base = compact( 'dirpath', 'namespace' );
 
-			$this->scan( $this->realDirectoryPath( $dirpath ) );
+			$this->scan( $dirpath );
 		}
 
 		// By default, all lazy-loaded commands extending Console will use default "Cli".
