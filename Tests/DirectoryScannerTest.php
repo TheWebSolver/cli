@@ -3,12 +3,12 @@ declare( strict_types = 1 );
 
 namespace TheWebSolver\Codegarage\Test;
 
-use LogicException;
 use PHPUnit\Framework\TestCase;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\Attributes\Depends;
 use TheWebSolver\Codegarage\Cli\DirectoryScanner;
 use TheWebSolver\Codegarage\Cli\Traits\ScannedItemAware;
+use TheWebSolver\Codegarage\Cli\Traits\SubDirectoryAware;
 
 class DirectoryScannerTest extends TestCase {
 	public const TEST_PATH = __DIR__ . DIRECTORY_SEPARATOR . '..' . DIRECTORY_SEPARATOR . 'Tests' . DIRECTORY_SEPARATOR;
@@ -25,43 +25,10 @@ class DirectoryScannerTest extends TestCase {
 	}
 
 	#[Test]
-	public function itForbidsUsingScannedDirMethodWithoutImplementation(): void {
-		$scanner = new class() {
-			use DirectoryScanner;
-
-			public function run(): self {
-				$this->subDirectories = array( 'SubStub' => 1 );
-
-				$this->scan( $this->getRootPath() );
-
-				return $this;
-			}
-
-			protected function getRootPath(): string {
-				return $this->realDirectoryPath( DirectoryScannerTest::STUB_PATH );
-			}
-
-			protected function forCurrentFile(): void {}
-		};
-
-		$this->expectException( LogicException::class );
-		$this->expectExceptionMessage(
-			sprintf(
-				'Class "%1$s" must implement "%2$s::forCurrentSubDirectory" method to scan "%3$s" sub-directory',
-				$scanner::class,
-				DirectoryScanner::class,
-				'SubStub'
-			)
-		);
-
-		$scanner->run();
-	}
-
-	#[Test]
 	public function itUsesScannedItemAwareToGetScannedItems(): object {
 		$scanner = new class() {
-			use DirectoryScanner, ScannedItemAware {
-				DirectoryScanner::usingSubDirectories as public;
+			use DirectoryScanner, ScannedItemAware, SubDirectoryAware {
+				SubDirectoryAware::usingSubDirectories as public;
 			}
 
 			protected function getAllowedExtensions(): array {
@@ -98,57 +65,63 @@ class DirectoryScannerTest extends TestCase {
 		$scanner->usingSubDirectories( $subDirectories )->run();
 
 		$this->assertCount( 2, $depths = $scanner->getScannedItemsDepth() );
-		$this->assertCount( 2, $scanDir = $depths['Scan'] );
-		$this->assertCount( 7, $stubDir = $depths['Stub'] );
+		$this->assertCount( 3, $scanDir = $depths['Scan'] );
+		$this->assertCount( 8, $stubDir = $depths['Stub'] );
 
-		$scanDirFiles = array( 'Valid.php', 'Ignore.php' );
+		$this->assertCount( 1, $scanRootDirDepth = array_filter( $scanDir, fn( $details ) => 1 === $details['depth'] ) );
 
-		foreach ( $scanDir as $details ) {
-			$this->assertSame( 0, $details['depth'] );
-			$this->assertTrue( ( $item = $details['item'] )->isFile() );
-			$this->assertContains( $item->getBasename(), $scanDirFiles );
-			$this->assertSame( array( 'Scan' ), $details['tree'] );
-		}
+		$scanDirItem = reset( $scanRootDirDepth );
 
-		$noDepthFileNames = array( 'TestCommand.php', 'AnotherScannedCommand.php' );
-		$zeroDepths       = array_filter( $stubDir, fn( $details ) => 0 === $details['depth'] );
+		$this->assertTrue( $scanDirItem['item']->isDir() );
+		$this->assertEmpty( $scanDirItem['tree'] );
+		$this->assertSame( 'directory', $scanDirItem['type'] );
 
-		$this->assertCount( 2, $zeroDepths );
+		$this->assertCount( 1, $stubRootDirDepth = array_filter( $stubDir, fn( $details ) => 1 === $details['depth'] ) );
 
-		foreach ( $zeroDepths as $file ) {
-			$this->assertContains( $file['item']->getBasename(), $noDepthFileNames );
-			$this->assertSame( array( 'Stub' ), $file['tree'] );
-		}
+		$stubDirItem = reset( $stubRootDirDepth );
 
-		$firstDepths         = array_filter( $stubDir, fn( $details ) => 1 === $details['depth'] );
-		$firstDepthFilesDirs = array( 'FirstDepth', 'SubStub', 'FirstDepthCommand.php' );
+		$this->assertTrue( $stubDirItem['item']->isDir() );
+		$this->assertEmpty( $stubDirItem['tree'] );
+		$this->assertSame( 'directory', $stubDirItem['type'] );
 
-		$this->assertCount( 3, $firstDepths );
+		$this->assertCount( 4, $firstDepths = array_filter( $stubDir, fn( $details ) => 2 === $details['depth'] ) );
 
-		foreach ( $firstDepths as $firstDepthDetails ) {
-			$this->assertContains( $firstDepthDetails['item']->getBasename(), $firstDepthFilesDirs );
-
-			if ( 'file' === $firstDepthDetails['type'] ) {
-				$this->assertSame( array( 'Stub', 'SubStub' ), $firstDepthDetails['tree'] );
+		foreach ( $firstDepths as $details ) {
+			if ( 'directory' === $details['type'] ) {
+				$this->assertTrue( $details['item']->isDir() );
+				$this->assertContains( $details['base'], array( 'FirstDepth', 'SubStub' ) );
 			} else {
-				$this->assertSame( array( 'Stub' ), $firstDepthDetails['tree'] );
+				$this->assertTrue( $details['item']->isFile() );
+				$this->assertContains( $details['base'], array( 'TestCommand.php', 'AnotherScannedCommand.php' ) );
+			}
+
+			$this->assertSame( array( 'Stub' ), $details['tree'] );
+		}
+
+		$this->assertCount( 2, $secondDepths = array_filter( $stubDir, fn( $details ) => 3 === $details['depth'] ) );
+
+		foreach ( $secondDepths as $details ) {
+			if ( 'directory' === $details['type'] ) {
+				$this->assertTrue( $details['item']->isDir() );
+				$this->assertSame( array( 'Stub', 'FirstDepth' ), $details['tree'] );
+				$this->assertSame( 'SubStub', $details['base'] );
+			} else {
+				$this->assertTrue( $details['item']->isFile() );
+				$this->assertSame( array( 'Stub', 'SubStub' ), $details['tree'] );
+				$this->assertSame( 'FirstDepthCommand.php', $details['base'] );
 			}
 		}
 
-		$secondDepthDir      = array_filter( $stubDir, fn( $details ) => 2 === $details['depth'] );
-		$secondDepthDirFiles = array( 'SubStub', '.gitkeep' );
+		$this->assertCount( 1, $thirdDepths = array_filter( $stubDir, fn( $details ) => 4 === $details['depth'] ) );
 
-		$this->assertCount( 2, $secondDepthDir );
+		$item = reset( $thirdDepths );
 
-		foreach ( $secondDepthDir as $secondDepthDetails ) {
-			$this->assertContains( $secondDepthDetails['item']->getBasename(), $secondDepthDirFiles );
+		$this->assertSame( 'file', $item['type'] );
+		$this->assertSame( '.gitkeep', $item['base'] );
+		$this->assertTrue( $item['item']->isFile() );
+		$this->assertSame( array( 'Stub', 'FirstDepth', 'SubStub' ), $item['tree'] );
 
-			if ( 'file' === $secondDepthDetails['type'] ) {
-				$this->assertSame( array( 'Stub', 'FirstDepth', 'SubStub' ), $secondDepthDetails['tree'] );
-			} else {
-				$this->assertSame( array( 'Stub', 'FirstDepth' ), $secondDepthDetails['tree'] );
-			}
-		}
+		$this->assertSame( 4, $scanner->getMaxDepth() );
 
 		return $scanner;
 	}

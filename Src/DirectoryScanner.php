@@ -5,13 +5,13 @@ namespace TheWebSolver\Codegarage\Cli;
 
 use LogicException;
 use DirectoryIterator;
+use TheWebSolver\Codegarage\Cli\Traits\ScannedItemAware;
+use TheWebSolver\Codegarage\Cli\Traits\SubDirectoryAware;
 
 trait DirectoryScanner {
 	private DirectoryIterator $currentScannedItem;
 	/** @var string[] */
 	private array $scannedDirectories = array();
-	/** @var array<string,int|int[]> */
-	private array $subDirectories = array();
 	/** @var array{0:int,1:string} */
 	private array $currentDepth;
 	/** @var array<string,string> */
@@ -31,11 +31,7 @@ trait DirectoryScanner {
 		return $this->scannedPaths;
 	}
 
-	/**
-	 * Gets root directory path of the sub-directory currently being scanned.
-	 * If no sub-directory is provided using `$this->usingSubDirectories()`,
-	 * it must return same value as the current directory being scanned.
-	 */
+	/** Gets root directory path of the sub-directory currently being scanned. */
 	abstract protected function getRootPath(): string;
 
 	/**
@@ -60,38 +56,6 @@ trait DirectoryScanner {
 		return array( 'php' );
 	}
 
-	/**
-	 * Allows the implementing class to perform task for the current sub-directory.
-	 * This is invoked inside `$this->shouldRegisterCurrentItem()` method when a
-	 * user provided sub-directory name (using `$this->usingSubDirectories()`)
-	 * matches. Then, among other tasks, user may perform next scan using
-	 * current item: `$this->scan($this->currentItem()->getPathname())`.
-	 * Here, `$this->currentItem()->isDir()` will always return `true`.
-	 *
-	 * @throws LogicException When sub-directory names are provided with `$this->usingSubDirectories()`
-	 *                        method but the class using this scanner does not implement this method.
-	 */
-	protected function forCurrentSubDirectory(): void {
-		throw new LogicException(
-			sprintf(
-				'Class "%1$s" must implement "%2$s" method to scan "%3$s" sub-directory.',
-				static::class,
-				DirectoryScanner::class . '::' . __FUNCTION__,
-				$this->currentItem()->getFilename()
-			)
-		);
-	}
-
-	/**
-	 * @param array<string,int|int[]> $nameWithDepth Sub-directory name and its depth (depths if same
-	 *                                               name exists in nested directory) to be scanned.
-	 */
-	final protected function usingSubDirectories( array $nameWithDepth ): static {
-		$this->subDirectories = $nameWithDepth;
-
-		return $this;
-	}
-
 	final protected function currentItem(): DirectoryIterator {
 		return $this->currentScannedItem;
 	}
@@ -107,10 +71,10 @@ trait DirectoryScanner {
 	 * Acts as a safeguard as to whether current item should be considered as a scanned item or not.
 	 * By default, this will:
 	 *  - return true only when `$this->currentItem()->isFile()` and has one of the allowed extensions
-	 *  - invoke the template method `$this->forCurrentSubDirectory()` if sub-directory name matches
+	 *  - invoke`$this->forCurrentSubDirectory()` if exhibiting class uses `SubDirectoryAware` trait.
 	 */
 	protected function shouldRegisterCurrentItem(): bool {
-		if ( ( $item = $this->currentItem() )->isDot() ) {
+		if ( $this->currentItem()->isDot() ) {
 			return false;
 		}
 
@@ -118,7 +82,7 @@ trait DirectoryScanner {
 			return true;
 		}
 
-		if ( ! $item->isDir() ) {
+		if ( ! $this->isSubDirectoryAwareAndCurrentItemIsDir() ) {
 			return false;
 		}
 
@@ -142,14 +106,23 @@ trait DirectoryScanner {
 		return realpath( $path ) ?: $this->throwInvalidDir( $path );
 	}
 
+	final protected function exhibitUsesTrait( string $name ): bool {
+		return in_array( $name, class_uses( $this, autoload: false ), strict: true );
+	}
+
 	/**
 	 * Scans files and directories inside the provided directory name.
 	 * This may or may not be same value as `$this->getRootPath()`
 	 * based on whether directory is being recursively scanned.
 	 */
-	private function scan( string $directory ): static {
-		$this->scannedDirectories[] = $directory = $this->realDirectoryPath( $directory );
+	private function scan( string $directory = null ): static {
+		$directory                  = $this->realDirectoryPath( $directory ?? $this->getRootPath() );
 		$scanner                    = new DirectoryIterator( $directory );
+		$this->scannedDirectories[] = $directory;
+
+		$this->realDirectoryPath( $this->getRootPath() ) === $directory
+			&& $this->exhibitUsesTrait( ScannedItemAware::class )
+			&& $this->registerCurrentItemDepth( parts: array(), depth: 1, item: clone $scanner );
 
 		while ( $scanner->valid() ) {
 			$this->currentScannedItem = $scanner->current();
@@ -168,19 +141,22 @@ trait DirectoryScanner {
 		return $this;
 	}
 
-	private function currentItemIsFileWithAllowedExtension(): bool {
+	protected function currentItemIsFileWithAllowedExtension(): bool {
 		$item    = $this->currentItem();
 		$isValid = $item->isFile() && in_array( $item->getExtension(), $this->getAllowedExtensions(), strict: true );
 
 		if ( $isValid ) {
 			$depth = count( $subPathParts = $this->currentItemSubpath( parts: true ) ?? array() );
 
-			if ( $depth && method_exists( $this, 'registerCurrentItemDepth' ) ) {
-				$this->registerCurrentItemDepth( $subPathParts, $depth - 1 );
-			}
+			! ! $depth && $this->exhibitUsesTrait( ScannedItemAware::class ) &&
+				$this->registerCurrentItemDepth( $subPathParts, $depth + 1, item: clone $item );
 		}
 
 		return $isValid;
+	}
+
+	protected function isSubDirectoryAwareAndCurrentItemIsDir(): bool {
+		return $this->currentItem()->isDir() && $this->exhibitUsesTrait( SubDirectoryAware::class );
 	}
 
 	private function inCurrentDepth(): self {
@@ -188,9 +164,8 @@ trait DirectoryScanner {
 			$subPathParts       = $this->currentItemSubpath( parts: true ) ?? array();
 			$this->currentDepth = array( $depth = count( $subPathParts ), $this->currentItem()->getBasename() );
 
-			if ( $depth && method_exists( $this, 'registerCurrentItemDepth' ) ) {
-				$this->registerCurrentItemDepth( $subPathParts, $depth );
-			}
+			! ! $depth && $this->exhibitUsesTrait( ScannedItemAware::class ) &&
+				$this->registerCurrentItemDepth( $subPathParts, $depth + 1, item: clone $this->currentItem() );
 		}
 
 		return $this;
@@ -213,8 +188,8 @@ trait DirectoryScanner {
 	private function currentItemSubpath( bool $parts = true ): string|array|null {
 		$fullPath = $this->currentItem()->getRealPath();
 		$subpath  = trim(
-			substr( $fullPath, strlen( $this->realDirectoryPath( $this->getRootPath() ) ) ),
-			DIRECTORY_SEPARATOR
+			string: substr( $fullPath, strlen( $this->realDirectoryPath( $this->getRootPath() ) ) ),
+			characters: DIRECTORY_SEPARATOR
 		);
 
 		return $parts ? explode( separator: DIRECTORY_SEPARATOR, string: $subpath ) : $subpath;

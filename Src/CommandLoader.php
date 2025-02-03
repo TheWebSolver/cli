@@ -10,11 +10,12 @@ use TheWebSolver\Codegarage\Container\Container;
 use TheWebSolver\Codegarage\Cli\Event\AfterLoadEvent;
 use Symfony\Component\EventDispatcher\EventDispatcher;
 use TheWebSolver\Codegarage\Cli\Event\CommandSubscriber;
+use TheWebSolver\Codegarage\Cli\Traits\SubDirectoryAware;
 use Symfony\Component\Console\CommandLoader\ContainerCommandLoader;
 
 class CommandLoader implements Countable {
-	use DirectoryScanner {
-		DirectoryScanner::usingSubDirectories as public;
+	use SubDirectoryAware, DirectoryScanner {
+		SubDirectoryAware::usingSubDirectories as public;
 	}
 
 	/** @var array{dirpath:string,namespace:string} */
@@ -84,10 +85,6 @@ class CommandLoader implements Countable {
 
 	protected function getRootPath(): string {
 		return $this->base['dirpath'];
-	}
-
-	protected function forCurrentSubDirectory(): void {
-		$this->scan( directory: $this->currentItem()->getPathname() );
 	}
 
 	protected function forCurrentFile(): void {
