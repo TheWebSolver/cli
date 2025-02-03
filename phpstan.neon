@@ -29,9 +29,3 @@ parameters:
 		- # DISABLE WHEN "ScannedItemAware" TRAIT IS USED.
 			identifier: trait.unused
 			message: '#^Trait TheWebSolver\\Codegarage\\Cli\\Traits\\ScannedItemAware is used zero times and is not analysed\.$#'
-
-		- # DISABLE WHEN "ScannedItemAware" TRAIT IS USED.
-			path: Src/Traits/DirectoryScanner.php
-			identifier: method.notFound
-			count: 3
-			message: "|::registerCurrentItemDepth()|"

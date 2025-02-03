@@ -27,7 +27,6 @@ trait ScannedItemAware {
 	private function registerCurrentItemDepth( array $parts, int $depth, DirectoryIterator $item ): void {
 		$rootBasename = $this->getRootBasename(); // Store items indexed by root dir.
 		$isNotRoot    = ! ! array_pop( $parts );  // Omit tree structure for root dir.
-		$item         = clone $item;              // Catch item in the current loop.
 		$tree         = $isNotRoot ? array( $rootBasename, ...( $parts ?: array() ) ) : array();
 		$type         = $item->isDir() ? 'directory' : 'file';
 		$base         = $item->getBasename();

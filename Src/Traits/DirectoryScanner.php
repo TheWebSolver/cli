@@ -120,7 +120,7 @@ trait DirectoryScanner {
 
 		$this->realDirectoryPath( $this->getRootPath() ) === $directory
 			&& $this->exhibitUsesTrait( ScannedItemAware::class )
-			&& $this->registerCurrentItemDepth( parts: array(), depth: 1, item: $scanner );
+			&& $this->maybeRegisterCurrentDepth( count: 0, item: $scanner );
 
 		while ( $scanner->valid() ) {
 			$this->currentScannedItem = $scanner->current();
@@ -144,10 +144,8 @@ trait DirectoryScanner {
 		$isValid = $item->isFile() && in_array( $item->getExtension(), $this->getAllowedExtensions(), strict: true );
 
 		if ( $isValid ) {
-			$depth = count( $subPathParts = $this->currentItemSubpath( parts: true ) ?? array() );
-
-			! ! $depth && $this->exhibitUsesTrait( ScannedItemAware::class ) &&
-				$this->registerCurrentItemDepth( $subPathParts, $depth + 1, $item );
+			( $count = count( $subPathParts = $this->currentItemSubpath( parts: true ) ?? array() ) )
+				&& $this->maybeRegisterCurrentDepth( $count, parts: $subPathParts );
 		}
 
 		return $isValid;
@@ -160,10 +158,9 @@ trait DirectoryScanner {
 	private function inCurrentDepth(): self {
 		if ( $this->subDirectories ) {
 			$subPathParts       = $this->currentItemSubpath( parts: true ) ?? array();
-			$this->currentDepth = array( $depth = count( $subPathParts ), $this->currentItem()->getBasename() );
+			$this->currentDepth = array( $count = count( $subPathParts ), $this->currentItem()->getBasename() );
 
-			! ! $depth && $this->exhibitUsesTrait( ScannedItemAware::class ) &&
-				$this->registerCurrentItemDepth( $subPathParts, $depth + 1, $this->currentItem() );
+			$count && $this->maybeRegisterCurrentDepth( $count, parts: $subPathParts );
 		}
 
 		return $this;
@@ -191,6 +188,17 @@ trait DirectoryScanner {
 		);
 
 		return $parts ? explode( separator: DIRECTORY_SEPARATOR, string: $subpath ) : $subpath;
+	}
+
+	/** @param string[] $parts */
+	private function maybeRegisterCurrentDepth(
+		int $count,
+		DirectoryIterator $item = null,
+		array $parts = array()
+	): void {
+		$this->exhibitUsesTrait( ScannedItemAware::class )
+		// @phpstan-ignore-next-line -- Defined method of "ScannedItemAware" trait.
+			&& $this->registerCurrentItemDepth( $parts, $count + 1, clone ( $item ?? $this->currentItem() ) );
 	}
 
 	private function throwInvalidDir( string $path ): never {
