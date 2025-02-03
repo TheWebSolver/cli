@@ -7,9 +7,6 @@ use LogicException;
 use DirectoryIterator;
 
 trait DirectoryScanner {
-	/** @var string[] */
-	public const ALLOWED_EXTENSIONS = array( 'php' );
-
 	private DirectoryIterator $currentScannedItem;
 	/** @var string[] */
 	private array $scannedDirectories = array();
@@ -46,6 +43,16 @@ trait DirectoryScanner {
 	 * Here, `$this->currentItem()->isFile()` will always return `true`.
 	 */
 	abstract protected function forCurrentFile(): void;
+
+	/**
+	 * Gets file extensions that the scanner is allowed to scan.
+	 * By default, it'll only scan files with `.php` extension.
+	 *
+	 * @return string[]
+	 */
+	protected function getAllowedExtensions(): array {
+		return array( 'php' );
+	}
 
 	/**
 	 * Allows the implementing class to perform task for the current sub-directory.
@@ -87,7 +94,7 @@ trait DirectoryScanner {
 	protected function extensionOf( string $filename ): ?string {
 		$nameParts = explode( separator: '.', string: $filename );
 
-		return in_array( $ext = end( $nameParts ), static::ALLOWED_EXTENSIONS, strict: true ) ? $ext : null;
+		return in_array( $ext = end( $nameParts ), $this->getAllowedExtensions(), strict: true ) ? $ext : null;
 	}
 
 	/**
@@ -124,6 +131,7 @@ trait DirectoryScanner {
 			: ( $ext ? substr( $filename, 0, - strlen( ".{$ext}" ) ) : $filename );
 	}
 
+	/** @throws LogicException When given `$path` is not a real directory path. */
 	final protected function realDirectoryPath( string $path ): string {
 		return realpath( $path ) ?: $this->throwInvalidDir( $path );
 	}
@@ -134,7 +142,7 @@ trait DirectoryScanner {
 	 * based on whether directory is being recursively scanned.
 	 */
 	private function scan( string $directory ): static {
-		$this->scannedDirectories[] = $directory;
+		$this->scannedDirectories[] = $directory = $this->realDirectoryPath( $directory );
 		$scanner                    = new DirectoryIterator( $directory );
 
 		while ( $scanner->valid() ) {
@@ -157,7 +165,7 @@ trait DirectoryScanner {
 	private function currentItemIsFileWithAllowedExtension(): bool {
 		$item = $this->currentItem();
 
-		return $item->isFile() && in_array( $item->getExtension(), static::ALLOWED_EXTENSIONS, strict: true );
+		return $item->isFile() && in_array( $item->getExtension(), $this->getAllowedExtensions(), strict: true );
 	}
 
 	private function inCurrentDepth(): self {
@@ -184,8 +192,11 @@ trait DirectoryScanner {
 
 	/** @return ($parts is true ? ?list<string> : ?string) */
 	private function currentItemSubpath( bool $parts = true ): string|array|null {
-		$fullPath = $this->currentItem()->getPathname();
-		$subpath  = trim( substr( $fullPath, strlen( $this->getRootPath() ) ), DIRECTORY_SEPARATOR );
+		$fullPath = $this->currentItem()->getRealPath();
+		$subpath  = trim(
+			substr( $fullPath, strlen( $this->realDirectoryPath( $this->getRootPath() ) ) ),
+			DIRECTORY_SEPARATOR
+		);
 
 		return $parts ? explode( separator: DIRECTORY_SEPARATOR, string: $subpath ) : $subpath;
 	}
