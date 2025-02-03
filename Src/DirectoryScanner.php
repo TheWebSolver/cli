@@ -122,7 +122,7 @@ trait DirectoryScanner {
 
 		$this->realDirectoryPath( $this->getRootPath() ) === $directory
 			&& $this->exhibitUsesTrait( ScannedItemAware::class )
-			&& $this->registerCurrentItemDepth( parts: array(), depth: 1, item: clone $scanner );
+			&& $this->registerCurrentItemDepth( parts: array(), depth: 1, item: $scanner );
 
 		while ( $scanner->valid() ) {
 			$this->currentScannedItem = $scanner->current();
@@ -149,7 +149,7 @@ trait DirectoryScanner {
 			$depth = count( $subPathParts = $this->currentItemSubpath( parts: true ) ?? array() );
 
 			! ! $depth && $this->exhibitUsesTrait( ScannedItemAware::class ) &&
-				$this->registerCurrentItemDepth( $subPathParts, $depth + 1, item: clone $item );
+				$this->registerCurrentItemDepth( $subPathParts, $depth + 1, $item );
 		}
 
 		return $isValid;
@@ -165,7 +165,7 @@ trait DirectoryScanner {
 			$this->currentDepth = array( $depth = count( $subPathParts ), $this->currentItem()->getBasename() );
 
 			! ! $depth && $this->exhibitUsesTrait( ScannedItemAware::class ) &&
-				$this->registerCurrentItemDepth( $subPathParts, $depth + 1, item: clone $this->currentItem() );
+				$this->registerCurrentItemDepth( $subPathParts, $depth + 1, $this->currentItem() );
 		}
 
 		return $this;

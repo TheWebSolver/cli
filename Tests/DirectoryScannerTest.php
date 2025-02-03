@@ -129,17 +129,17 @@ class DirectoryScannerTest extends TestCase {
 	#[Test]
 	#[Depends( 'itUsesScannedItemAwareToGetScannedItems' )]
 	public function itEnsuresScannedDepthsAreSorted( object $scanner ): void {
-		$onlyDepths = array_column( $scanner->getScannedItemsDepth()['Stub'], 'depth' );
-		$depths     = array_values( $onlyDepths );
-		sort( $onlyDepths );
-
-		$this->assertNotSame( $depths, $onlyDepths );
-
 		$onlyDepths = array_column( $scanner->getScannedItemsDepth( true )['Stub'], 'depth' );
 		$depths     = array_values( $onlyDepths );
 		sort( $onlyDepths );
 
 		$this->assertSame( $depths, $onlyDepths );
+
+		$onlyDepths = array_column( $scanner->getScannedItemsDepth()['Stub'], 'depth' );
+		$depths     = array_values( $onlyDepths );
+		sort( $onlyDepths );
+
+		$this->assertNotSame( $depths, $onlyDepths );
 	}
 }
 
