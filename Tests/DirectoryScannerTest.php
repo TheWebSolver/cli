@@ -6,7 +6,7 @@ namespace TheWebSolver\Codegarage\Test;
 use PHPUnit\Framework\TestCase;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\Attributes\Depends;
-use TheWebSolver\Codegarage\Cli\DirectoryScanner;
+use TheWebSolver\Codegarage\Cli\Traits\DirectoryScanner;
 use TheWebSolver\Codegarage\Cli\Traits\ScannedItemAware;
 use TheWebSolver\Codegarage\Cli\Traits\SubDirectoryAware;
 

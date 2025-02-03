@@ -1,12 +1,10 @@
 <?php
 declare ( strict_types = 1 );
 
-namespace TheWebSolver\Codegarage\Cli;
+namespace TheWebSolver\Codegarage\Cli\Traits;
 
 use LogicException;
 use DirectoryIterator;
-use TheWebSolver\Codegarage\Cli\Traits\ScannedItemAware;
-use TheWebSolver\Codegarage\Cli\Traits\SubDirectoryAware;
 
 trait DirectoryScanner {
 	private DirectoryIterator $currentScannedItem;

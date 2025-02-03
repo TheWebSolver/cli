@@ -10,6 +10,7 @@ use TheWebSolver\Codegarage\Container\Container;
 use TheWebSolver\Codegarage\Cli\Event\AfterLoadEvent;
 use Symfony\Component\EventDispatcher\EventDispatcher;
 use TheWebSolver\Codegarage\Cli\Event\CommandSubscriber;
+use TheWebSolver\Codegarage\Cli\Traits\DirectoryScanner;
 use TheWebSolver\Codegarage\Cli\Traits\SubDirectoryAware;
 use Symfony\Component\Console\CommandLoader\ContainerCommandLoader;
 
