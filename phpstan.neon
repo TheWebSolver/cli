@@ -25,3 +25,11 @@ parameters:
 			path: Src/Data/Flag.php
 			identifier: assign.propertyType
 			count: 1 # Param names are __construct method's parameter names.
+
+		- # DISABLE WHEN "ScannedItemAware" TRAIT IS USED.
+			identifier: trait.unused
+			message: '#^Trait TheWebSolver\\Codegarage\\Cli\\Traits\\ScannedItemAware is used zero times and is not analysed\.$#'
+
+		# - # ENABLE WHEN "ScannedItemAware" TRAIT IS USED.
+		# 	identifier: function.alreadyNarrowedType
+		# 	message: "|and 'registerCurrentItem…' will always evaluate to true|"

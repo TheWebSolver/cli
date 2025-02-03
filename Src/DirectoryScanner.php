@@ -21,7 +21,7 @@ trait DirectoryScanner {
 		return count( $this->scannedDirectories );
 	}
 
-	/** @return string[] List of scanned directory/sub-directory paths. */
+	/** @return string[] List of scanned directory/sub-directory real paths. */
 	final public function getScannedDirectories(): array {
 		return $this->scannedDirectories;
 	}
@@ -43,6 +43,12 @@ trait DirectoryScanner {
 	 * Here, `$this->currentItem()->isFile()` will always return `true`.
 	 */
 	abstract protected function forCurrentFile(): void;
+
+	protected function getRootBasename(): string {
+		$root = rtrim( $this->getRootPath(), DIRECTORY_SEPARATOR );
+
+		return ltrim( substr( $root, strrpos( $root, DIRECTORY_SEPARATOR, -1 ) ?: 0 ), DIRECTORY_SEPARATOR );
+	}
 
 	/**
 	 * Gets file extensions that the scanner is allowed to scan.
@@ -163,15 +169,28 @@ trait DirectoryScanner {
 	}
 
 	private function currentItemIsFileWithAllowedExtension(): bool {
-		$item = $this->currentItem();
+		$item    = $this->currentItem();
+		$isValid = $item->isFile() && in_array( $item->getExtension(), $this->getAllowedExtensions(), strict: true );
 
-		return $item->isFile() && in_array( $item->getExtension(), $this->getAllowedExtensions(), strict: true );
+		if ( $isValid ) {
+			$depth = count( $subPathParts = $this->currentItemSubpath( parts: true ) ?? array() );
+
+			if ( $depth && method_exists( $this, 'registerCurrentItemDepth' ) ) {
+				$this->registerCurrentItemDepth( $subPathParts, $depth - 1 );
+			}
+		}
+
+		return $isValid;
 	}
 
 	private function inCurrentDepth(): self {
 		if ( $this->subDirectories ) {
 			$subPathParts       = $this->currentItemSubpath( parts: true ) ?? array();
-			$this->currentDepth = array( count( $subPathParts ), $this->currentItem()->getFilename() );
+			$this->currentDepth = array( $depth = count( $subPathParts ), $this->currentItem()->getBasename() );
+
+			if ( $depth && method_exists( $this, 'registerCurrentItemDepth' ) ) {
+				$this->registerCurrentItemDepth( $subPathParts, $depth );
+			}
 		}
 
 		return $this;
