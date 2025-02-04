@@ -1,4 +1,4 @@
-<?php
+<?php // phpcs:disable PHPCompatibility.Classes.ForbiddenAbstractPrivateMethods.Found -- in trait OK.
 declare( strict_types = 1 );
 
 namespace TheWebSolver\Codegarage\Cli\Traits;
@@ -9,9 +9,9 @@ trait SubDirectoryAware {
 	/** @var array<string,int|int[]> */
 	private array $subDirectories = array();
 
-	// phpcs:ignore PHPCompatibility.Classes.ForbiddenAbstractPrivateMethods.Found -- in trait OK.
-	abstract private function scan( string $directory ): static;
 	abstract protected function currentItem(): DirectoryIterator;
+	abstract private function scan( string $directory ): static;
+	abstract private function currentItemSubpath( bool $parts = true ): string|array|null;
 
 	/**
 	 * @param array<string,int|int[]> $nameWithDepth Sub-directory name and its depth (depths if same
@@ -34,5 +34,23 @@ trait SubDirectoryAware {
 	 */
 	protected function forCurrentSubDirectory(): void {
 		$this->scan( $this->currentItem()->getRealPath() );
+	}
+
+	/** @return string[] */
+	private function currentSubDirectoryTree(): array {
+		return $this->subDirectoryExists( $tree = ( $this->inCurrentDepth() ?? array() ) ) ? $tree : array();
+	}
+
+	/** @return ?string[] */
+	private function inCurrentDepth(): ?array {
+		return $this->subDirectories ? $this->currentItemSubpath( parts: true ) : null;
+	}
+
+	/** @param string[] $tree */
+	private function subDirectoryExists( array $tree ): bool {
+		$dirname = $this->currentItem()->getBasename();
+
+		return array_key_exists( $dirname, $this->subDirectories )
+			&& in_array( count( $tree ), (array) ( $this->subDirectories[ $dirname ] ), strict: true );
 	}
 }

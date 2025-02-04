@@ -10,8 +10,6 @@ trait DirectoryScanner {
 	private DirectoryIterator $currentScannedItem;
 	/** @var string[] */
 	private array $scannedDirectories = array();
-	/** @var array{0:int,1:string} */
-	private array $currentDepth;
 	/** @var array<string,string> */
 	private array $scannedPaths;
 
@@ -19,7 +17,7 @@ trait DirectoryScanner {
 		return count( $this->scannedDirectories );
 	}
 
-	/** @return string[] List of scanned directory/sub-directory real paths. */
+	/** @return string[] List of scanned directory (and sub-directory if aware) real paths. */
 	final public function getScannedDirectories(): array {
 		return $this->scannedDirectories;
 	}
@@ -29,7 +27,7 @@ trait DirectoryScanner {
 		return $this->scannedPaths;
 	}
 
-	/** Gets root directory path of the sub-directory currently being scanned. */
+	/** Gets raw or real root directory path currently being scanned. */
 	abstract protected function getRootPath(): string;
 
 	/**
@@ -80,13 +78,7 @@ trait DirectoryScanner {
 			return true;
 		}
 
-		if ( ! $this->isSubDirectoryAwareAndCurrentItemIsDir() ) {
-			return false;
-		}
-
-		if ( $this->inCurrentDepth()->subDirectoryExists() ) {
-			$this->registerScannedPath()->forCurrentSubDirectory();
-		}
+		$this->currentItemIsSubDirectoryAware() && $this->registerScannedPath()->forCurrentSubDirectory();
 
 		return false;
 	}
@@ -104,6 +96,7 @@ trait DirectoryScanner {
 		return realpath( $path ) ?: $this->throwInvalidDir( $path );
 	}
 
+	/** @param class-string $name */
 	final protected function exhibitUsesTrait( string $name ): bool {
 		return in_array( $name, class_uses( $this, autoload: false ), strict: true );
 	}
@@ -151,32 +144,15 @@ trait DirectoryScanner {
 		return $isValid;
 	}
 
-	protected function isSubDirectoryAwareAndCurrentItemIsDir(): bool {
-		return $this->currentItem()->isDir() && $this->exhibitUsesTrait( SubDirectoryAware::class );
-	}
-
-	private function inCurrentDepth(): self {
-		if ( $this->subDirectories ) {
-			$subPathParts       = $this->currentItemSubpath( parts: true ) ?? array();
-			$this->currentDepth = array( $count = count( $subPathParts ), $this->currentItem()->getBasename() );
-
-			$count && $this->maybeRegisterCurrentDepth( $count, parts: $subPathParts );
-		}
-
-		return $this;
-	}
-
-	private function subDirectoryExists(): bool {
-		if ( ! ( $this->currentDepth ?? false ) ) {
+	protected function currentItemIsSubDirectoryAware(): bool {
+		if ( ! $this->currentItem()->isDir() || ! $this->exhibitUsesTrait( SubDirectoryAware::class ) ) {
 			return false;
 		}
 
-		[$depth, $dirname] = $this->currentDepth;
+		$tree = $this->currentSubDirectoryTree();
+		( $count = count( $tree ) ) && $this->maybeRegisterCurrentDepth( $count, parts: $tree );
 
-		unset( $this->currentDepth );
-
-		return array_key_exists( $dirname, $this->subDirectories )
-			&& in_array( $depth, (array) ( $this->subDirectories[ $dirname ] ), strict: true );
+		return ! ! $count;
 	}
 
 	/** @return ($parts is true ? ?list<string> : ?string) */
