@@ -70,6 +70,7 @@
 		<exclude name="Universal.NamingConventions.NoReservedKeywordParameterNames.objectFound"/>
 		<exclude name="Universal.NamingConventions.NoReservedKeywordParameterNames.defaultFound"/>
 		<exclude name="Universal.NamingConventions.NoReservedKeywordParameterNames.abstractFound"/>
+		<exclude name="Universal.NamingConventions.NoReservedKeywordParameterNames.namespaceFound"/>
 	</rule>
 
 	<!-- Allow using double negation "!!". -->

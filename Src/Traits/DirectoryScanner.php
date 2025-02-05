@@ -20,12 +20,12 @@ trait DirectoryScanner {
 		return count( $this->scannedDirectories );
 	}
 
-	/** @return string[] List of scanned directory (and sub-directory if aware) real paths. */
+	/** @return string[] List of scanned directory (and sub-directory, if aware) real paths. */
 	final public function getScannedDirectories(): array {
 		return $this->scannedDirectories;
 	}
 
-	/** @return array<string,string> List of found file/directory name indexed by its realpath. */
+	/** @return array<string,string> List of found file (and sub-directory, if aware) name indexed by its realpath. */
 	final public function getScannedItems(): array {
 		return $this->scannedPaths;
 	}

@@ -6,6 +6,7 @@ namespace TheWebSolver\Codegarage\Test;
 use PHPUnit\Framework\TestCase;
 use TheWebSolver\Codegarage\Cli\Cli;
 use PHPUnit\Framework\Attributes\Test;
+use TheWebSolver\Codegarage\Test\Scan\Valid;
 use TheWebSolver\Codegarage\Cli\CommandLoader;
 use TheWebSolver\Codegarage\Cli\Data\EventTask;
 use TheWebSolver\Codegarage\Container\Container;
@@ -15,7 +16,8 @@ use TheWebSolver\Codegarage\Test\Stub\AnotherScannedCommand;
 use TheWebSolver\Codegarage\Test\Stub\SubStub\FirstDepthCommand;
 
 class CommandLoaderTest extends TestCase {
-	private const LOCATION = array( __NAMESPACE__ . '\\Stub' => DirectoryScannerTest::STUB_PATH );
+	private const LOCATION       = array( DirectoryScannerTest::STUB_PATH, __NAMESPACE__ . '\\Stub' );
+	private const NAMESPACED_DIR = array( self::LOCATION[1] => self::LOCATION[0] );
 
 	protected function setUp(): void {
 		require_once Cli::ROOT . 'bootstrap.php';
@@ -29,7 +31,7 @@ class CommandLoaderTest extends TestCase {
 
 	#[Test]
 	public function itScansAndLazyloadCommandFromGivenLocation(): void {
-		$loader = CommandLoader::loadCommands( array( self::LOCATION ) );
+		$loader = CommandLoader::loadCommands( array( self::NAMESPACED_DIR ) );
 
 		$this->assertEmpty( array_diff_key( self::EXPECTED_COMMANDS, $loader->getCommands() ) );
 		$this->assertEmpty( array_diff( self::EXPECTED_FILENAMES, $loader->getScannedItems() ) );
@@ -38,7 +40,7 @@ class CommandLoaderTest extends TestCase {
 	#[Test]
 	public function itListensForEventsForEachResolvedCommandFile(): void {
 		$loader = CommandLoader::withEvent( $this->assertLoadedCommandIsListened( ... ) )
-			->inDirectory( array( self::LOCATION ) )
+			->inDirectory( ...self::LOCATION )
 			->load();
 
 		$this->assertCount( 2, $fileNames = $loader->getScannedItems() );
@@ -57,7 +59,7 @@ class CommandLoaderTest extends TestCase {
 
 	#[Test]
 	public function itEnsuresCommandsAreLazyLoadedToContainer(): void {
-		$loader = CommandLoader::loadCommands( array( self::LOCATION ), new Container() );
+		$loader = CommandLoader::loadCommands( array( self::NAMESPACED_DIR ), new Container() );
 
 		foreach ( self::EXPECTED_COMMANDS as $class ) {
 			// The command is registered to container as a closure by CommandLoader.
@@ -69,7 +71,7 @@ class CommandLoaderTest extends TestCase {
 
 	#[Test]
 	public function itProvidesLazyLoadedCommandsToCli(): void {
-		$loader = CommandLoader::loadCommands( array( self::LOCATION ) );
+		$loader = CommandLoader::loadCommands( array( self::NAMESPACED_DIR ) );
 		$cli    = $loader->getContainer()->get( Cli::class );
 
 		$this->assertCount( 1, $cli->all( 'app' ) );
@@ -91,10 +93,20 @@ class CommandLoaderTest extends TestCase {
 	public function itRegistersCommandsFromSubDirectories(): void {
 		$subDirLoader = SubDirectoryAwareLoader::with( container: null )
 			->usingSubDirectory( 'SubStub', 2 )
-			->inDirectory( array( self::LOCATION ) )
+			->inDirectory( ...self::LOCATION )
 			->load();
 
 		$this->assertContains( FirstDepthCommand::class, $subDirLoader->getCommands() );
+		$this->assertCount( 4, $subDirLoader->getScannedItems() );
+
+		$subDirLoader = SubDirectoryAwareLoader::with( container: null )
+			->inDirectory( DirectoryScannerTest::SCAN_PATH, __NAMESPACE__ . '\\Scan' )
+			->usingSubDirectory( 'SubStub', 2 )
+			->inDirectory( ...self::LOCATION )
+			->load();
+
+		$this->assertContains( Valid::class, $subDirLoader->getCommands() );
+		$this->assertCount( 6, $subDirLoader->getScannedItems() );
 	}
 }
 

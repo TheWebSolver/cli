@@ -59,12 +59,15 @@ class CommandLoader implements Countable {
 
 	/** @param array<int,array<string,string>> $namespacedDirectories */
 	public static function loadCommands( array $namespacedDirectories, ?Container $container = null ): static {
-		return self::getInstance( $container )->inDirectory( $namespacedDirectories )->load();
+		$loader = self::getInstance( $container );
+
+		$loader->namespacedDirectory = $namespacedDirectories;
+
+		return $loader->load();
 	}
 
-	/** @param array<int,array<string,string>> $namespacedDirectories Directory paths indexed by namespace. */
-	public function inDirectory( array $namespacedDirectories ): static {
-		$this->namespacedDirectory = $namespacedDirectories;
+	public function inDirectory( string $path, string $namespace ): static {
+		$this->namespacedDirectory[] = array( $namespace => $path );
 
 		return $this;
 	}
