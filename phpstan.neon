@@ -2,13 +2,26 @@ parameters:
 	level: max
 	paths:
 		- Src/
+		- Tests/DirectoryScannerTest.php # To cover "DirectoryScanner" aware traits.
 	excludePaths:
 		- vendor/
 	ignoreErrors:
-		- # ConsoleChildClass::start() as container binding.
+		-
 			path: Src/CommandLoader.php
 			identifier: argument.type
-			count: 1
+			count: 3 # 1 for ConsoleChildClass::start() as container binding & others related to "ScannedItemAware" methods.
+		-
+			path: Src/Traits/DirectoryScanner.php
+			identifier: method.notFound
+			message: "|::registerCurrentItemDepth|"
+		-
+			paths:
+				- Src/CommandLoader.php
+				- Tests/DirectoryScannerTest.php
+			identifier: method.notFound
+			messages:
+				- "|::currentSubDirectoryTree|"
+				- "|::forCurrentSubDirectory|"
 
 		-
 			path: Src/Helper/Parser.php
@@ -26,6 +39,7 @@ parameters:
 			identifier: assign.propertyType
 			count: 1 # Param names are __construct method's parameter names.
 
-		- # DISABLE WHEN "ScannedItemAware" TRAIT IS USED.
-			identifier: trait.unused
-			message: '#^Trait TheWebSolver\\Codegarage\\Cli\\Traits\\ScannedItemAware is used zero times and is not analysed\.$#'
+		-
+			path: Tests/DirectoryScannerTest.php
+			identifier: argument.type
+			count: 2

@@ -67,6 +67,41 @@ trait DirectoryScanner {
 		return ltrim( substr( $root, strrpos( $root, DIRECTORY_SEPARATOR, -1 ) ?: 0 ), DIRECTORY_SEPARATOR );
 	}
 
+	/** @return ($parts is true ? ?list<string> : ?string) */
+	final protected function currentItemSubpath( bool $parts = true ): string|array|null {
+		$fullPath = $this->currentItem()->getRealPath();
+		$subpath  = trim(
+			string: substr( $fullPath, strlen( $this->realDirectoryPath( $this->getRootPath() ) ) ),
+			characters: DIRECTORY_SEPARATOR
+		);
+
+		return $parts ? explode( separator: DIRECTORY_SEPARATOR, string: $subpath ) : $subpath;
+	}
+
+	/**
+	 * Scans files and directories inside the provided directory name.
+	 * `$directory` may or may not be same as `$this->getRootPath()`
+	 * based on whether exhibit is using `SubDirectoryAware`.
+	 */
+	final protected function scan( string $directory = null ): static {
+		$directory                  = $this->realDirectoryPath( $directory ?? $this->getRootPath() );
+		$scanner                    = new DirectoryIterator( $directory );
+		$this->scannedDirectories[] = $directory;
+
+		$this->realDirectoryPath( $this->getRootPath() ) === $directory
+			&& $this->maybeRegisterCurrentDepth( count: 0, parts: array(), item: $scanner );
+
+		while ( $scanner->valid() ) {
+			$this->currentScannedItem = $scanner->current();
+
+			$this->shouldRegisterCurrentItem() && $this->registerScannedPath()->forCurrentFile();
+
+			$scanner->next();
+		}
+
+		return $this;
+	}
+
 	/**
 	 * Gets file extensions that the scanner is allowed to scan ( defaults to `php` extension).
 	 *
@@ -82,17 +117,6 @@ trait DirectoryScanner {
 		return true;
 	}
 
-	/** @return ($parts is true ? ?list<string> : ?string) */
-	private function currentItemSubpath( bool $parts = true ): string|array|null {
-		$fullPath = $this->currentItem()->getRealPath();
-		$subpath  = trim(
-			string: substr( $fullPath, strlen( $this->realDirectoryPath( $this->getRootPath() ) ) ),
-			characters: DIRECTORY_SEPARATOR
-		);
-
-		return $parts ? explode( separator: DIRECTORY_SEPARATOR, string: $subpath ) : $subpath;
-	}
-
 	/** @param class-string $traitName */
 	private function exhibitIsUsing( string $traitName ): bool {
 		return in_array( $traitName, haystack: class_uses( $this, autoload: false ), strict: true );
@@ -101,7 +125,6 @@ trait DirectoryScanner {
 	/** @param string[] $parts */
 	private function maybeRegisterCurrentDepth( int $count, array $parts, DirectoryIterator $item = null ): void {
 		$this->exhibitIsUsing( ScannedItemAware::class )
-		// @phpstan-ignore-next-line -- Defined method of "ScannedItemAware" trait.
 			&& $this->registerCurrentItemDepth( $parts, $count + 1, clone ( $item ?? $this->currentItem() ) );
 	}
 
@@ -152,30 +175,6 @@ trait DirectoryScanner {
 
 	private function registerScannedPath(): static {
 		$this->scannedPaths[ $this->currentItem()->getRealPath() ] = $this->withoutExtension();
-
-		return $this;
-	}
-
-	/**
-	 * Scans files and directories inside the provided directory name.
-	 * `$directory` may or may not be same as `$this->getRootPath()`
-	 * based on whether exhibit is using `SubDirectoryAware`.
-	 */
-	private function scan( string $directory = null ): static {
-		$directory                  = $this->realDirectoryPath( $directory ?? $this->getRootPath() );
-		$scanner                    = new DirectoryIterator( $directory );
-		$this->scannedDirectories[] = $directory;
-
-		$this->realDirectoryPath( $this->getRootPath() ) === $directory
-			&& $this->maybeRegisterCurrentDepth( count: 0, parts: array(), item: $scanner );
-
-		while ( $scanner->valid() ) {
-			$this->currentScannedItem = $scanner->current();
-
-			$this->shouldRegisterCurrentItem() && $this->registerScannedPath()->forCurrentFile();
-
-			$scanner->next();
-		}
 
 		return $this;
 	}

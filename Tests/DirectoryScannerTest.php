@@ -3,9 +3,9 @@ declare( strict_types = 1 );
 
 namespace TheWebSolver\Codegarage\Test;
 
+use SplFileInfo;
 use PHPUnit\Framework\TestCase;
 use PHPUnit\Framework\Attributes\Test;
-use PHPUnit\Framework\Attributes\Depends;
 use TheWebSolver\Codegarage\Cli\Traits\DirectoryScanner;
 use TheWebSolver\Codegarage\Cli\Traits\ScannedItemAware;
 use TheWebSolver\Codegarage\Cli\Traits\SubDirectoryAware;
@@ -25,12 +25,11 @@ class DirectoryScannerTest extends TestCase {
 	}
 
 	#[Test]
-	public function itUsesScannedItemAwareToGetScannedItems(): object {
+	public function itUsesScannedItemAwareToGetScannedItems(): void {
 		$scanner = new class() {
-			use DirectoryScanner, ScannedItemAware, SubDirectoryAware {
-				SubDirectoryAware::usingSubDirectories as public;
-			}
+			use DirectoryScanner, ScannedItemAware, SubDirectoryAware;
 
+			/** @return string[] */
 			protected function getAllowedExtensions(): array {
 				return array( 'php', 'gitkeep' );
 			}
@@ -38,7 +37,7 @@ class DirectoryScannerTest extends TestCase {
 			private string $currentRoot;
 
 			protected function getRootPath(): string {
-				return $this->realDirectoryPath( $this->currentRoot );
+				return $this->currentRoot;
 			}
 
 			public function run(): self {
@@ -52,10 +51,15 @@ class DirectoryScannerTest extends TestCase {
 			}
 
 			protected function forCurrentFile(): void {}
-			protected function forCurrentSubDirectory(): void {
-				$this->scan( $this->currentItem()->getRealPath() );
-			}
 		};
+
+		$scanner->usingSubDirectory( 'SubStub', 1, 2 )->run();
+
+		$this->assertCount(
+			6,
+			$scanner->getScannedItems(),
+			'Does not include "SubStub" from parent "FirstDepth" coz it is not scanned.'
+		);
 
 		$subDirectories = array(
 			'SubStub'    => array( 1, 2 ),
@@ -64,24 +68,27 @@ class DirectoryScannerTest extends TestCase {
 
 		$scanner->usingSubDirectories( $subDirectories )->run();
 
+		$this->assertCount( 9, $scanner->getScannedItems(), 'Includes "SubStub" from parent "FirstDepth"' );
 		$this->assertCount( 2, $depths = $scanner->getScannedItemsDepth() );
 		$this->assertCount( 3, $scanDir = $depths['Scan'] );
 		$this->assertCount( 8, $stubDir = $depths['Stub'] );
 
 		$this->assertCount( 1, $scanRootDirDepth = array_filter( $scanDir, fn( $details ) => 1 === $details['depth'] ) );
 
-		$scanDirItem = reset( $scanRootDirDepth );
+		$scanDirItem = $scanRootDirDepth[0];
 
-		$this->assertTrue( $scanDirItem['item']->isDir() );
 		$this->assertEmpty( $scanDirItem['tree'] );
+		$this->assertSame( 'Scan', $scanDirItem['base'] );
+		$this->assertTrue( $scanDirItem['item']->isDir() );
 		$this->assertSame( 'directory', $scanDirItem['type'] );
 
 		$this->assertCount( 1, $stubRootDirDepth = array_filter( $stubDir, fn( $details ) => 1 === $details['depth'] ) );
 
-		$stubDirItem = reset( $stubRootDirDepth );
+		$stubDirItem = $stubRootDirDepth[0];
 
-		$this->assertTrue( $stubDirItem['item']->isDir() );
 		$this->assertEmpty( $stubDirItem['tree'] );
+		$this->assertTrue( $stubDirItem['item']->isDir() );
+		$this->assertSame( 'Stub', $stubDirItem['base'] );
 		$this->assertSame( 'directory', $stubDirItem['type'] );
 
 		$this->assertCount( 4, $firstDepths = array_filter( $stubDir, fn( $details ) => 2 === $details['depth'] ) );
@@ -116,6 +123,7 @@ class DirectoryScannerTest extends TestCase {
 
 		$item = reset( $thirdDepths );
 
+		$this->assertIsArray( $item );
 		$this->assertSame( 'file', $item['type'] );
 		$this->assertSame( '.gitkeep', $item['base'] );
 		$this->assertTrue( $item['item']->isFile() );
@@ -123,20 +131,14 @@ class DirectoryScannerTest extends TestCase {
 
 		$this->assertSame( 4, $scanner->getMaxDepth() );
 
-		return $scanner;
-	}
-
-	#[Test]
-	#[Depends( 'itUsesScannedItemAwareToGetScannedItems' )]
-	public function itEnsuresScannedDepthsAreSorted( object $scanner ): void {
 		$onlyDepths = array_column( $scanner->getScannedItemsDepth( true )['Stub'], 'depth' );
-		$depths     = array_values( $onlyDepths );
+		$depths     = $onlyDepths;
 		sort( $onlyDepths );
 
 		$this->assertSame( $depths, $onlyDepths );
 
 		$onlyDepths = array_column( $scanner->getScannedItemsDepth()['Stub'], 'depth' );
-		$depths     = array_values( $onlyDepths );
+		$depths     = $onlyDepths;
 		sort( $onlyDepths );
 
 		$this->assertNotSame( $depths, $onlyDepths );
@@ -157,12 +159,8 @@ class Scanner {
 		return DirectoryScannerTest::SCAN_PATH;
 	}
 
-	protected function shouldRegisterCurrentItem(): bool {
-		$item = $this->currentItem();
-
-		return ! $item->isDot()
-			&& $this->currentItemIsFileWithAllowedExtension()
-			&& ! str_contains( $item->getBasename(), 'Ignore' );
+	protected function shouldRegisterCurrentFile( SplFileInfo $item ): bool {
+		return ! str_contains( $item->getBasename(), needle: 'Ignore' );
 	}
 
 	protected function forCurrentFile(): void {}
