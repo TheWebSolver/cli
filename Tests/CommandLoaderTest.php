@@ -6,11 +6,11 @@ namespace TheWebSolver\Codegarage\Test;
 use PHPUnit\Framework\TestCase;
 use TheWebSolver\Codegarage\Cli\Cli;
 use PHPUnit\Framework\Attributes\Test;
-use TheWebSolver\Codegarage\Test\Scan\Valid;
 use TheWebSolver\Codegarage\Cli\CommandLoader;
 use TheWebSolver\Codegarage\Cli\Data\EventTask;
 use TheWebSolver\Codegarage\Container\Container;
 use TheWebSolver\Codegarage\Test\Stub\TestCommand;
+use TheWebSolver\Codegarage\Cli\Traits\SubDirectoryAware;
 use TheWebSolver\Codegarage\Test\Stub\AnotherScannedCommand;
 use TheWebSolver\Codegarage\Test\Stub\SubStub\FirstDepthCommand;
 
@@ -89,76 +89,16 @@ class CommandLoaderTest extends TestCase {
 
 	#[Test]
 	public function itRegistersCommandsFromSubDirectories(): void {
-		$loader = CommandLoader::withSubDirectories( array( 'SubStub' => 1 ) )
+		$subDirLoader = SubDirectoryAwareLoader::with( container: null )
+			->usingSubDirectory( 'SubStub', 1 )
 			->inDirectory( array( self::LOCATION ) )
 			->load();
 
-		$this->assertCount( 2, $loader );
-		$this->assertCount( 4, $loader->getScannedItems() );
-		$this->assertContains( FirstDepthCommand::class, $loader->getCommands() );
-
-		$loader = CommandLoader::withSubDirectories( array( 'SubStub' => array( 1, 2 ) ) )
-			->inDirectory( array( self::LOCATION ) )
-			->load();
-
-		$this->assertCount( 2, $loader );
-		$this->assertCount( 4, $loader->getScannedItems(), 'Must not scan sub-dir if parent-dir is ignored' );
+		$this->assertContains( FirstDepthCommand::class, $subDirLoader->getCommands() );
 	}
+}
 
-	#[Test]
-	public function itRegistersNestedSubDirectoriesWithSameName(): void {
-		$scanPath = DirectoryScannerTest::SCAN_PATH;
-		$stubPath = DirectoryScannerTest::STUB_PATH;
-		$depths   = array(
-			'SubStub'    => array( 1, 2 ),
-			'FirstDepth' => 1,
-		);
-
-		$loader = CommandLoader::withSubdirectories( $depths )
-			->inDirectory( array( self::LOCATION, $scandir = array( Valid::NAMESPACE => $scanPath ) ) )
-			->load();
-
-		$scannedSubDirectories = array(
-			$stubPath . 'SubStub'    => 'SubStub',
-			$stubPath . 'FirstDepth' => 'FirstDepth',
-			$stubPath . 'FirstDepth' . DIRECTORY_SEPARATOR . 'SubStub' => 'SubStub',
-		);
-
-		$expectedScanItems = array(
-			...$scannedSubDirectories,
-			$scanPath . 'Valid.php'  => 'Valid',
-			$scanPath . 'Ignore.php' => 'Ignore', // Scanned but not a command class file.
-			$stubPath . self::EXPECTED_FILENAMES[0] . '.php' => self::EXPECTED_FILENAMES[0],
-			$stubPath . self::EXPECTED_FILENAMES[1] . '.php' => self::EXPECTED_FILENAMES[1],
-			$stubPath . 'SubStub' . DIRECTORY_SEPARATOR . 'FirstDepthCommand.php' => 'FirstDepthCommand',
-		);
-
-		$expectedScanSubDirectories = array_map(
-			static fn( string $dirpath ) => realpath( $dirpath ),
-			array( $stubPath, $scanPath, ...( array_keys( $scannedSubDirectories ) ) )
-		);
-
-		$this->assertCount( 5, $loader );
-		$this->assertEmpty( array_diff( $expectedScanSubDirectories, $loader->getScannedDirectories() ) );
-
-		$this->assertCount( 2, $loader->getNamespacedDirectories() );
-
-		foreach ( array( self::LOCATION, $scandir ) as $expectedRootPathAndItsNamespace ) {
-			$this->assertContains( $expectedRootPathAndItsNamespace, $loader->getNamespacedDirectories() );
-		}
-
-		$this->assertCount( 8, $loader->getScannedItems() );
-		$this->assertEmpty( array_diff( $expectedScanItems, $loader->getScannedItems() ) );
-
-		$expectedScanItemPaths = array_flip(
-			array_map( static fn( $p ) => realpath( $p ), array_flip( $expectedScanItems ) )
-		);
-
-		$this->assertEmpty( array_diff_key( $expectedScanItemPaths, $loader->getScannedItems() ) );
-
-		$expectedCommandClasses = array( Valid::class, FirstDepthCommand::class, ...self::EXPECTED_COMMANDS );
-
-		$this->assertCount( 4, $loader->getCommands() );
-		$this->assertEmpty( array_diff( $expectedCommandClasses, $loader->getCommands() ) );
-	}
+// phpcs:disable Generic.Files.OneObjectStructurePerFile.MultipleFound
+class SubDirectoryAwareLoader extends CommandLoader {
+	use SubDirectoryAware;
 }

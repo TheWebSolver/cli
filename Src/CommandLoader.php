@@ -11,13 +11,10 @@ use TheWebSolver\Codegarage\Cli\Event\AfterLoadEvent;
 use Symfony\Component\EventDispatcher\EventDispatcher;
 use TheWebSolver\Codegarage\Cli\Event\CommandSubscriber;
 use TheWebSolver\Codegarage\Cli\Traits\DirectoryScanner;
-use TheWebSolver\Codegarage\Cli\Traits\SubDirectoryAware;
 use Symfony\Component\Console\CommandLoader\ContainerCommandLoader;
 
 class CommandLoader implements Countable {
-	use SubDirectoryAware, DirectoryScanner {
-		SubDirectoryAware::usingSubDirectories as public;
-	}
+	use DirectoryScanner;
 
 	/** @var array{dirpath:string,namespace:string} */
 	protected array $base;
@@ -51,16 +48,8 @@ class CommandLoader implements Countable {
 		return $this->commands;
 	}
 
-	/**
-	 * Registers sub-directories to be scanned when scanning the given directory.
-	 *
-	 * Namespaces will be auto-generated appending those sub-directories for making them PSR-4 compliant.
-	 *
-	 * @param array<string,int|int[]> $nameWithDepth Sub-directory name and its depth (depths if same name
-	 *                                               in nested directory path) to scan for command files.
-	 */
-	public static function withSubdirectories( array $nameWithDepth, ?Container $container = null ): static {
-		return self::getInstance( $container )->usingSubDirectories( $nameWithDepth );
+	public static function with( ?Container $container ): static {
+		return self::getInstance( $container );
 	}
 
 	/** @param callable(EventTask): void $listener */
@@ -123,9 +112,7 @@ class CommandLoader implements Countable {
 	}
 
 	private static function getInstance( ?Container $container, bool $event = false ): static {
-		$container ??= Container::boot();
-
-		return new static( $container, dispatcher: $event ? new EventDispatcher() : null );
+		return new static( $container ??= Container::boot(), dispatcher: $event ? new EventDispatcher() : null );
 	}
 
 	private function fromFilePathToPsr4SpecificationFullyQualifiedClassName(): ?string {
