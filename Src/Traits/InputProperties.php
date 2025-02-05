@@ -53,12 +53,9 @@ trait InputProperties {
 		string|bool|int|float|array|callable $default = null,
 		string|array|callable $suggestedValues = null
 	) {
-		if ( ! ( $this->paramNames ?? false ) ) {
-			/** @var TParamNames[] */
-			$names            = $this->discoverPureFrom( methodName: __FUNCTION__, values: func_get_args() );
-			$this->paramNames = $names;
-		}
-
+		/** @var TParamNames[] */
+		$names                 = $this->discoverPureFrom( methodName: __FUNCTION__, values: func_get_args() );
+		$this->paramNames    ??= $names;
 		$this->userDefault     = $default;
 		$this->name            = $name;
 		$this->desc            = $desc ?? '';
