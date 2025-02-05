@@ -190,8 +190,8 @@ class InputAttribute {
 	 * @return bool True if input was added, false otherwise.
 	 */
 	public function add( Pos|Assoc|Flag $input, ?int $mode = null ): bool {
-		$previous = $this->registerCurrent( $input );
-		$isAdded  = $this->inferCurrent( ignoreIfExists: self::INFER_AND_REPLACE === $mode );
+		$previous = $this->registerCurrentInput( $input );
+		$isAdded  = $this->inferCurrentInput( ignoreIfExists: self::INFER_AND_REPLACE === $mode );
 
 		$this->inUpdateMode() && $this->walkCollectionWithUpdatedInputProperties();
 		$this->reset( current: $previous );
@@ -201,12 +201,9 @@ class InputAttribute {
 
 	/** @return array<class-string<Pos|Assoc|Flag>,array<string,InputArgument|InputOption>> */
 	public function toSymfonyInput( ?InputDefinition $definition = null ): array {
-		$collection = $this->getCollection();
+		( $c = $this->getCollection() ) && array_walk( $c, self::toSymfonyInputs( ... ), $definition );
 
-		array_walk( $collection, self::toSymfonyInputs( ... ), $definition );
-
-		/** @var array<class-string<Pos|Assoc|Flag>,array<string,InputArgument|InputOption>> */
-		return $collection;
+		return $c;
 	}
 
 	/** @return array<Pos|Assoc|Flag> */
@@ -224,9 +221,7 @@ class InputAttribute {
 		$inputName     = $input->name;
 
 		/** @see self::walkCollectionWithUpdatedInputProperties() */
-		if ( func_num_args() === 2 ) {
-			[$attributeName, $inputName] = func_get_args();
-		}
+		func_num_args() !== 2 || ( [$attributeName, $inputName] = func_get_args() );
 
 		return $this->collection[ $attributeName ][ $inputName ] ?? null;
 	}
@@ -248,9 +243,7 @@ class InputAttribute {
 	private function pushCurrentInputToCollectionStack(): bool {
 		['input' => $input, 'ref' => $target, 'args' => $namedArguments] = $this->current;
 
-		if ( $this->canUpdateCurrentInput() ) {
-			$this->update[ $input::class ][ $input->name ] = $namedArguments;
-		}
+		! $this->canUpdateCurrentInput() || ( $this->update[ $input::class ][ $input->name ] = $namedArguments );
 
 		$this->collection[ $input::class ][ $input->name ]              = $input;
 		$this->source[ $target->name ][ $input::class ][ $input->name ] = array_keys( $namedArguments );
@@ -318,31 +311,31 @@ class InputAttribute {
 	}
 
 	/** @return ?array{ref:ReflectionClass<Console>,input:Pos|Assoc|Flag,prop:int|string,args:array<string,mixed>} */
-	private function registerCurrent( Pos|Assoc|Flag $input ): ?array {
+	private function registerCurrentInput( Pos|Assoc|Flag $input ): ?array {
 		$prop          = '';
-		$args          = $input->getPureWithout( 'name' );  // Pragmatically excluded "name" property.
 		$previous      = $this->current ?? null;            // Parsing already completed.
+		$args          = $input->getPureWithout( 'name' );  // Pragmatically excluded "name" property.
 		$ref           = $previous['ref'] ?? $this->target; // If so, can only target last child.
 		$this->current = compact( 'input', 'prop', 'args', 'ref' );
 
 		return $previous;
 	}
 
-	private function inferCurrent( bool $ignoreIfExists = false ): bool {
+	private function inferCurrentInput( bool $ignoreIfExists = false ): bool {
 		$this->toCollectionStack( $ignoreIfExists ) || $this->toUpdateStack();
 
 		return $this->current['input']->purgePure();
 	}
 
 	/** @param ReflectionAttribute<object> $attribute */
-	private function isInput( ReflectionAttribute $attribute ): bool {
-		return $this->isInputVariant( $attribute ) && $this->registerCurrent( $attribute->newInstance() );
+	private function ensureAndRegisterFrom( ReflectionAttribute $attribute ): bool {
+		return $this->isInputVariant( $attribute ) && $this->registerCurrentInput( $attribute->newInstance() );
 	}
 
 	/** @return ReflectionClass<Console> */
 	private function useAttributes(): ReflectionClass {
 		foreach ( ( $target = $this->current['ref'] )->getAttributes() as $attribute ) {
-			$this->isInput( $attribute ) && $this->inferCurrent( ignoreIfExists: false );
+			$this->ensureAndRegisterFrom( $attribute ) && $this->inferCurrentInput( ignoreIfExists: false );
 		}
 
 		return $target;
@@ -357,14 +350,10 @@ class InputAttribute {
 	 * @param class-string<Pos|Assoc|Flag> $attrName
 	 */
 	private function walkUpdateToCollectionStack( array $props, string $name, string $attrName ): void {
-		if ( ! $input = $this->inCollectionStack( $attrName, $name ) ) {
-			return;
-		}
-
-		// @phpstan-ignore-next-line Properties are always valid as they come from attribute itself.
-		$this->collection[ $attrName ][ $name ] = $input->with( $props );
-
-		$this->toSuggestionStack( $input );
+		( $input = $this->inCollectionStack( $attrName, $name ) )
+			// @phpstan-ignore-next-line Properties are always valid as they come from attribute itself.
+			&& ( $this->collection[ $attrName ][ $name ] = $input->with( $props ) )
+			&& $this->toSuggestionStack( $input );
 	}
 
 	private function walkCollectionWithUpdatedInputProperties(): void {

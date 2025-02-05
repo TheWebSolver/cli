@@ -216,12 +216,9 @@ class Console extends Command {
 	 * @param ReflectionClass<static> $reflection
 	 */
 	protected function withDefinitionsFrom( ReflectionClass $reflection ): static {
-		if ( ! ( $this->inputAttribute ?? false ) ) {
-			return $this;
-		}
+		$isDefined = isset( $this->inputAttribute )
+			&& $this->inputAttribute->parse()->toSymfonyInput( $this->getDefinition() );
 
-		$this->inputAttribute->parse()->toSymfonyInput( $this->getDefinition() );
-
-		return $this->setDefined();
+		return $this->setDefined( $isDefined );
 	}
 }

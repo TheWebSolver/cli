@@ -22,10 +22,13 @@ parameters:
 			messages:
 				- "|::currentSubDirectoryTree|"
 				- "|::forCurrentSubDirectory|"
-
 		-
 			path: Src/Helper/Parser.php
 			identifier: return.type # Parser::parseInputSuggestion() -> BackedEnum is never callable.
+		-
+			path: Src/Helper/InputAttribute.php
+			identifier: return.type
+			count: 1 # Walked collection is converted to Symfony Inputs.
 		-
 			path: Src/Traits/ConstructorAware.php
 			identifier: argument.type # Internal data for setting value (that's the intent).
@@ -38,7 +41,6 @@ parameters:
 			path: Src/Data/Flag.php
 			identifier: assign.propertyType
 			count: 1 # Param names are __construct method's parameter names.
-
 		-
 			path: Tests/DirectoryScannerTest.php
 			identifier: argument.type
