@@ -90,7 +90,7 @@ class CommandLoaderTest extends TestCase {
 	#[Test]
 	public function itRegistersCommandsFromSubDirectories(): void {
 		$subDirLoader = SubDirectoryAwareLoader::with( container: null )
-			->usingSubDirectory( 'SubStub', 1 )
+			->usingSubDirectory( 'SubStub', 2 )
 			->inDirectory( array( self::LOCATION ) )
 			->load();
 

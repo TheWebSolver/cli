@@ -53,7 +53,7 @@ class DirectoryScannerTest extends TestCase {
 			protected function forCurrentFile(): void {}
 		};
 
-		$scanner->usingSubDirectory( 'SubStub', 1, 2 )->run();
+		$scanner->usingSubDirectory( 'SubStub', 2, 3 )->run();
 
 		$this->assertCount(
 			6,
@@ -61,12 +61,7 @@ class DirectoryScannerTest extends TestCase {
 			'Does not include "SubStub" from parent "FirstDepth" coz it is not scanned.'
 		);
 
-		$subDirectories = array(
-			'SubStub'    => array( 1, 2 ),
-			'FirstDepth' => 1,
-		);
-
-		$scanner->usingSubDirectories( $subDirectories )->run();
+		$scanner->usingSubDirectory( 'SubStub', 2, 3 )->usingSubDirectory( 'FirstDepth', 2 )->run();
 
 		$this->assertCount( 9, $scanner->getScannedItems(), 'Includes "SubStub" from parent "FirstDepth"' );
 		$this->assertCount( 2, $depths = $scanner->getScannedItemsDepth() );

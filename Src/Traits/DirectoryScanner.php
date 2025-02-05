@@ -3,11 +3,13 @@ declare ( strict_types = 1 );
 
 namespace TheWebSolver\Codegarage\Cli\Traits;
 
+use SplFileInfo;
 use LogicException;
 use DirectoryIterator;
-use SplFileInfo;
 
 trait DirectoryScanner {
+	final public const ROOT_LEVEL = 1;
+
 	private DirectoryIterator $currentScannedItem;
 	/** @var string[] */
 	private array $scannedDirectories = array();
@@ -125,7 +127,7 @@ trait DirectoryScanner {
 	/** @param string[] $parts */
 	private function maybeRegisterCurrentDepth( int $count, array $parts, DirectoryIterator $item = null ): void {
 		$this->exhibitIsUsing( ScannedItemAware::class )
-			&& $this->registerCurrentItemDepth( $parts, $count + 1, clone ( $item ?? $this->currentItem() ) );
+			&& $this->registerCurrentItemDepth( $parts, self::ROOT_LEVEL + $count, clone ( $item ?? $this->currentItem() ) );
 	}
 
 	private function currentItemIsFileWithAllowedExtension(): bool {

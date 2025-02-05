@@ -6,31 +6,23 @@ namespace TheWebSolver\Codegarage\Cli\Traits;
 use DirectoryIterator;
 
 trait SubDirectoryAware {
+	final public const ROOT_LEVEL = 1;
+
 	/** @var array<string,int[]> */
 	private array $subDirectories = array();
 
+
 	/**
-	 * Registers sub-directory name to be scanned.
+	 * Registers sub-directory name to be scanned in given depth{s}.
 	 *
 	 * @param int $depth     The depth in which sub-directory name to be discovered.
-	 * @param int ...$depths Additional depths for same sub-directory name in any other sub-directories
-	 *                       that are registered to be discovered.
+	 *                       Provide depth by counting root at the first depth (1).
+	 * @param int ...$depths Additional depths with same sub-directory name in any other
+	 *                       sub-directories that are also registered for discovery.
 	 */
 	final public function usingSubDirectory( string $name, int $depth = 2, int ...$depths ): static {
 		$registered                    = (array) ( $this->subDirectories[ $name ] ?? array() );
 		$this->subDirectories[ $name ] = array_unique( array( $depth, ...$depths, ...$registered ) );
-
-		return $this;
-	}
-
-	/**
-	 * @param array<string,int|int[]> $nameWithDepth Sub-directory name and its depth (depths if same
-	 *                                               name exists in nested directory) to be scanned.
-	 */
-	final public function usingSubDirectories( array $nameWithDepth ): static {
-		foreach ( $nameWithDepth as $name => $depth ) {
-			$this->usingSubDirectory( $name, ...( (array) $depth ) );
-		}
 
 		return $this;
 	}
@@ -46,7 +38,7 @@ trait SubDirectoryAware {
 
 	/**
 	 * Allows the exhibiting class to perform task for the current sub-directory.
-	 * When sub-directory names (`$this->usingSubDirectories()`) are provided &
+	 * When sub-directory names (`$this->usingSubDirectory()`) are provided and
 	 * current item is a match, it handles the next scan batch automatically
 	 * using its path: `$this->scan($this->currentItem()->getRealPath())`.
 	 * Here, `$this->currentItem()->isDir()` will always return `true`.
@@ -66,7 +58,7 @@ trait SubDirectoryAware {
 	private function subDirectoryExists( array $tree ): bool {
 		$dirname = $this->currentItem()->getBasename();
 
-		return array_key_exists( $dirname, $this->subDirectories )
-			&& in_array( count( $tree ), $this->subDirectories[ $dirname ], strict: true );
+		return ( $depths = ( $this->subDirectories[ $dirname ] ?? array() ) )
+			&& in_array( self::ROOT_LEVEL + count( $tree ), $depths, strict: true );
 	}
 }
