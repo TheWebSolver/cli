@@ -29,15 +29,14 @@ trait ScannedItemAware {
 
 	/** @param string[] $parts */
 	final protected function registerCurrentItemDepth( array $parts, int $depth, DirectoryIterator $item ): void {
-		if ( $this->scannedItemAlreadyExistsIn( $depth, $item ) ) {
-			return;
-		}
-
 		$rootBasename = $this->getRootBasename(); // Store items indexed by root dir.
 		$isNotRoot    = ! ! array_pop( $parts );  // Omit tree structure for root dir.
 		$tree         = $isNotRoot ? array( $rootBasename, ...( $parts ?: array() ) ) : array();
 		$type         = $item->isDir() ? 'directory' : 'file';
 		$base         = $this->inferIfScannedIsRoot( $item );
+
+		// Clear previously cached max depth calculation, if any.
+		unset( $this->treeMaxDepth );
 
 		$this->scannedItemsDepth[ $rootBasename ][] = compact( 'depth', 'base', 'type', 'tree', 'item' );
 	}
@@ -66,16 +65,5 @@ trait ScannedItemAware {
 
 	private function inferIfScannedIsRoot( DirectoryIterator $item ): string {
 		return ( '..' !== ( $base = $item->getBasename() ) ) ? $base : $this->getRootBasename();
-	}
-
-	/** Ensures same item in same depth is not registered twice. */
-	private function scannedItemAlreadyExistsIn( int $depth, DirectoryIterator $item ): bool {
-		$registered = $this->scannedItemsDepth[ $this->getRootBasename() ] ?? array();
-
-		return $registered && array_filter(
-			array: $registered,
-			callback: fn( array $info ) => $depth === $info['depth']
-				&& $this->inferIfScannedIsRoot( $item ) === $info['base']
-		);
 	}
 }

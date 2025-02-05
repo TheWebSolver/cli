@@ -126,22 +126,23 @@ trait DirectoryScanner {
 
 	/** @param string[] $parts */
 	private function maybeRegisterCurrentDepth( int $count, array $parts, DirectoryIterator $item = null ): void {
+		$depth = self::ROOT_LEVEL + $count;
+
 		$this->exhibitIsUsing( ScannedItemAware::class )
-			&& $this->registerCurrentItemDepth( $parts, self::ROOT_LEVEL + $count, clone ( $item ?? $this->currentItem() ) );
+			&& $this->registerCurrentItemDepth( $parts, $depth, clone ( $item ?? $this->currentItem() ) );
 	}
 
 	private function currentItemIsFileWithAllowedExtension(): bool {
-		$item    = $this->currentItem();
-		$isValid = $item->isFile()
+		$item            = $this->currentItem();
+		$isScannableFile = $item->isFile()
 			&& in_array( $item->getExtension(), $this->getAllowedExtensions(), strict: true )
 			&& $this->shouldRegisterCurrentFile( $item );
 
-		if ( $isValid ) {
-			( $count = count( $subPathParts = $this->currentItemSubpath( parts: true ) ?? array() ) )
-				&& $this->maybeRegisterCurrentDepth( $count, parts: $subPathParts );
-		}
+		$isScannableFile
+			&& ( $count = count( $subPathParts = $this->currentItemSubpath( parts: true ) ?? array() ) )
+			&& $this->maybeRegisterCurrentDepth( $count, parts: $subPathParts );
 
-		return $isValid;
+		return $isScannableFile;
 	}
 
 	private function exhibitIsSubDirectoryAware(): bool {

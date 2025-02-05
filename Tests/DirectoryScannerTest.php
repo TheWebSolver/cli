@@ -61,6 +61,8 @@ class DirectoryScannerTest extends TestCase {
 			'Does not include "SubStub" from parent "FirstDepth" coz it is not scanned.'
 		);
 
+		$scanner = new $scanner();
+
 		$scanner->usingSubDirectory( 'SubStub', 2, 3 )->usingSubDirectory( 'FirstDepth', 2 )->run();
 
 		$this->assertCount( 9, $scanner->getScannedItems(), 'Includes "SubStub" from parent "FirstDepth"' );
