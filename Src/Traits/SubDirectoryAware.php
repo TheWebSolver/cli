@@ -38,11 +38,11 @@ trait SubDirectoryAware {
 
 	/** @return string[] */
 	private function currentSubDirectoryTree(): array {
-		return $this->subDirectoryExists( $tree = ( $this->inCurrentDepth() ?? array() ) ) ? $tree : array();
+		return $this->subDirectoryExists( $tree = ( $this->ofCurrentDepth() ?? array() ) ) ? $tree : array();
 	}
 
 	/** @return ?string[] */
-	private function inCurrentDepth(): ?array {
+	private function ofCurrentDepth(): ?array {
 		return $this->subDirectories ? $this->currentItemSubpath( parts: true ) : null;
 	}
 
