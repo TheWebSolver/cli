@@ -1,4 +1,4 @@
-<?php // phpcs:disable Squiz.Commenting.FunctionComment.IncorrectTypeHint
+<?php
 declare( strict_types = 1 );
 
 namespace TheWebSolver\Codegarage\Cli\Enums;

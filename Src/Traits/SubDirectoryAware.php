@@ -1,4 +1,4 @@
-<?php // phpcs:disable PHPCompatibility.Classes.ForbiddenAbstractPrivateMethods.Found -- in trait OK.
+<?php
 declare( strict_types = 1 );
 
 namespace TheWebSolver\Codegarage\Cli\Traits;

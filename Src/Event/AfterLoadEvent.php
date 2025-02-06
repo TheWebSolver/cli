@@ -12,7 +12,6 @@ class AfterLoadEvent {
 	 * @param callable(EventTask): void $runner
 	 * @listener
 	 */
-	// phpcs:ignore Squiz.Commenting.FunctionComment.IncorrectTypeHint
 	public function runCommand( callable $runner ): void {
 		$this->commandRunner = $runner;
 	}

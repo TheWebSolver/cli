@@ -22,7 +22,6 @@ class CommandSubscriberTest extends TestCase {
 	 * @param class-string<Console> $className
 	 * @return array{0:ApplicationTester,1:Console:Application,2:TestCommand}
 	 */
-	// phpcs:ignore quiz.Commenting.FunctionComment.IncorrectTypeHint
 	private function getApplicationTester( string $className = TestCommand::class ): array {
 		$tester  = new ApplicationTester( $app = new Application() );
 		$parser  = $this->createMock( InputAttribute::class );

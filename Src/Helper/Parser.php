@@ -1,4 +1,4 @@
-<?php // phpcs:disable Squiz.Commenting.FunctionComment.IncorrectTypeHint
+<?php
 declare( strict_types = 1 );
 
 namespace TheWebSolver\Codegarage\Cli\Helper;
@@ -44,10 +44,7 @@ class Parser {
 	 * @template TAttribute of object
 	 * @template TTarget of object
 	 */
-	public static function parseClassAttribute( // phpcs:ignore Squiz.Commenting.FunctionComment.IncorrectTypeHint
-		string $attributeName,
-		string|ReflectionClass $target
-	): ?array {
+	public static function parseClassAttribute( string $attributeName, string|ReflectionClass $target ): ?array {
 		$reflection = $target instanceof ReflectionClass ? $target : new ReflectionClass( $target );
 
 		return empty( $attrs = $reflection->getAttributes( $attributeName ) ) ? null : $attrs;

@@ -23,7 +23,7 @@ class Command extends AsCommand {
 	 *                            alternate names might be "prospect", "user", etc.
 	 */
 	public function __construct(
-		public string $namespace, // phpcs:ignore Universal.NamingConventions.NoReservedKeywordParameterNames.namespaceFound
+		public string $namespace,
 		public string $name,
 		public ?string $description,
 		public bool $isInternal = false,
