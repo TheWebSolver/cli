@@ -156,8 +156,8 @@ class Scanner {
 		return DirectoryScannerTest::SCAN_PATH;
 	}
 
-	protected function shouldRegisterCurrentFile( SplFileInfo $item ): bool {
-		return ! str_contains( $item->getBasename(), needle: 'Ignore' );
+	protected function shouldScanFile( SplFileInfo $info ): bool {
+		return ! str_contains( $info->getBasename(), needle: 'Ignore' );
 	}
 
 	protected function forCurrentFile(): void {}

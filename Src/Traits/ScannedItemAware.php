@@ -6,6 +6,8 @@ namespace TheWebSolver\Codegarage\Cli\Traits;
 use DirectoryIterator;
 
 trait ScannedItemAware {
+	final public const ROOT_LEVEL = 1;
+
 	/** @var array<string,array<int,array{depth:int,base:string,type:string,tree:string[],item:DirectoryIterator}>> */
 	private array $scannedItemsDepth;
 	private int $treeMaxDepth;
@@ -14,8 +16,7 @@ trait ScannedItemAware {
 
 	/** @return array<string,array<int,array{depth:int,base:string,type:string,tree:string[],item:DirectoryIterator}>> */
 	final public function getScannedItemsDepth( bool $sortByDepth = false ): array {
-		( $depths = $this->scannedItemsDepth ) &&
-			$sortByDepth && array_walk( $depths, self::inAscendingOrder( ... ) );
+		( $depths = $this->scannedItemsDepth ) && $sortByDepth && array_walk( $depths, self::inAscendingOrder( ... ) );
 
 		return $depths;
 	}
@@ -24,14 +25,14 @@ trait ScannedItemAware {
 		return $this->treeMaxDepth
 			??= ( $depths = array_reduce( $this->getScannedItemsDepth(), self::toOnlyDepths( ... ), initial: array() ) )
 				? max( $depths )
-				: 0;
+				: self::ROOT_LEVEL;
 	}
 
 	/** @param string[] $parts */
 	final protected function registerCurrentItemDepth( array $parts, int $depth, DirectoryIterator $item ): void {
 		$rootBasename = $this->getRootBasename(); // Store items indexed by root dir.
 		$isNotRoot    = ! ! array_pop( $parts );  // Omit tree structure for root dir.
-		$tree         = $isNotRoot ? array( $rootBasename, ...( $parts ?: array() ) ) : array();
+		$tree         = $isNotRoot ? array( $rootBasename, ...$parts ) : array();
 		$type         = $item->isDir() ? 'directory' : 'file';
 		$base         = $this->inferIfScannedIsRoot( $item );
 
@@ -47,20 +48,20 @@ trait ScannedItemAware {
 	}
 
 	/**
-	 * @param array{depth:int,base:string,type:string,tree:string[],item:DirectoryIterator} $a
-	 * @param array{depth:int,base:string,type:string,tree:string[],item:DirectoryIterator} $b
+	 * @param array{depth:int,base:string,type:string,tree:string[],item:DirectoryIterator} $previous
+	 * @param array{depth:int,base:string,type:string,tree:string[],item:DirectoryIterator} $next
 	 */
-	private static function sortInAscendingOrder( array $a, array $b ): int {
-		return $a['depth'] <=> $b['depth'];
+	private static function sortInAscendingOrder( array $previous, array $next ): int {
+		return $previous['depth'] <=> $next['depth'];
 	}
 
 	/**
 	 * @param int[]                                                                                    $depths
-	 * @param array<int,array{depth:int,base:string,type:string,tree:string[],item:DirectoryIterator}> $items
+	 * @param array<int,array{depth:int,base:string,type:string,tree:string[],item:DirectoryIterator}> $scanned
 	 * @return int[]
 	 */
-	private static function toOnlyDepths( array $depths, array $items ): array {
-		return array( ...$depths, ...array_column( $items, column_key: 'depth' ) );
+	private static function toOnlyDepths( array $depths, array $scanned ): array {
+		return array( ...$depths, ...array_column( $scanned, column_key: 'depth' ) );
 	}
 
 	private function inferIfScannedIsRoot( DirectoryIterator $item ): string {

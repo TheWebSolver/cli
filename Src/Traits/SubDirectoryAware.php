@@ -13,15 +13,15 @@ trait SubDirectoryAware {
 
 
 	/**
-	 * Registers sub-directory name to be scanned in given depth{s}.
+	 * Registers given sub-directory name for scanning when it is found in given depth(s).
 	 *
-	 * @param int $depth     The depth in which sub-directory name to be discovered.
-	 *                       Provide depth by counting root at the first depth (1).
-	 * @param int ...$depths Additional depths with same sub-directory name in any other
-	 *                       sub-directories that are also registered for discovery.
+	 * @param int $depth     The depth in which the sub-directory name to be discovered.
+	 *                       Provide depth by counting root at the first depth (**1**).
+	 * @param int ...$depths Additional depths with same sub-directory name in other
+	 *                       sub-directories that're also registered for discovery.
 	 */
 	final public function usingSubDirectory( string $name, int $depth = 2, int ...$depths ): static {
-		$registered                    = (array) ( $this->subDirectories[ $name ] ?? array() );
+		$registered                    = $this->subDirectories[ $name ] ?? array();
 		$this->subDirectories[ $name ] = array_unique( array( $depth, ...$depths, ...$registered ) );
 
 		return $this;

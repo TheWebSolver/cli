@@ -54,8 +54,8 @@ trait DirectoryScanner {
 		$ext = $this->extensionOf( $filename ?? $this->currentItem()->getFilename() ) ?? '';
 
 		return ! $filename
-			? $this->currentItem()->getBasename( ".{$ext}" )
-			: ( $ext ? substr( $filename, 0, - strlen( ".{$ext}" ) ) : $filename );
+			? $this->currentItem()->getBasename( suffix: ".{$ext}" )
+			: ( $ext ? substr( $filename, offset: 0, length: - strlen( ".{$ext}" ) ) : $filename );
 	}
 
 	/** @throws LogicException When given `$path` is not a real directory path. */
@@ -69,11 +69,11 @@ trait DirectoryScanner {
 		return ltrim( substr( $root, strrpos( $root, DIRECTORY_SEPARATOR, -1 ) ?: 0 ), DIRECTORY_SEPARATOR );
 	}
 
-	/** @return ($parts is true ? ?list<string> : ?string) */
-	final protected function currentItemSubpath( bool $parts = true ): string|array|null {
-		$fullPath = $this->currentItem()->getRealPath();
+	/** @return ($parts is true ? list<string> : string) */
+	final protected function currentItemSubpath( bool $parts = true ): string|array {
+		$realPath = $this->currentItem()->getRealPath();
 		$subpath  = trim(
-			string: substr( $fullPath, strlen( $this->realDirectoryPath( $this->getRootPath() ) ) ),
+			string: substr( $realPath, offset: strlen( $this->realDirectoryPath( $this->getRootPath() ) ) ),
 			characters: DIRECTORY_SEPARATOR
 		);
 
@@ -96,7 +96,7 @@ trait DirectoryScanner {
 		while ( $scanner->valid() ) {
 			$this->currentScannedItem = $scanner->current();
 
-			$this->shouldRegisterCurrentItem() && $this->registerScannedPath()->forCurrentFile();
+			$this->shouldScanCurrent() && $this->registerScannedPath()->forCurrentFile();
 
 			$scanner->next();
 		}
@@ -113,13 +113,11 @@ trait DirectoryScanner {
 		return array( 'php' );
 	}
 
-	/** Determines whether the found file item should be scanned or not. */
-	// phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.Found -- Intended to be used by exhibiting class.
-	protected function shouldRegisterCurrentFile( SplFileInfo $item ): bool {
+	// phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.Found -- May be used by exhibiting class.
+	protected function shouldScanFile( SplFileInfo $info ): bool {
 		return true;
 	}
 
-	/** @param class-string $traitName */
 	private function exhibitIsUsing( string $traitName ): bool {
 		return in_array( $traitName, haystack: class_uses( $this, autoload: false ), strict: true );
 	}
@@ -136,10 +134,10 @@ trait DirectoryScanner {
 		$item            = $this->currentItem();
 		$isScannableFile = $item->isFile()
 			&& in_array( $item->getExtension(), $this->getAllowedExtensions(), strict: true )
-			&& $this->shouldRegisterCurrentFile( $item );
+			&& $this->shouldScanFile( $item );
 
 		$isScannableFile
-			&& ( $count = count( $subPathParts = $this->currentItemSubpath( parts: true ) ?? array() ) )
+			&& ( $count = count( $subPathParts = $this->currentItemSubpath( parts: true ) ) )
 			&& $this->maybeRegisterCurrentDepth( $count, parts: $subPathParts );
 
 		return $isScannableFile;
@@ -156,13 +154,7 @@ trait DirectoryScanner {
 		return ! ! $count;
 	}
 
-	/**
-	 * Acts as a safeguard as to whether current item should be considered as a scanned item or not.
-	 * By default, this will:
-	 *  - return true only when `$this->currentItem()->isFile()` and has one of the allowed extensions
-	 *  - invoke`$this->forCurrentSubDirectory()` if exhibiting class is using `SubDirectoryAware`.
-	 */
-	private function shouldRegisterCurrentItem(): bool {
+	private function shouldScanCurrent(): bool {
 		if ( $this->currentItem()->isDot() ) {
 			return false;
 		}
