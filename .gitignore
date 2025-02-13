@@ -4,6 +4,6 @@
 !phpcs.xml.dist
 !phpstan.neon
 !phpunit.xml.dist
-
+!bootstrap.php
 !Src
 !Tests

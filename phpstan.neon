@@ -2,10 +2,15 @@ parameters:
 	level: max
 	paths:
 		- Src/
+		- bootstrap.php
 		- Tests/DirectoryScannerTest.php # To cover "DirectoryScanner" aware traits.
 	excludePaths:
 		- vendor/
 	ignoreErrors:
+		- # Only invoked if subDirectory provided in config file.
+				path: bootstrap.php
+				identifier: method.notFound
+				message: '|\:\:usingSubDirectory\(\)|'
 		-
 			path: Src/CommandLoader.php
 			identifier: argument.type
