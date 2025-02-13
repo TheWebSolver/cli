@@ -1,7 +1,7 @@
 <?php
 declare( strict_types = 1 );
 
-namespace TheWebSolver\Codegarage\Test;
+namespace TheWebSolver\Codegarage\Test\Data;
 
 use ReflectionClass;
 use PHPUnit\Framework\TestCase;
