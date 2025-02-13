@@ -71,7 +71,13 @@ class CommandLoader implements Countable {
 	}
 
 	public function load(): static {
-		$this->getContainer()->get( Cli::class )->eventDispatcher()->addSubscriber( new CommandSubscriber() );
+		if ( $this->scanStarted ?? false ) {
+			return $this;
+		}
+
+		$this->scanStarted = true;
+
+		$this->container->get( Cli::class )->eventDispatcher()->addSubscriber( new CommandSubscriber() );
 
 		return $this->startScan();
 	}
@@ -135,26 +141,21 @@ class CommandLoader implements Countable {
 	}
 
 	private function startScan(): static {
-		if ( $this->scanStarted ?? false ) {
-			return $this;
-		}
+		array_walk( $this->namespacedDirectory, $this->scanBaseDirectory( ... ) );
 
-		$this->scanStarted = true;
-
-		foreach ( $this->namespacedDirectory as $base ) {
-			$dirpath    = $base[ $namespace = (string) array_key_first( $base ) ];
-			$this->base = compact( 'dirpath', 'namespace' );
-
-			$this->scan( $dirpath );
-		}
-
-		// By default, all lazy-loaded commands extending Console will use default "Cli".
-		// Different application may be used with setter "Console::setApplication()".
-		$this->container
-			->get( Cli::class )
-			->setCommandLoader( new ContainerCommandLoader( $this->container, $this->commands ) );
+		$this->container->get( Cli::class )->setCommandLoader(
+			new ContainerCommandLoader( $this->container, $this->commands )
+		);
 
 		return $this;
+	}
+
+	/** @param array<string,string> $pathAndNamespace */
+	private function scanBaseDirectory( array $pathAndNamespace ): void {
+		$dirpath    = $pathAndNamespace[ $namespace = (string) array_key_first( $pathAndNamespace ) ];
+		$this->base = compact( 'dirpath', 'namespace' );
+
+		$this->scan( $dirpath );
 	}
 
 	/** @return ?callable(EventTask): void */
