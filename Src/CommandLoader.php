@@ -30,9 +30,7 @@ class CommandLoader implements Countable {
 		private array $namespacedDirectory = array(),
 		private array $commands = array(),
 		private ?EventDispatcher $dispatcher = null
-	) {
-		$container->get( Cli::class )->eventDispatcher()->addSubscriber( new CommandSubscriber() );
-	}
+	) {}
 
 	public function getContainer(): Container {
 		return $this->container;
@@ -73,6 +71,8 @@ class CommandLoader implements Countable {
 	}
 
 	public function load(): static {
+		$this->getContainer()->get( Cli::class )->eventDispatcher()->addSubscriber( new CommandSubscriber() );
+
 		return $this->startScan();
 	}
 
