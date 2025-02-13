@@ -71,7 +71,11 @@ class CommandLoaderTest extends TestCase {
 
 	#[Test]
 	public function itProvidesLazyLoadedCommandsToCli(): void {
-		$loader = CommandLoader::loadCommands( array( self::NAMESPACED_DIR ) );
+		$container = Container::boot();
+
+		$container->setShared( Cli::class );
+
+		$loader = CommandLoader::loadCommands( array( self::NAMESPACED_DIR ), $container );
 		$cli    = $loader->getContainer()->get( Cli::class );
 
 		$this->assertCount( 1, $cli->all( 'app' ) );
