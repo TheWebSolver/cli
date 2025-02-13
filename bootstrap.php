@@ -62,7 +62,7 @@ abstract class Bootstrap {
 		return null;
 	}
 
-	/** Gets root path of target (main) package using CLI package running as: "vendor/bin/iso". */
+	/** Gets root path of target (main) package using CLI package running as: "vendor/bin/{$scriptName}". */
 	protected function relativeToVendorBinPath(): ?string {
 		return ( $binPath = ( $GLOBALS['_composer_bin_dir'] ?? null ) ) && is_string( $binPath )
 			? dirname( $binPath, 2 )
