@@ -7,6 +7,7 @@ use PHPUnit\Framework\TestCase;
 use PHPUnit\Framework\Attributes\Test;
 use TheWebSolver\Codegarage\Cli\Console;
 use TheWebSolver\Codegarage\Cli\Attribute\Command;
+use TheWebSolver\Codegarage\Cli\Helper\InputAttribute;
 
 class ConsoleTest extends TestCase {
 	#[Test]
@@ -36,11 +37,39 @@ class ConsoleTest extends TestCase {
 
 		$this->assertSame( $console->getName(), $console::asCommandName() );
 	}
+
+	#[Test]
+	public function ensureSetterGetterWorks(): void {
+		$console = new Console();
+		$parser  = $this->createStub( InputAttribute::class );
+
+		$this->assertFalse( $console->hasInputAttribute() );
+		$this->assertSame( $parser, $console->setInputAttribute( $parser )->getInputAttribute() );
+		$this->assertTrue( $console->hasInputAttribute() );
+
+		$parser = $this->createMock( InputAttribute::class );
+
+		$parser->expects( $this->once() )->method( 'parse' )->willReturn( $parser );
+		$parser->expects( $this->once() )->method( 'toSymfonyInput' )->willReturn( array( 'symfony inputs' ) );
+
+		$childCommand = Command_Without_Attribute::start( constructorArgs: array( 'inputAttribute' => $parser ) );
+
+		$this->assertTrue( $childCommand->isDefined() );
+		$this->assertTrue( $childCommand->hasInputAttribute() );
+		$this->assertSame( $parser, $childCommand->getInputAttribute() );
+		$this->assertFalse( $childCommand->setDefined( false )->isDefined() );
+	}
 }
 
 // phpcs:disable Generic.Files.OneObjectStructurePerFile.MultipleFound
 class Command_Without_Attribute extends Console {
 	public const CLI_NAMESPACE = 'create';
+
+	public function __construct( InputAttribute $inputAttribute = null ) {
+		$inputAttribute && $this->setInputAttribute( $inputAttribute );
+
+		parent::__construct();
+	}
 }
 
 #[Command(

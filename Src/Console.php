@@ -4,21 +4,15 @@ declare( strict_types = 1 );
 namespace TheWebSolver\Codegarage\Cli;
 
 use ReflectionClass;
-use InvalidArgumentException;
 use TheWebSolver\Codegarage\Cli\Cli;
 use TheWebSolver\Codegarage\Cli\Data\Flag;
 use Symfony\Component\Console\Command\Command;
-use Symfony\Component\Console\Input\ArgvInput;
 use TheWebSolver\Codegarage\Cli\Helper\Parser;
 use Symfony\Component\Console\Input\InputOption;
 use TheWebSolver\Codegarage\Container\Container;
-use Symfony\Component\Console\Style\SymfonyStyle;
 use Symfony\Component\Console\Input\InputArgument;
-use Symfony\Component\Console\Input\InputInterface;
-use Symfony\Component\Console\Output\ConsoleOutput;
 use TheWebSolver\Codegarage\Cli\Enums\InputVariant;
 use Symfony\Component\Console\Helper\HelperInterface;
-use Symfony\Component\Console\Output\OutputInterface;
 use TheWebSolver\Codegarage\Cli\Helper\InputAttribute;
 use TheWebSolver\Codegarage\Cli\Data\Positional as Pos;
 use TheWebSolver\Codegarage\Cli\Data\Associative as Assoc;
@@ -26,8 +20,6 @@ use TheWebSolver\Codegarage\Cli\Attribute\Command as CommandAttribute;
 
 /** @phpstan-consistent-constructor */
 class Console extends Command {
-	protected bool $printProgress;
-	private SymfonyStyle $io;
 	private bool $isDefined = false;
 	private InputAttribute $inputAttribute;
 
@@ -53,20 +45,21 @@ class Console extends Command {
 		return $this->inputAttribute;
 	}
 
+	final public function hasInputAttribute(): bool {
+		return isset( $this->inputAttribute );
+	}
+
 	/**
-	 * @param Container           $container    The DI container.
-	 * @param array<string,mixed> $dependencies Constructor's injected dependencies by the container.
-	 * @param bool                $infer        Whether to infer inputs from this class attributes.
+	 * @param Container           $container       The DI container.
+	 * @param array<string,mixed> $constructorArgs Constructor's injected dependencies by the container.
+	 * @param bool                $infer           Whether to infer inputs from this class attributes.
 	 */
 	final public static function start(
 		Container $container = null,
-		array $dependencies = array(),
+		array $constructorArgs = array(),
 		bool $infer = true
 	): static {
-		[$command, $reflection] = static::getInstance( $container, $dependencies );
-		$command->io            = $container?->has( SymfonyStyle::class )
-			? $container->get( SymfonyStyle::class )
-			: new SymfonyStyle( new ArgvInput(), new ConsoleOutput() );
+		[$command, $reflection] = static::getInstance( $container, $constructorArgs );
 
 		$command
 			// Do not override InputAttribute if already set via constructor.
@@ -135,25 +128,11 @@ class Console extends Command {
 			: new $helperClass();
 	}
 
-	public function io(): SymfonyStyle {
-		return $this->io;
-	}
-
-	protected function initialize( InputInterface $input, OutputInterface $output ) {
-		$this->io = new SymfonyStyle( $input, $output );
-
-		try {
-			$this->printProgress = true === $input->getOption( 'progress' );
-		} catch ( InvalidArgumentException ) {
-			$this->printProgress = false;
-		}
-	}
-
 	/**
-	 * @param array<string,mixed> $dependencies
+	 * @param array<string,mixed> $constructorArgs
 	 *  @return array{0:static,1:ReflectionClass<static>}
 	 */
-	protected static function getInstance( ?Container $container, array $dependencies ): array {
+	protected static function getInstance( ?Container $container, array $constructorArgs ): array {
 		$reflection = new ReflectionClass( static::class );
 
 		// If container provides a shared instance, use that (if not it will be converted).
@@ -164,7 +143,8 @@ class Console extends Command {
 		// Clear container binding. (Hint: in CommandLoader [static::class,'start']).
 		$container?->offsetUnset( static::class );
 		// Only then use Container for DI. This is to prevent infinite loop.
-		$command = $container?->resolve( static::class, $dependencies, true, $reflection ) ?? new static();
+		$command = $container?->resolve( static::class, $constructorArgs, true, $reflection )
+			?? new static( ...$constructorArgs );
 
 		if ( ! $attributes = Parser::parseClassAttribute( CommandAttribute::class, $reflection ) ) {
 			$args = array( $command->setName( static::asCommandName( $reflection ) ), $reflection );
@@ -216,9 +196,8 @@ class Console extends Command {
 	 * @param ReflectionClass<static> $reflection
 	 */
 	protected function withDefinitionsFrom( ReflectionClass $reflection ): static {
-		$isDefined = isset( $this->inputAttribute )
-			&& $this->inputAttribute->parse()->toSymfonyInput( $this->getDefinition() );
-
-		return $this->setDefined( $isDefined );
+		return $this->setDefined(
+			$this->hasInputAttribute() && $this->getInputAttribute()->parse()->toSymfonyInput( $this->getDefinition() )
+		);
 	}
 }
