@@ -15,8 +15,10 @@
     "php": ">=8.2",
     "symfony/console": "^7.2",
     "symfony/event-dispatcher": "^7.2",
-    "thewebsolver/code-generator": "dev-master",
     "thewebsolver/container": "dev-main"
+  },
+  "suggest": {
+    "thewebsolver/code-generator": "Allows generation of complied (cache) data for Container auto-wiring"
   },
   "autoload": {
     "psr-4": {
@@ -28,19 +30,6 @@
       "TheWebSolver\\Codegarage\\Test\\": "Tests/"
     }
   },
-  "repositories": [
-    {
-      "type": "path",
-      "url": "../code-generator",
-      "options": {
-        "symlink": false
-      }
-    },
-    {
-      "type": "path",
-      "url": "../container"
-    }
-  ],
   "scripts": {
     "test:unit": "vendor/bin/phpunit",
     "analyze": "vendor/bin/phpstan",
@@ -49,6 +38,10 @@
       "@analyze",
       "@test:unit",
       "@sniff"
+    ],
+    "update:dev": [
+      "@putenv COMPOSER=composer.dev.json",
+      "@composer update:packages"
     ],
     "test:dev": [
       "phpstan",
