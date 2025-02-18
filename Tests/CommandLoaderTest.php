@@ -31,7 +31,7 @@ class CommandLoaderTest extends TestCase {
 
 	#[Test]
 	public function itScansAndLazyloadCommandFromGivenLocation(): void {
-		$loader = CommandLoader::loadCommands( array( self::NAMESPACED_DIR ) );
+		$loader = CommandLoader::loadCommands( array( self::NAMESPACED_DIR ), new Container() );
 
 		$this->assertEmpty( array_diff_key( self::EXPECTED_COMMANDS, $loader->getCommands() ) );
 		$this->assertEmpty( array_diff( self::EXPECTED_FILENAMES, $loader->getScannedItems() ) );
@@ -41,7 +41,7 @@ class CommandLoaderTest extends TestCase {
 	public function itListensForEventsForEachResolvedCommandFile(): void {
 		$loader = CommandLoader::withEvent( $this->assertLoadedCommandIsListened( ... ) )
 			->inDirectory( ...self::LOCATION )
-			->load();
+			->load( new Container() );
 
 		$this->assertCount( 2, $fileNames = $loader->getScannedItems() );
 		$this->assertEmpty( array_diff( self::EXPECTED_FILENAMES, $fileNames ) );
@@ -59,13 +59,13 @@ class CommandLoaderTest extends TestCase {
 
 	#[Test]
 	public function itEnsuresCommandsAreLazyLoadedToContainer(): void {
-		$loader = CommandLoader::loadCommands( array( self::NAMESPACED_DIR ), new Container() );
+		CommandLoader::loadCommands( array( self::NAMESPACED_DIR ), $container = new Container() );
 
 		foreach ( self::EXPECTED_COMMANDS as $class ) {
 			// The command is registered to container as a closure by CommandLoader.
-			$this->assertEquals( $class::start( ... ), $loader->getContainer()->getBinding( $class )->material );
+			$this->assertEquals( $class::start( ... ), $container->getBinding( $class )->material );
 			// But once the command is resolved by container, it becomes a singleton.
-			$this->assertSame( $loader->getContainer()->get( $class ), $loader->getContainer()->get( $class ) );
+			$this->assertSame( $container->get( $class ), $container->get( $class ) );
 		}
 	}
 
@@ -75,8 +75,9 @@ class CommandLoaderTest extends TestCase {
 
 		$container->setShared( Cli::class );
 
-		$loader = CommandLoader::loadCommands( array( self::NAMESPACED_DIR ), $container );
-		$cli    = $loader->getContainer()->get( Cli::class );
+		CommandLoader::loadCommands( array( self::NAMESPACED_DIR ), $container );
+
+		$cli = $container->get( Cli::class );
 
 		$this->assertCount( 1, $cli->all( 'app' ) );
 		$this->assertCount( 1, $cli->all( 'scanned' ) );
@@ -87,27 +88,20 @@ class CommandLoaderTest extends TestCase {
 	}
 
 	#[Test]
-	public function itEnsuresCommandLoaderIsInstantiatedWithContainer(): void {
-		$loader = CommandLoader::loadCommands( array( self::LOCATION ), $c = new Container() );
-
-		$this->assertSame( $c, $loader->getContainer() );
-	}
-
-	#[Test]
 	public function itRegistersCommandsFromSubDirectories(): void {
-		$subDirLoader = SubDirectoryAwareLoader::with( container: null )
+		$subDirLoader = SubDirectoryAwareLoader::start()
 			->usingSubDirectory( 'SubStub', 2 )
 			->inDirectory( ...self::LOCATION )
-			->load();
+			->load( new Container() );
 
 		$this->assertContains( FirstDepthCommand::class, $subDirLoader->getCommands() );
 		$this->assertCount( 4, $subDirLoader->getScannedItems() );
 
-		$subDirLoader = SubDirectoryAwareLoader::with( container: null )
+		$subDirLoader = SubDirectoryAwareLoader::start()
 			->inDirectory( DirectoryScannerTest::SCAN_PATH, __NAMESPACE__ . '\\Scan' )
 			->usingSubDirectory( 'SubStub', 2 )
 			->inDirectory( ...self::LOCATION )
-			->load();
+			->load( new Container() );
 
 		$this->assertContains( Valid::class, $subDirLoader->getCommands() );
 		$this->assertCount( 6, $subDirLoader->getScannedItems() );

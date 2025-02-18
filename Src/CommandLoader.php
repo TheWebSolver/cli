@@ -4,9 +4,10 @@ declare( strict_types = 1 );
 namespace TheWebSolver\Codegarage\Cli;
 
 use Countable;
+use LogicException;
+use Psr\Container\ContainerInterface;
 use TheWebSolver\Codegarage\Cli\Console;
 use TheWebSolver\Codegarage\Cli\Data\EventTask;
-use TheWebSolver\Codegarage\Container\Container;
 use TheWebSolver\Codegarage\Cli\Event\AfterLoadEvent;
 use Symfony\Component\EventDispatcher\EventDispatcher;
 use TheWebSolver\Codegarage\Cli\Event\CommandSubscriber;
@@ -19,22 +20,17 @@ class CommandLoader implements Countable {
 	/** @var array{dirpath:string,namespace:string} */
 	protected array $base;
 	private bool $scanStarted;
+	private ContainerInterface $container;
 
 	/**
-	 * @param Container                           $container
 	 * @param array<int,array<string,string>>     $namespacedDirectory
 	 * @param array<string,class-string<Console>> $commands
 	 */
 	final private function __construct(
-		private Container $container,
 		private array $namespacedDirectory = array(),
 		private array $commands = array(),
 		private ?EventDispatcher $dispatcher = null
 	) {}
-
-	public function getContainer(): Container {
-		return $this->container;
-	}
 
 	/** @return array<int,array<string,string>> List of directory path indexed by its namespace. */
 	public function getNamespacedDirectories(): array {
@@ -46,22 +42,22 @@ class CommandLoader implements Countable {
 		return $this->commands;
 	}
 
-	public static function with( ?Container $container ): static {
-		return self::getInstance( $container );
+	public static function start(): static {
+		return self::getInstance();
 	}
 
 	/** @param callable(EventTask): void $listener */
-	public static function withEvent( callable $listener, ?Container $container = null ): static {
-		return self::getInstance( $container, event: true )->withListener( $listener );
+	public static function withEvent( callable $listener ): static {
+		return self::getInstance( event: true )->withListener( $listener );
 	}
 
 	/** @param array<int,array<string,string>> $namespacedDirectories */
-	public static function loadCommands( array $namespacedDirectories, ?Container $container = null ): static {
-		$loader = self::getInstance( $container );
+	public static function loadCommands( array $namespacedDirectories, ContainerInterface $container ): static {
+		$loader = self::getInstance();
 
 		$loader->namespacedDirectory = $namespacedDirectories;
 
-		return $loader->load();
+		return $loader->load( $container );
 	}
 
 	public function inDirectory( string $path, string $namespace ): static {
@@ -70,16 +66,53 @@ class CommandLoader implements Countable {
 		return $this;
 	}
 
-	public function load(): static {
+	final public function load( ContainerInterface $container ): static {
 		if ( $this->scanStarted ?? false ) {
 			return $this;
 		}
 
 		$this->scanStarted = true;
+		$this->container   = $container;
 
-		$this->container->get( Cli::class )->eventDispatcher()->addSubscriber( new CommandSubscriber() );
+		$this->getApp()->eventDispatcher()->addSubscriber( new CommandSubscriber() );
+
+		$this->initialize();
 
 		return $this->startScan();
+	}
+
+	/**
+	 * Allows inheriting class to initialize its actions before scan has started.
+	 */
+	protected function initialize(): void {}
+
+	/**
+	 * Returns an instance of Console application (Cli by default).
+	 *
+	 * This may throw PSR-11 exceptions if no container binding identifier exists with $id as `Cli::class`.
+	 *
+	 * @throws LogicException When container resolves something other than `Cli` or its inheritance.
+	 */
+	final protected function getApp(): Cli {
+		return ( $app = $this->container->get( Cli::class ) ) instanceof Cli
+			? $app
+			: throw new LogicException( 'Impossible to start Cli application using container.' );
+	}
+
+	/**
+	 * Allows inheriting class to handle the found command.
+	 *
+	 * By default, it defers command instantiation until current command is ran. The provided container
+	 * must have `ContainerInterface::set()` method to defer command instantiation. If that is not the
+	 * case, then this method must be overridden to handle found command (preferably defer loading).
+	 *
+	 * @param class-string<Console>              $classname
+	 * @param callable(ContainerInterface): void $command
+	 * @link https://symfony.com/doc/current/console/lazy_commands.html
+	 */
+	protected function useFoundCommand( string $classname, callable $command, string $commandName ): void {
+		/** @disregard P1013 Undefined method 'set' */
+		method_exists( $this->container, 'set' ) && $this->container->set( $classname, $command );
 	}
 
 	protected function getRootPath(): string {
@@ -99,7 +132,7 @@ class CommandLoader implements Countable {
 		$commandName                    = $commandClass::asCommandName();
 		$this->commands[ $commandName ] = $commandClass;
 
-		$this->handleResolved( $commandClass, $lazyload, $commandName );
+		$this->useFoundCommand( $commandClass, $lazyload, $commandName );
 
 		// Allow developers to listen for resolved command by Command Loader with the "EventTask".
 		if ( $commandRunner = $this->getCommandRunnerFromEvent() ) {
@@ -107,21 +140,8 @@ class CommandLoader implements Countable {
 		}
 	}
 
-	/**
-	 * Allows developers to handle the resolved command.
-	 *
-	 * By default, it defers command instantiation until current command is ran.
-	 *
-	 * @param class-string<Console>     $classname
-	 * @param callable(Container): void $command
-	 * @link https://symfony.com/doc/current/console/lazy_commands.html
-	 */
-	protected function handleResolved( string $classname, callable $command, string $commandName ): void {
-		$this->container->set( $classname, $command );
-	}
-
-	private static function getInstance( ?Container $container, bool $event = false ): static {
-		return new static( $container ??= Container::boot(), dispatcher: $event ? new EventDispatcher() : null );
+	private static function getInstance( bool $event = false ): static {
+		return new static( dispatcher: $event ? new EventDispatcher() : null );
 	}
 
 	private function fromFilePathToPsr4SpecificationFullyQualifiedClassName(): ?string {
@@ -143,9 +163,7 @@ class CommandLoader implements Countable {
 	private function startScan(): static {
 		array_walk( $this->namespacedDirectory, $this->scanBaseDirectory( ... ) );
 
-		$this->container->get( Cli::class )->setCommandLoader(
-			new ContainerCommandLoader( $this->container, $this->commands )
-		);
+		$this->getApp()->setCommandLoader( new ContainerCommandLoader( $this->container, $this->commands ) );
 
 		return $this;
 	}

@@ -22,7 +22,6 @@ namespace TheWebSolver\Codegarage\Cli;
 use Closure;
 use LogicException;
 use TheWebSolver\Codegarage\Cli\CommandLoader;
-use TheWebSolver\Codegarage\Container\Container;
 
 abstract class Bootstrap {
 	final private function __construct( private string $packageRootPath = '' ) {}
@@ -128,7 +127,7 @@ abstract class Bootstrap {
 
 		/** @var class-string<CommandLoader> */
 		$commandLoaderClass = $config['commandLoader'] ?? CommandLoader::class;
-		$commandLoader      = $commandLoaderClass::with( Container::boot() );
+		$commandLoader      = $commandLoaderClass::start();
 		$packageRootPath    = $hasPackageConfig ? $this->packageRootPath : $this->cliPackagePath();
 
 		foreach ( $config['directory'] ?? array() as ['path' => $dirname, 'namespace' => $namespace] ) {

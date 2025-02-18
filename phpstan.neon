@@ -14,11 +14,18 @@ parameters:
 		-
 			path: Src/CommandLoader.php
 			identifier: argument.type
-			count: 3 # 1 for ConsoleChildClass::start() as container binding & others related to "ScannedItemAware" methods.
+			message: '|CommandLoader\:\:useFoundCommand\(\) expects callable|'
+			count: 1 # 1 for ConsoleChildClass::start() as container binding.
 		-
 			path: Src/Traits/DirectoryScanner.php
 			identifier: method.notFound
 			message: "|::registerCurrentItemDepth|"
+		-
+			path: Src/Traits/DirectoryScanner.php
+			identifier: argument.type
+			messages:
+				- '|\$value of function count expects array\|Countable\, mixed given|'
+				- '|\:\:maybeRegisterCurrentDepth\(\) expects array\<string\>\, mixed given|'
 		-
 			paths:
 				- Src/CommandLoader.php

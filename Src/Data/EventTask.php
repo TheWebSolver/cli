@@ -4,11 +4,11 @@ declare( strict_types = 1);
 namespace TheWebSolver\Codegarage\Cli\Data;
 
 use Closure;
+use Psr\Container\ContainerInterface;
 use TheWebSolver\Codegarage\Cli\Console;
-use TheWebSolver\Codegarage\Container\Container;
 
 /**
- * @param Closure(?Container): Console $command
+ * @param Closure(ContainerInterface): Console $command
  * @param class-string<Console>        $className
  */
 readonly class EventTask {
@@ -16,6 +16,6 @@ readonly class EventTask {
 		public Closure $command,
 		public string $className,
 		public string $commandName,
-		public Container $container
+		public ContainerInterface $container
 	) {}
 }
