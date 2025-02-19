@@ -15,6 +15,7 @@
     "php": ">=8.2",
     "symfony/console": "^7.2",
     "symfony/event-dispatcher": "^7.2",
+    "composer-runtime-api": "^2.2",
     "thewebsolver/container": "dev-main"
   },
   "suggest": {

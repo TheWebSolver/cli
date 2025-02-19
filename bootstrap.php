@@ -8,9 +8,8 @@
  * - requires the "config.php" file to load commands.
  *
  * The package using this library must:
- * - first require this file,
- * - extend the "Bootstrap" (this) class, and
- * - finally bootstrap commands by performing required action.
+ * - require this file, and
+ * - bootstrap commands by performing required action.
  *
  * @package TheWebSolver\Codegarage\Cli
  */
@@ -20,33 +19,54 @@ declare( strict_types = 1 );
 namespace TheWebSolver\Codegarage\Cli;
 
 use Closure;
-use LogicException;
+use RuntimeException;
 use TheWebSolver\Codegarage\Cli\CommandLoader;
 
-abstract class Bootstrap {
-	final private function __construct( private string $packageRootPath = '' ) {}
+class Bootstrap {
+	private bool $discoverable;
+
+	private const INVALID_COMPOSER_PACKAGE     = 'Impossible to discover package root path. Are you using composer?';
+	private const NON_DISCOVERABLE_CLI_PATH    = 'Cannot auto-discover CLI package. Override method "%s" to provide CLI package path.';
+	private const NON_DISCOVERABLE_CONFIG_PATH = "Configuration file not provided.\nCLI Package created using this library must 'have a \"config.php\" file at root path that provides commands to be loaded.";
+
+	/** @param array{main?:string,cli?:string} $packages */
+	final private function __construct( private string $rootPath = '', private array $packages = array() ) {
+		$slash                 = DIRECTORY_SEPARATOR;
+		$this->discoverable    = file_exists(
+			$installedVersions = __DIR__ . "{$slash}vendor{$slash}composer{$slash}InstalledVersions.php"
+		);
+
+		$this->discoverable && require_once $installedVersions;
+	}
 
 	/**
-	 * @param Closure(CommandLoader, array<string,mixed>, string): void $action
-	 * @throws LogicException When target (main) package directory path cannot be discovered.
-	 *                        When "config.php" file with directories to be scanned not provided.
+	 * @param Closure(CommandLoader, array<string,mixed>, string): void $action   The action to be performed by CLI package.
+	 * @param ?array{main:string,cli:string}                            $packages List of vendor's main & CLI package name.
+	 *                                                                            CLI package must be built on top of this.
+	 *                                                                            `null` means no auto-discovery and CLI
+	 *                                                                            package extends this bootstrap class.
+	 * @throws RuntimeException When either main or CLI package directory path cannot be discovered.
+	 *                          When "config.php" file with directories to be scanned not provided.
 	 */
-	public static function commands( Closure $action ): void {
-		( $bootstrap = new static() )->discoverPackageRootPath();
+	public static function commands( Closure $action, array $packages = null ): void {
+		( $bootstrap = new static( packages: $packages ?? array() ) )->discoverPackageRootPath();
 
-		$action( ...array( ...$bootstrap->configure(), $bootstrap->packageRootPath ) );
+		$action( ...array( ...$bootstrap->configure(), $bootstrap->rootPath ) );
 	}
 
 	/**
 	 * Gets the CLI package root path built on top of this CLI library.
 	 *
-	 * For eg: package named "resolver" has a CLI feature. It has
-	 * a separate package named "resolver-cli". Then, it should
-	 * return root directory path of a "resolver-cli" package.
+	 * For eg: package named ***resolver*** has a CLI feature. It has a CLI package named.
+	 * ***resolver-cli***. Then, it should return root path of ***resolver-cli*** package.
 	 *
 	 * @return string Usually, the **\_\_DIR\_\_** constant value.
+	 * @throws RuntimeException When cannot auto-discover package path using CLI composer package name.
 	 */
-	abstract protected function cliPackagePath(): string;
+	protected function cliPackagePath(): string {
+		return $this->discoveredInstalledPathOf( package: $this->packages['cli'] ?? null )
+			?? throw new RuntimeException( sprintf( self::NON_DISCOVERABLE_CLI_PATH, __METHOD__ ) );
+	}
 
 	/**
 	 * Gets root path of target (main) package using CLI package during development.
@@ -58,7 +78,7 @@ abstract class Bootstrap {
 	 *           This is not a user facing API and must only work during development.
 	 */
 	protected function relativeToLocalSymlinkPath(): ?string {
-		return null;
+		return $this->discoveredInstalledPathOf( package: $this->packages['main'] ?? null );
 	}
 
 	/** Gets root path of target (main) package using CLI package running as: "vendor/bin/{$scriptName}". */
@@ -69,52 +89,43 @@ abstract class Bootstrap {
 	}
 
 	/** Gets root path of target (main) package using CLI package if running as standalone composer package. */
-	private function discoveredPath(): ?string {
+	private function relativeToCliPackagePath( string $slash = DIRECTORY_SEPARATOR ): ?string {
 		if ( ! realpath( $cliPackagePath = $this->cliPackagePath() ) ) {
 			return null;
 		}
 
-		// Usually, "$cliPackagePath" is: "path/to/($packageRoot)/vendor/{$vendorName}/{$packageName}".
-		// We'll start discovering the package path from the "$vendorName" directory and its parents.
-		$currentRoot = dirname( $cliPackagePath );
-		$packageRoot = null;
+		// Usually, "$cliPackagePath" is: "path/to/($rootPath)/vendor/{$vendorName}/{$packageName}".
+		// We'll start discovering the root path by propagating from the "$vendorName" directory.
+		$currentDir = dirname( $cliPackagePath );
+		$rootPath   = null;
 
 		do {
-			$composerJson = $currentRoot . DIRECTORY_SEPARATOR . 'composer.json';
+			// If composer.json file found in current directory, must be the root path. Else keep propagating.
+			( is_file( "{$currentDir}{$slash}composer.json" ) && $rootPath = $currentDir )
+				|| $currentDir = dirname( $currentDir );
+		} while ( null === $rootPath && $slash !== $currentDir );
 
-			// If composer.json file found in current directory, must be the package root. Else keep propagating.
-			( is_file( $composerJson ) && $packageRoot = $currentRoot ) || $currentRoot = dirname( $currentRoot );
-		} while ( null === $packageRoot && DIRECTORY_SEPARATOR !== $currentRoot );
-
-		return $packageRoot;
+		return $rootPath;
 	}
 
-	/** @throws LogicException When main package's root patch cannot be discovered. */
 	private function discoverPackageRootPath(): void {
-		$this->packageRootPath = $this->relativeToVendorBinPath()
+		$this->rootPath = $this->relativeToVendorBinPath()
 			?? $this->relativeToLocalSymlinkPath()
-			?? $this->discoveredPath()
-			?? throw new LogicException( 'Impossible to discover package root path. Are you using composer?' );
+			?? $this->relativeToCliPackagePath()
+			?? throw new RuntimeException( self::INVALID_COMPOSER_PACKAGE );
 	}
 
 	/**
 	 * @return array{0:CommandLoader,1:array<string,mixed>}
-	 * @throws LogicException When package "config.php" file not found.
+	 * @throws RuntimeException When package "config.php" file not found.
 	 */
 	private function configure( string $slash = DIRECTORY_SEPARATOR ): array {
-		require_once "{$this->packageRootPath}{$slash}vendor{$slash}autoload.php";
+		require_once "{$this->rootPath}{$slash}vendor{$slash}autoload.php";
 
-		$hasPackageConfig = is_readable( $configFile = "{$this->packageRootPath}{$slash}config.php" );
+		( $configExistsInRootPath = is_readable( $configFile = "{$this->rootPath}{$slash}config.php" ) )
+			|| $configFile = "{$this->cliPackagePath()}{$slash}config.php";
 
-		$hasPackageConfig || $configFile = "{$this->cliPackagePath()}{$slash}config.php";
-
-		if ( ! is_readable( $configFile ) ) {
-			throw new LogicException(
-				'Configuration file not provided.' . PHP_EOL .
-				'CLI Package created using this library must have a "config.php" file that provides ' .
-				'commands to be loaded.'
-			);
-		}
+		is_readable( $configFile ) || throw new RuntimeException( self::NON_DISCOVERABLE_CONFIG_PATH );
 
 		/**
 		 * @var array{
@@ -126,12 +137,12 @@ abstract class Bootstrap {
 		$config = require_once $configFile;
 
 		/** @var class-string<CommandLoader> */
-		$commandLoaderClass = $config['commandLoader'] ?? CommandLoader::class;
-		$commandLoader      = $commandLoaderClass::start();
-		$packageRootPath    = $hasPackageConfig ? $this->packageRootPath : $this->cliPackagePath();
+		$commandLoader  = $config['commandLoader'] ?? CommandLoader::class;
+		$commandLoader  = $commandLoader::start();
+		$configFilePath = $configExistsInRootPath ? $this->rootPath : $this->cliPackagePath();
 
 		foreach ( $config['directory'] ?? array() as ['path' => $dirname, 'namespace' => $namespace] ) {
-			$commandLoader->inDirectory( "{$packageRootPath}{$slash}{$dirname}", $namespace );
+			$commandLoader->inDirectory( "{$configFilePath}{$slash}{$dirname}", $namespace );
 		}
 
 		foreach ( $config['subDirectory'] ?? array() as $subDirectoryName => $depth ) {
@@ -140,5 +151,9 @@ abstract class Bootstrap {
 		}
 
 		return array( $commandLoader, $config );
+	}
+
+	private function discoveredInstalledPathOf( ?string $package ): ?string {
+		return $this->discoverable && $package ? \Composer\InstalledVersions::getInstallPath( $package ) : null;
 	}
 }
