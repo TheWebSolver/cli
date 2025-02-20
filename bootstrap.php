@@ -26,7 +26,7 @@ class Bootstrap {
 	private bool $discoverable;
 
 	private const INVALID_COMPOSER_PACKAGE     = 'Impossible to discover package root path. Are you using composer?';
-	private const NON_DISCOVERABLE_CLI_PATH    = 'Cannot auto-discover CLI package. Override method "%s" to provide CLI package path.';
+	private const NON_DISCOVERABLE_CLI_PATH    = 'Cannot auto-discover CLI package. Override method "%s()" to provide CLI package path.';
 	private const NON_DISCOVERABLE_CONFIG_PATH = "Configuration file not provided.\nCLI Package created using this library must 'have a \"config.php\" file at root path that provides commands to be loaded.";
 
 	/** @param array{main?:string,cli?:string} $packages */
@@ -40,13 +40,46 @@ class Bootstrap {
 	}
 
 	/**
-	 * @param Closure(CommandLoader, array<string,mixed>, string): void $action   The action to be performed by CLI package.
-	 * @param ?array{main:string,cli:string}                            $packages List of vendor's main & CLI package name.
-	 *                                                                            CLI package must be built on top of this.
-	 *                                                                            `null` means no auto-discovery and CLI
-	 *                                                                            package extends this bootstrap class.
-	 * @throws RuntimeException When either main or CLI package directory path cannot be discovered.
-	 *                          When "config.php" file with directories to be scanned not provided.
+	 * Auto-loads project using composer autoloader, auto-discovers CLI configuration file and instantiates command loader.
+	 *
+	 * @param Closure(CommandLoader, array<string,mixed>, string): void $action   The action must be performed by CLI package.
+	 * @param ?array{cli:string,main?:string}                           $packages List of vendor's main & CLI package names.
+	 * - `null` means no auto-discovery. The CLI package must extend this bootstrap class for manual directory path resolution.
+	 * - `main` key/value pair in array is only required during development when main package requires CLI package as _symlink_
+	 *     and CLI package does not extend this class or does not override `Bootstrap::relativeToLocalSymlinkPath()` method.
+	 *
+	 * ________________________________________________________________________________________________________
+	 * **Neither providing array `main` key/value pair nor overriding `Bootstrap::relativeToLocalSymlinkPath()`
+	 * will produce unexpected side-effect if local development uses _Symlink_ to require the CLI Package.**
+	 * ________________________________________________________________________________________________________
+	 *
+	 * @throws RuntimeException When the CLI package directory path cannot be auto-discovered.\
+	 *                          When **config.php** file not found for scanning directories.
+	 * @example Usage
+	 * CLI package binary file is in rootpath named: ***saral***
+	 * ```php
+	 * #!/usr/bin/env php
+	 * use TheWebSolver\Codegarage\Cli\Bootstrap;
+	 * use TheWebSolver\Codegarage\Cli\CommandLoader;
+	 *
+	 * require_once 'path/to/cliPackageRoot/vendor/thewebsolver/cli/bootstrap.php';
+	 *
+	 * Bootstrap::commands(usingCommandLoader(...), [
+	 *  'main' => 'vendorName/packageName',
+	 *  'cli'  => 'vendorName/packageName-cli',
+	 * ]);
+	 *
+	 * function usingCommandLoader(CommandLoader $loader, array $config, string $rootPath) {
+	 *  // Initialize the CLI package with loader and discovered configuration data.
+	 * }
+	 * ```
+	 * ```sh
+	 * # RECOMMENDED: CLI package lists binary file to composer's vendor/bin
+	 * $ vendor/bin/saral namespace:command
+	 *
+	 * # NOT RECOMMENDED: Using binary file directly
+	 * $ vendor/vendorName/packageName-cli/saral namespace:command
+	 * ```
 	 */
 	public static function commands( Closure $action, array $packages = null ): void {
 		( $bootstrap = new static( packages: $packages ?? array() ) )->discoverPackageRootPath();
@@ -60,7 +93,7 @@ class Bootstrap {
 	 * For eg: package named ***resolver*** has a CLI feature. It has a CLI package named.
 	 * ***resolver-cli***. Then, it should return root path of ***resolver-cli*** package.
 	 *
-	 * @return string Usually, the **\_\_DIR\_\_** constant value.
+	 * @return string Usually, the **\_\_DIR\_\_** constant value assuming bootstrap file is in package root.
 	 * @throws RuntimeException When cannot auto-discover package path using CLI composer package name.
 	 */
 	protected function cliPackagePath(): string {
@@ -129,9 +162,9 @@ class Bootstrap {
 
 		/**
 		 * @var array{
-		 *   commandLoader?:class-string<CommandLoader>,
-		 *   directory?:    array<int,array{path:string,namespace:string}>,
-		 *   subDirectory?: array<string,int|int[]>
+		 *   commandLoader ?: class-string<CommandLoader>,
+		 *   directory     ?: array<int,array{path:string,namespace:string}>,
+		 *   subDirectory  ?: array<string,int|int[]>
 		 * }
 		 */
 		$config = require_once $configFile;
