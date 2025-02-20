@@ -5,21 +5,24 @@ namespace TheWebSolver\Codegarage\Cli;
 
 use ReflectionClass;
 use TheWebSolver\Codegarage\Cli\Cli;
+use Psr\Container\ContainerInterface;
 use TheWebSolver\Codegarage\Cli\Data\Flag;
 use Symfony\Component\Console\Command\Command;
 use TheWebSolver\Codegarage\Cli\Helper\Parser;
 use Symfony\Component\Console\Input\InputOption;
-use TheWebSolver\Codegarage\Container\Container;
 use Symfony\Component\Console\Input\InputArgument;
 use TheWebSolver\Codegarage\Cli\Enums\InputVariant;
 use Symfony\Component\Console\Helper\HelperInterface;
 use TheWebSolver\Codegarage\Cli\Helper\InputAttribute;
+use TheWebSolver\Codegarage\Cli\Traits\ContainerAware;
 use TheWebSolver\Codegarage\Cli\Data\Positional as Pos;
 use TheWebSolver\Codegarage\Cli\Data\Associative as Assoc;
 use TheWebSolver\Codegarage\Cli\Attribute\Command as CommandAttribute;
 
 /** @phpstan-consistent-constructor */
 class Console extends Command {
+	use ContainerAware;
+
 	private bool $isDefined = false;
 	private InputAttribute $inputAttribute;
 
@@ -50,21 +53,21 @@ class Console extends Command {
 	}
 
 	/**
-	 * @param Container           $container       The DI container.
+	 * @param ContainerInterface  $container       The DI container.
 	 * @param array<string,mixed> $constructorArgs Constructor's injected dependencies by the container.
 	 * @param bool                $infer           Whether to infer inputs from this class attributes.
 	 */
 	final public static function start(
-		Container $container = null,
+		ContainerInterface $container = null,
 		array $constructorArgs = array(),
 		bool $infer = true
 	): static {
 		[$command, $reflection] = static::getInstance( $container, $constructorArgs );
 
-		$command
-			// Do not override InputAttribute if already set via constructor.
-			->setInputAttribute( $command->inputAttribute ?? InputAttribute::from( $reflection )->register() )
-			->setApplication( $container?->get( Cli::class ) );
+		// Do not override InputAttribute if already set via constructor.
+		$command->setInputAttribute(
+			$command->inputAttribute ?? InputAttribute::from( $reflection )->register()
+		);
 
 		return $command->isDefined() || ! $infer ? $command : $command->withDefinitionsFrom( $reflection );
 	}
@@ -132,37 +135,29 @@ class Console extends Command {
 	 * @param array<string,mixed> $constructorArgs
 	 *  @return array{0:static,1:ReflectionClass<static>}
 	 */
-	protected static function getInstance( ?Container $container, array $constructorArgs ): array {
+	protected static function getInstance( ?ContainerInterface $container, array $constructorArgs ): array {
 		$reflection = new ReflectionClass( static::class );
+		$command    = self::resolveSharedFromContainer( array( $container, $reflection, $constructorArgs ) );
 
-		// If container provides a shared instance, use that (if not it will be converted).
-		if ( $container?->isInstance( static::class ) ) {
-			return array( $container->get( static::class ), $reflection );
+		if ( ! $command ) {
+			/** @var static */
+			$command = $container ? $container->get( static::class ) : new static( ...$constructorArgs );
 		}
 
-		// Clear container binding. (Hint: in CommandLoader [static::class,'start']).
-		$container?->offsetUnset( static::class );
-		// Only then use Container for DI. This is to prevent infinite loop.
-		$command = $container?->resolve( static::class, $constructorArgs, true, $reflection )
-			?? new static( ...$constructorArgs );
+		$command->setApplication( ( $app = $container?->get( Cli::class ) ) instanceof Cli ? $app : null );
 
 		if ( ! $attributes = Parser::parseClassAttribute( CommandAttribute::class, $reflection ) ) {
-			$args = array( $command->setName( static::asCommandName( $reflection ) ), $reflection );
-		} else {
-			$attribute = $attributes[0]->newInstance();
-
-			$command->setName( $attribute->commandName )
-				->setDescription( $attribute->description ?? '' )
-				->setAliases( $attribute->altNames )
-				->setHidden( $attribute->isInternal );
-
-			$args = array( $command, $reflection );
+			return array( $command->setName( static::asCommandName( $reflection ) ), $reflection );
 		}
 
-		// Convert as singleton next time same command is requested to prevent recomputation.
-		$container?->setInstance( static::class, $command );
+		$attribute = $attributes[0]->newInstance();
 
-		return $args;
+		$command->setName( $attribute->commandName )
+			->setDescription( $attribute->description ?? '' )
+			->setAliases( $attribute->altNames )
+			->setHidden( $attribute->isInternal );
+
+		return array( $command, $reflection );
 	}
 
 	/**

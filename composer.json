@@ -15,11 +15,11 @@
     "php": ">=8.2",
     "symfony/console": "^7.2",
     "symfony/event-dispatcher": "^7.2",
-    "composer-runtime-api": "^2.2",
-    "thewebsolver/container": "dev-main"
+    "composer-runtime-api": "^2.2"
   },
   "suggest": {
-    "thewebsolver/code-generator": "Allows generation of complied (cache) data for Container auto-wiring"
+    "thewebsolver/code-generator": "Allows generation of compilation codes",
+    "thewebsolver/container": "Supports advanced features than container that ships with this package"
   },
   "autoload": {
     "psr-4": {

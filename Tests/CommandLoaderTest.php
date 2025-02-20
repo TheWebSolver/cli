@@ -6,10 +6,10 @@ namespace TheWebSolver\Codegarage\Test;
 use PHPUnit\Framework\TestCase;
 use TheWebSolver\Codegarage\Cli\Cli;
 use PHPUnit\Framework\Attributes\Test;
+use TheWebSolver\Codegarage\Cli\Container;
 use TheWebSolver\Codegarage\Test\Scan\Valid;
 use TheWebSolver\Codegarage\Cli\CommandLoader;
 use TheWebSolver\Codegarage\Cli\Data\EventTask;
-use TheWebSolver\Codegarage\Container\Container;
 use TheWebSolver\Codegarage\Test\Stub\TestCommand;
 use TheWebSolver\Codegarage\Cli\Traits\SubDirectoryAware;
 use TheWebSolver\Codegarage\Test\Stub\AnotherScannedCommand;
@@ -62,8 +62,6 @@ class CommandLoaderTest extends TestCase {
 		CommandLoader::loadCommands( array( self::NAMESPACED_DIR ), $container = new Container() );
 
 		foreach ( self::EXPECTED_COMMANDS as $class ) {
-			// The command is registered to container as a closure by CommandLoader.
-			$this->assertEquals( $class::start( ... ), $container->getBinding( $class )->material );
 			// But once the command is resolved by container, it becomes a singleton.
 			$this->assertSame( $container->get( $class ), $container->get( $class ) );
 		}
@@ -71,7 +69,7 @@ class CommandLoaderTest extends TestCase {
 
 	#[Test]
 	public function itProvidesLazyLoadedCommandsToCli(): void {
-		$container = Container::boot();
+		$container = new Container();
 
 		$container->setShared( Cli::class );
 
