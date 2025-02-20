@@ -133,16 +133,13 @@ class Console extends Command {
 
 	/**
 	 * @param array<string,mixed> $constructorArgs
-	 *  @return array{0:static,1:ReflectionClass<static>}
+	 * @return array{0:static,1:ReflectionClass<static>}
 	 */
 	protected static function getInstance( ?ContainerInterface $container, array $constructorArgs ): array {
 		$reflection = new ReflectionClass( static::class );
-		$command    = self::resolveSharedFromContainer( array( $container, $reflection, $constructorArgs ) );
-
-		if ( ! $command ) {
-			/** @var static */
-			$command = $container ? $container->get( static::class ) : new static( ...$constructorArgs );
-		}
+		$command    = $container
+			? self::resolveSharedFromContainer( array( $container, $reflection, $constructorArgs ) )
+			: new static( ...$constructorArgs );
 
 		$command->setApplication( ( $app = $container?->get( Cli::class ) ) instanceof Cli ? $app : null );
 

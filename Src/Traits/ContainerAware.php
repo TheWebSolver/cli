@@ -11,17 +11,11 @@ use TheWebSolver\Codegarage\Cli\Container as DropInContainer;
 trait ContainerAware {
 	final protected const FIRST_PARTY_CONTAINER_CLASS = '\\TheWebSolver\\Codegarage\\Container\\Container';
 
-	/** @param array{0:?ContainerInterface,1?:ReflectionClass<static>,2?:array<string,mixed>} $options */
-	private static function resolveSharedFromContainer( array $options ): ?static {
-		if ( is_null( $options[0] ) ) {
-			return null;
-		}
-
-		$firstPartyContainer = self::FIRST_PARTY_CONTAINER_CLASS;
-
-		return $options[0] instanceof DropInContainer || is_a( $options[0], $firstPartyContainer )
+	/** @param array{0:ContainerInterface,1?:ReflectionClass<static>,2?:array<string,mixed>} $options */
+	private static function resolveSharedFromContainer( array $options ): static {
+		return $options[0] instanceof DropInContainer || is_a( $options[0], self::FIRST_PARTY_CONTAINER_CLASS )
 			? self::withFirstPartyContainer( $options, shared: true )
-			: null;
+			: $options[0]->get( static::class );
 	}
 
 	/** @param array{0:Container|DropInContainer,1?:ReflectionClass<static>,2?:array<string,mixed>} $options */
