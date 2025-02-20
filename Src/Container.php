@@ -19,16 +19,22 @@ use Psr\Container\ContainerExceptionInterface;
 class Container implements ContainerInterface {
 	/** @var array<class-string,object> */
 	private array $instances;
-	/** @var array<class-string,class-string|callable(self,array<string,mixed>):mixed> */
-	private array $bindings;
-	/** @var array<class-string,class-string|callable(self,array<string,mixed>):mixed> */
-	private array $sharedBindings;
-	/** @var array<class-string,array<class-string,class-string>> */
-	private array $context;
 	/** @var class-string */
 	private string $contextAbstract;
 	/** @var class-string */
 	private string $contextId;
+
+	/**
+	 * @param array<class-string,array<class-string,class-string>> $context The resolving classname as key
+	 *        with array value of its constructor's param type-hint as key and type-hint's value as value.
+	 * @param array<
+	 *  class-string,array{0:class-string|callable(self,array<string,mixed>):mixed,1:bool}
+	 * > $bindings The classname as key with array value of its concrete and whether to make it singleton or not.
+	 */
+	public function __construct(
+		private array $context = array(),
+		private array $bindings = array(),
+	) {}
 
 	/**
 	 * @param class-string<T>                                            $id
@@ -36,7 +42,16 @@ class Container implements ContainerInterface {
 	 * @template T of object
 	 */
 	public function set( string $id, string|callable|null $concrete = null ): void {
-		$this->bindings[ $id ] = $concrete ?? $id;
+		$this->bindings[ $id ] = array( $concrete ?? $id, false );
+	}
+
+	/**
+	 * @param class-string<T>                                            $id
+	 * @param null|class-string<T>|callable(self,array<string,mixed>): T $concrete
+	 * @template T of object
+	 */
+	public function setShared( string $id, string|callable|null $concrete = null ): void {
+		$this->bindings[ $id ] = array( $concrete ?? $id, true );
 	}
 
 	/**
@@ -50,15 +65,6 @@ class Container implements ContainerInterface {
 	}
 
 	/**
-	 * @param class-string<T>                                            $id
-	 * @param null|class-string<T>|callable(self,array<string,mixed>): T $concrete
-	 * @template T of object
-	 */
-	public function setShared( string $id, string|callable|null $concrete = null ): void {
-		$this->sharedBindings[ $id ] = $concrete ?? $id;
-	}
-
-	/**
 	 * @param class-string<T>     $id
 	 * @param array<string,mixed> $args
 	 * @param ?ReflectionClass<T> $reflector
@@ -66,36 +72,39 @@ class Container implements ContainerInterface {
 	 * @throws ContainerExceptionInterface&Exception When could not resolve instance from $id.
 	 * @template T of object
 	 */
-	public function resolve( string $id, array $args, ReflectionClass $reflector = null ): mixed {
+	public function resolve( string $id, array $args, ReflectionClass $reflector = null ): object {
 		if ( $this->isInstance( $id ) ) {
 			return $this->instances[ $id ]; // @phpstan-ignore-line
 		}
 
-		$concrete = $this->bindings[ $id ] ?? $id;
+		[$concrete, $shared] = $this->bindings[ $id ] ?? array( $id, false );
 
 		if ( is_callable( $concrete ) ) {
-			return ( $instance = $concrete( $this, $args ) ) instanceof $id
-				? $instance
-				: $this->unresolvableEntry( $id );
+			$resolved = $concrete( $this, $args );
+
+			$resolved instanceof $id || $this->unresolvableEntry( $id );
+
+			/** @disregard P1006 Expected type 'object'. Found 'class-string<object>' */
+			return $shared ? $this->setInstance( $id, $resolved ) : $resolved;
 		}
 
 		$reflector ??= new ReflectionClass( $concrete );
 
 		if ( ! $constructor = $reflector->getConstructor() ) {
-			return ( $instance = $reflector->newInstance() ) instanceof $id
-				? $instance
-				: $this->unresolvableEntry( $id );
+			$resolved = $reflector->newInstance();
+
+			$resolved instanceof $id || $this->unresolvableEntry( $id );
+
+			return $shared ? $this->setInstance( $id, $resolved ) : $resolved;
 		}
 
-		$instance = $reflector->newInstanceArgs(
+		$resolved = $reflector->newInstanceArgs(
 			array( ...$args, ...$this->getContextual( $id, ...$constructor->getParameters() ) )
 		);
 
-		if ( isset( $this->sharedBindings[ $id ] ) ) {
-			$this->instances[ $id ] = $instance;
-		}
+		$resolved instanceof $id || $this->unresolvableEntry( $id );
 
-		return $instance instanceof $id ? $instance : $this->unresolvableEntry( $id );
+		return $shared ? $this->setInstance( $id, $resolved ) : $resolved;
 	}
 
 	public function offsetUnset( string $id ): void {
@@ -107,11 +116,6 @@ class Container implements ContainerInterface {
 		return isset( $this->bindings[ $id ] );
 	}
 
-	/**
-	 * @param class-string<T> $id
-	 * @phpstan-assert-if-true =T $this->instances[$id]
-	 * @template T
-	 */
 	public function isInstance( string $id ): bool {
 		return ( $this->instances[ $id ] ?? null ) instanceof $id;
 	}
