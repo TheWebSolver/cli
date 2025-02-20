@@ -82,13 +82,9 @@ class Console extends Command {
 	final public static function asCommandName( ReflectionClass $ref = null ): string {
 		$ref ??= new ReflectionClass( static::class );
 
-		if ( $attribute = Parser::parseClassAttribute( CommandAttribute::class, $ref ) ) {
-			return $attribute[0]->newInstance()->commandName;
-		}
-
-		$name = str_replace( search: '_', replace: '', subject: ucwords( $ref->getShortName(), separators: '_' ) );
-
-		return static::CLI_NAMESPACE . ':' . lcfirst( $name );
+		return ( $attribute = Parser::parseClassAttribute( CommandAttribute::class, $ref ) )
+			? $attribute[0]->newInstance()->commandName
+			: self::commandNameFromClassname( $ref );
 	}
 
 	/**
@@ -144,7 +140,7 @@ class Console extends Command {
 		$command->setApplication( ( $app = $container?->get( Cli::class ) ) instanceof Cli ? $app : null );
 
 		if ( ! $attributes = Parser::parseClassAttribute( CommandAttribute::class, $reflection ) ) {
-			return array( $command->setName( static::asCommandName( $reflection ) ), $reflection );
+			return array( $command->setName( self::commandNameFromClassname( $reflection ) ), $reflection );
 		}
 
 		$attribute = $attributes[0]->newInstance();
@@ -191,5 +187,12 @@ class Console extends Command {
 		return $this->setDefined(
 			$this->hasInputAttribute() && $this->getInputAttribute()->parse()->toSymfonyInput( $this->getDefinition() )
 		);
+	}
+
+	/** @param ReflectionClass<static> $ref */
+	private static function commandNameFromClassname( ReflectionClass $ref ): string {
+		$name = str_replace( search: '_', replace: '', subject: ucwords( $ref->getShortName(), separators: '_' ) );
+
+		return static::CLI_NAMESPACE . ':' . lcfirst( $name );
 	}
 }
