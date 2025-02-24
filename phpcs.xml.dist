@@ -29,10 +29,10 @@
 
 	<!-- Check all files in this directory and the directories below it. -->
 	<file>.</file>
-	<!-- Exclude node modules -->
+	<!-- Exclude node modules. -->
 	<exclude-pattern>*/node_modules/*</exclude-pattern>
-	<!-- Exclude vendors except first-party libraries. -->
-	<exclude-pattern>*/vendor(?!\/thewebsolver\/).*</exclude-pattern>
+	<!-- Exclude composer vendors. -->
+	<exclude-pattern>*/vendor/*</exclude-pattern>
 	<!-- Ignore PHP files on asset directory. -->
 	<exclude-pattern>*/assets/css*.php</exclude-pattern>
 	<exclude-pattern>*/assets/js*.php</exclude-pattern>
