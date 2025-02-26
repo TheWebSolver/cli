@@ -1,0 +1,40 @@
+{
+  "scripts": {
+    "useProd": "@putenv COMPOSER=composer.json",
+    "update:packages": [
+      "@composer update --prefer-source",
+      "@useProd",
+      "@composer dump-autoload -o"
+    ],
+    "test": ["phpstan", "phpunit"]
+  },
+  "require": {
+    "php": ">=8.2",
+    "symfony/console": "^7.2",
+    "symfony/event-dispatcher": "^7.2",
+    "composer-runtime-api": "^2.2"
+  },
+  "require-dev": {
+    "thewebsolver/code-generator": "dev-master",
+    "thewebsolver/iso": "dev-main",
+    "thewebsolver/iso-cli": "dev-main"
+  },
+  "repositories": [
+    {
+      "type": "path",
+      "url": "../code-generator"
+    },
+    {
+      "type": "path",
+      "url": "../container"
+    },
+    {
+      "type": "path",
+      "url": "../iso"
+    },
+    {
+      "type": "path",
+      "url": "../cli-packages/iso-cli"
+    }
+  ]
+}

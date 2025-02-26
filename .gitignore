@@ -1,6 +1,7 @@
 /*
 !.editorconfig
 !composer.json
+!composer.dev.json
 !phpcs.xml.dist
 !phpstan.neon
 !phpunit.xml.dist
