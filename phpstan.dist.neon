@@ -12,6 +12,15 @@ parameters:
 				path: bootstrap.php
 				identifier: method.notFound
 				message: '|\:\:usingSubDirectory\(\)|'
+		- # Readonly property initialized outside constructor.
+			path: bootstrap.php
+			identifier: property.uninitializedReadonly
+		- # Readonly property assigned outside constructor
+			path: bootstrap.php
+			identifier: property.readOnlyAssignNotInConstructor
+		- # Readonly property already assigned
+			path: bootstrap.php
+			identifier: assign.readOnlyProperty
 		-
 			path: Src/CommandLoader.php
 			identifier: argument.type
