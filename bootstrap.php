@@ -184,25 +184,23 @@ class Bootstrap {
 		require_once "{$this->rootPath}{$slash}vendor{$slash}autoload.php";
 
 		$this->cliPath = $this->cliPackagePath();
-		$cliConfigFile = "{$this->cliPath}{$slash}config.php";
 
 		/** @var ?ConfigArray */
-		$cliConfig = is_readable( $cliConfigFile ) ? require_once $cliConfigFile : null;
+		$cliConfig       = is_readable( $path = "{$this->cliPath}{$slash}config.php" ) ? require_once $path : null;
+		$mainConfig      = null;
+		$this->cliConfig = $cliConfig;
 
-		( $configExistsInRootPath = is_readable( $configFile = "{$this->rootPath}{$slash}config.php" ) )
-			|| $configFile = $cliConfigFile;
+		if ( $hasRootConfigPath = is_readable( $path = "{$this->rootPath}{$slash}config.php" ) ) {
+			/** @var ConfigArray */
+			$mainConfig = require_once $path;
+		}
 
-		is_readable( $configFile ) || throw new RuntimeException( self::NON_DISCOVERABLE_CONFIG_PATH );
+		$this->config = $mainConfig ?? $cliConfig ?? throw new RuntimeException( self::NON_DISCOVERABLE_CONFIG_PATH );
 
-		/** @var ConfigArray */
-		$config              = require_once $configFile;
-		$commandLoader       = $config['commandLoader'] ?? CommandLoader::class;
-		$configFilePath      = $configExistsInRootPath ? $this->rootPath : $this->cliPath;
+		$commandLoader       = $this->config['commandLoader'] ?? CommandLoader::class;
 		$this->commandLoader = $commandLoader::start();
-		$this->cliConfig     = $cliConfig;
-		$this->config        = $config;
 
-		$this->loadDirectories( $configFilePath, $config );
+		$this->loadDirectories( $hasRootConfigPath ? $this->rootPath : $this->cliPath, $this->config );
 	}
 
 	private function discoveredInstalledPathOf( ?string $package ): ?string {
