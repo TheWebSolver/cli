@@ -1,4 +1,6 @@
 {
+  "minimum-stability": "dev",
+  "prefer-stable": true,
   "scripts": {
     "useProd": "@putenv COMPOSER=composer.json",
     "update:packages": [
@@ -35,6 +37,14 @@
     {
       "type": "path",
       "url": "../cli-packages/iso-cli"
+    },
+    {
+      "type": "path",
+      "url": "../cli"
+    },
+    {
+      "type": "path",
+      "url": "../scraper"
     }
   ]
 }
