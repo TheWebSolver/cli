@@ -140,7 +140,10 @@ class Console extends Command {
 		$command->setApplication( ( $app = $container?->get( Cli::class ) ) instanceof Cli ? $app : null );
 
 		if ( ! $attributes = Parser::parseClassAttribute( CommandAttribute::class, $reflection ) ) {
-			return array( $command->setName( self::commandNameFromClassname( $reflection ) ), $reflection );
+			// Name might already be set using constructor args. Use it if that's the case.
+			$name = $command->getName() ?? self::commandNameFromClassname( $reflection );
+
+			return array( $command->setName( $name ), $reflection );
 		}
 
 		$attribute = $attributes[0]->newInstance();

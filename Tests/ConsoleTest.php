@@ -47,12 +47,20 @@ class ConsoleTest extends TestCase {
 		$this->assertSame( $parser, $console->setInputAttribute( $parser )->getInputAttribute() );
 		$this->assertTrue( $console->hasInputAttribute() );
 
+		$childCommand = Command_Without_Attribute::start();
+
+		$this->assertSame( 'create:commandWithoutAttribute', $childCommand->getName() );
+
 		$parser = $this->createMock( InputAttribute::class );
 
 		$parser->expects( $this->once() )->method( 'parse' )->willReturn( $parser );
 		$parser->expects( $this->once() )->method( 'toSymfonyInput' )->willReturn( array( 'symfony inputs' ) );
 
-		$childCommand = Command_Without_Attribute::start( constructorArgs: array( 'inputAttribute' => $parser ) );
+		$childCommand = Command_Without_Attribute::start(
+			constructorArgs: array( 'inputAttribute' => $parser, 'name' => 'namespace:command' ) // phpcs:ignore
+		);
+
+		$this->assertSame( 'namespace:command', $childCommand->getName() );
 
 		$this->assertTrue( $childCommand->isDefined() );
 		$this->assertTrue( $childCommand->hasInputAttribute() );
@@ -65,10 +73,10 @@ class ConsoleTest extends TestCase {
 class Command_Without_Attribute extends Console {
 	public const CLI_NAMESPACE = 'create';
 
-	public function __construct( ?InputAttribute $inputAttribute = null ) {
+	public function __construct( ?InputAttribute $inputAttribute = null, ?string $name = null ) {
 		$inputAttribute && $this->setInputAttribute( $inputAttribute );
 
-		parent::__construct();
+		parent::__construct( $name );
 	}
 }
 
