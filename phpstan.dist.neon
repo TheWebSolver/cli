@@ -15,9 +15,7 @@ parameters:
 		-
 			path: bootstrap.php
 			messages:
-				- '#^Readonly property .*?Bootstrap::\$(cliPath|cliConfig|config|commandLoader) is already assigned.$#'
-				- '#^Readonly property .*?Bootstrap::\$(cliPath|cliConfig|config|commandLoader) is assigned outside of the constructor.$#'
-				- '#^Class .*?Bootstrap has an uninitialized readonly property \$containerPath. Assign it in the constructor.$#'
+				- '#^Offset ''commandLoader'' on array\{.*?\} on left side of \?\?\= always exists and is not nullable\.$#'
 		- # Container binding as an array: [$commandClassname, 'start']
 			path: Src/CommandLoader.php
 			identifier: argument.type
