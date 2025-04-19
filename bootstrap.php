@@ -196,16 +196,10 @@ class Bootstrap {
 	private function configure( string $slash = DIRECTORY_SEPARATOR ): array {
 		require_once "{$this->rootPath}{$slash}vendor{$slash}autoload.php";
 
-		$cliPath = $this->cliPackagePath();
+		$cliPath   = $this->cliPackagePath();
+		$cliConfig = is_readable( $path = "{$cliPath}{$slash}config.php" ) ? require_once $path : null;
 
-		/** @var ?ConfigArray */
-		$cliConfig  = is_readable( $path = "{$cliPath}{$slash}config.php" ) ? require_once $path : null;
-		$mainConfig = null;
-
-		if ( is_readable( $path = "{$this->rootPath}{$slash}config.php" ) ) {
-			/** @var ConfigArray */
-			$mainConfig = require_once $path;
-		}
+		( is_readable( $path = "{$this->rootPath}{$slash}config.php" ) ) && $mainConfig = require_once $path;
 
 		$config = $mainConfig ?? $cliConfig ?? throw new RuntimeException( self::NON_DISCOVERABLE_CONFIG_PATH );
 

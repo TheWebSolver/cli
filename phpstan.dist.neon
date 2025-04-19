@@ -15,7 +15,8 @@ parameters:
 		-
 			path: bootstrap.php
 			messages:
-				- '#^Offset ''commandLoader'' on array\{.*?\} on left side of \?\?\= always exists and is not nullable\.$#'
+				- '#^Method .*?Bootstrap\:\:configure\(\) should return array\{string, .*?\} but returns array\{string, mixed, mixed\}\.$#'
+				- '#^Cannot access offset ''commandLoader'' on mixed\.$#'
 		- # Container binding as an array: [$commandClassname, 'start']
 			path: Src/CommandLoader.php
 			identifier: argument.type
