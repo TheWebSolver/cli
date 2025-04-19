@@ -20,7 +20,7 @@ trait PureArg {
 	 * @return array<string,mixed> Empty array if already purged.
 	 */
 	public function getPure(): array {
-		return $this->pureArgs ?? array();
+		return $this->pureArgs ?? [];
 	}
 
 	/**
@@ -28,7 +28,7 @@ trait PureArg {
 	 * @return array<string,mixed>
 	 */
 	public function getPureWith( string|array $argKey ): array {
-		return ! $this->hasPure() ? array() : $this->filterPure( (array) $argKey, ignore: false );
+		return ! $this->hasPure() ? [] : $this->filterPure( (array) $argKey, ignore: false );
 	}
 
 	/**
@@ -36,7 +36,7 @@ trait PureArg {
 	 * @return array<string,mixed>
 	 */
 	public function getPureWithout( string|array $argKey ): array {
-		return ! $this->hasPure() ? array() : $this->filterPure( (array) $argKey, ignore: true );
+		return ! $this->hasPure() ? [] : $this->filterPure( (array) $argKey, ignore: true );
 	}
 
 	/** @return bool True if not purged before, false otherwise. */

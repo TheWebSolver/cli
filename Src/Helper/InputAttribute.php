@@ -83,15 +83,15 @@ class InputAttribute {
 	}
 
 	public function __debugInfo() {
-		return array(
+		return [
 			'status'    => ! $this->isValid(),
-			'hierarchy' => $this->hierarchy ?? array(),
-			'target'    => array(
+			'hierarchy' => $this->hierarchy ?? [],
+			'target'    => [
 				'from' => $this->getTargetReflection()->name,
 				'till' => $this->lastTarget ?? false,
 				'base' => $this->getBaseClass(),
-			),
-		);
+			],
+		];
 	}
 
 	/** @return bool true if attributes not parsed, false otherwise. */
@@ -111,17 +111,17 @@ class InputAttribute {
 
 	/** @return array<class-string<Pos|Assoc|Flag>,array<string,Pos|Assoc|Flag>> */
 	public function getCollection(): array {
-		return $this->collection ?? array();
+		return $this->collection ?? [];
 	}
 
 	/** @return array<class-string<Console>,array<class-string<Pos|Assoc|Flag>,array<string,array<int|string>>>> */
 	public function getSource(): array {
-		return $this->source ?? array();
+		return $this->source ?? [];
 	}
 
 	/** @return array<string,array<string|int>|(Closure(CompletionInput): list<string|Suggestion>)> */
 	public function getSuggestion(): array {
-		return $this->suggestion ?? array();
+		return $this->suggestion ?? [];
 	}
 
 	/**
@@ -208,7 +208,7 @@ class InputAttribute {
 
 	/** @return array<Pos|Assoc|Flag> */
 	public function toFlattenedArray(): array {
-		return array_reduce( $this->collection, self::toSingleArray( ... ), array() );
+		return array_reduce( $this->collection, self::toSingleArray( ... ), [] );
 	}
 
 	private function inUpdateMode(): bool {
@@ -259,10 +259,10 @@ class InputAttribute {
 
 	/** @return array{0:bool,1:null|string|class-string<BackedEnum>|bool|int|float|array{}|(callable(): string|bool|int|float|array{})}*/
 	private function getCurrentInputDefaultPropertyValue(): array {
-		return array(
+		return [
 			'default' === $this->current['prop'],
 			$this->suggestibleInput( $this->current['input'] )?->getUserDefault(),
-		);
+		];
 	}
 
 	private function currentPropertyInUpdateStack(): bool {
@@ -357,7 +357,7 @@ class InputAttribute {
 	}
 
 	private function walkCollectionWithUpdatedInputProperties(): void {
-		foreach ( $this->update ?? array() as $attributeName => $updates ) {
+		foreach ( $this->update ?? [] as $attributeName => $updates ) {
 			array_walk( $updates, $this->walkUpdateToCollectionStack( ... ), $attributeName );
 		}
 	}
@@ -397,7 +397,7 @@ class InputAttribute {
 	 * @return array<Pos|Assoc|Flag>
 	 */
 	private static function toSingleArray( array $carry, array $inputs ): array {
-		return array( ...$carry, ...array_values( $inputs ) );
+		return [ ...$carry, ...array_values( $inputs ) ];
 	}
 
 	/**

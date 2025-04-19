@@ -12,16 +12,16 @@ use Symfony\Component\Console\Input\InputOption;
 class FlagTest extends TestCase {
 	#[Test]
 	public function itParsesModeUsingNegatableValue(): void {
-		$flag = new Flag( 'test', 'desc', isNegatable: false, shortcut: array( 's', 'h' ) );
+		$flag = new Flag( 'test', 'desc', isNegatable: false, shortcut: [ 's', 'h' ] );
 
 		$this->assertFalse( $flag->isNegatable );
-		$this->assertSame( array( 's', 'h' ), $flag->shortcut );
+		$this->assertSame( [ 's', 'h' ], $flag->shortcut );
 		$this->assertSame( InputOption::VALUE_NONE, $flag->mode );
 		$this->assertInstanceOf( InputOption::class, $flag->input() );
 
 		$flag = new Flag( 'name', 'desc', isNegatable: true, shortcut: 'shortcut' );
 
-		foreach ( array( 'name', 'desc', 'shortcut' ) as $arg ) {
+		foreach ( [ 'name', 'desc', 'shortcut' ] as $arg ) {
 			$this->assertSame( $arg, $flag->{$arg} );
 		}
 
@@ -65,12 +65,12 @@ class FlagTest extends TestCase {
 		$flag = new Flag( 'test', 'brief', true, 's' );
 
 		$this->assertSame(
-			array(
+			[
 				'name'        => 'test',
 				'desc'        => 'brief',
 				'isNegatable' => true,
 				'shortcut'    => 's',
-			),
+			],
 			$flag->__debugInfo()
 		);
 	}

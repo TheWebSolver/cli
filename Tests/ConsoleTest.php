@@ -54,7 +54,7 @@ class ConsoleTest extends TestCase {
 		$parser = $this->createMock( InputAttribute::class );
 
 		$parser->expects( $this->once() )->method( 'parse' )->willReturn( $parser );
-		$parser->expects( $this->once() )->method( 'toSymfonyInput' )->willReturn( array( 'symfony inputs' ) );
+		$parser->expects( $this->once() )->method( 'toSymfonyInput' )->willReturn( [ 'symfony inputs' ] );
 
 		$childCommand = Command_Without_Attribute::start(
 			constructorArgs: array( 'inputAttribute' => $parser, 'name' => 'namespace:command' ) // phpcs:ignore

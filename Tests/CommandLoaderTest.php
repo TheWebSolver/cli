@@ -16,22 +16,22 @@ use TheWebSolver\Codegarage\Test\Stub\AnotherScannedCommand;
 use TheWebSolver\Codegarage\Test\Stub\SubStub\FirstDepthCommand;
 
 class CommandLoaderTest extends TestCase {
-	private const LOCATION       = array( DirectoryScannerTest::STUB_PATH, __NAMESPACE__ . '\\Stub' );
-	private const NAMESPACED_DIR = array( self::LOCATION[1] => self::LOCATION[0] );
+	private const LOCATION       = [ DirectoryScannerTest::STUB_PATH, __NAMESPACE__ . '\\Stub' ];
+	private const NAMESPACED_DIR = [ self::LOCATION[1] => self::LOCATION[0] ];
 
 	protected function setUp(): void {
 		require_once Cli::ROOT . 'bootstrap.php';
 	}
 
-	private const EXPECTED_FILENAMES = array( 'TestCommand', 'AnotherScannedCommand' );
-	private const EXPECTED_COMMANDS  = array(
+	private const EXPECTED_FILENAMES = [ 'TestCommand', 'AnotherScannedCommand' ];
+	private const EXPECTED_COMMANDS  = [
 		'app:testCommand'               => TestCommand::class,
 		'scanned:anotherScannedCommand' => AnotherScannedCommand::class,
-	);
+	];
 
 	#[Test]
 	public function itScansAndLazyloadCommandFromGivenLocation(): void {
-		$loader = CommandLoader::loadCommands( array( self::NAMESPACED_DIR ), new Container() );
+		$loader = CommandLoader::loadCommands( [ self::NAMESPACED_DIR ], new Container() );
 
 		$this->assertEmpty( array_diff_key( self::EXPECTED_COMMANDS, $loader->getCommands() ) );
 		$this->assertEmpty( array_diff( self::EXPECTED_FILENAMES, $loader->getScannedItems() ) );
@@ -59,7 +59,7 @@ class CommandLoaderTest extends TestCase {
 
 	#[Test]
 	public function itEnsuresCommandsAreLazyLoadedToContainer(): void {
-		CommandLoader::loadCommands( array( self::NAMESPACED_DIR ), $container = new Container() );
+		CommandLoader::loadCommands( [ self::NAMESPACED_DIR ], $container = new Container() );
 
 		foreach ( self::EXPECTED_COMMANDS as $class ) {
 			// But once the command is resolved by container, it becomes a singleton.
@@ -73,7 +73,7 @@ class CommandLoaderTest extends TestCase {
 
 		$container->setShared( Cli::class );
 
-		CommandLoader::loadCommands( array( self::NAMESPACED_DIR ), $container );
+		CommandLoader::loadCommands( [ self::NAMESPACED_DIR ], $container );
 
 		$cli = $container->get( Cli::class );
 

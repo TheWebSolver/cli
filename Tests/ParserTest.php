@@ -12,26 +12,26 @@ use TheWebSolver\Codegarage\Cli\Enums\InputVariant;
 class ParserTest extends TestCase {
 	#[Test]
 	public function itReturnsBackedEnumCasesAsKeyValuePair(): void {
-		$this->assertSame( array( 'argument', 'option', 'flag' ), Parser::parseBackedEnumValue( InputVariant::class ) );
+		$this->assertSame( [ 'argument', 'option', 'flag' ], Parser::parseBackedEnumValue( InputVariant::class ) );
 
 		$this->assertSame(
 			actual: Parser::parseBackedEnumValue( InputVariant::class, caseAsIndex: true ),
-			expected: array(
+			expected: [
 				'Positional'  => 'argument',
 				'Associative' => 'option',
 				'Flag'        => 'flag',
-			)
+			]
 		);
 	}
 
 	#[Test]
 	public function itNormalizesSuggestedValues(): void {
-		$expected = array( 'argument', 'option', 'flag' );
+		$expected = [ 'argument', 'option', 'flag' ];
 
 		$this->assertSame( $expected, Parser::parseInputSuggestion( InputVariant::class ) );
 
-		$this->assertInstanceOf( Closure::class, Parser::parseInputSuggestion( array( $this, 'assertTrue' ) ) );
+		$this->assertInstanceOf( Closure::class, Parser::parseInputSuggestion( [ $this, 'assertTrue' ] ) );
 
-		$this->assertSame( $expected, Parser::parseInputSuggestion( array( 'argument', 'option', 'flag' ) ) );
+		$this->assertSame( $expected, Parser::parseInputSuggestion( [ 'argument', 'option', 'flag' ] ) );
 	}
 }

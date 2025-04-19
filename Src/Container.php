@@ -32,8 +32,8 @@ class Container implements ContainerInterface {
 	 * > $bindings The classname as key with array value of its concrete and whether to make it singleton or not.
 	 */
 	public function __construct(
-		private array $context = array(),
-		private array $bindings = array(),
+		private array $context = [],
+		private array $bindings = [],
 	) {}
 
 	/**
@@ -42,7 +42,7 @@ class Container implements ContainerInterface {
 	 * @template T of object
 	 */
 	public function set( string $id, string|callable|null $concrete = null ): void {
-		$this->bindings[ $id ] = array( $concrete ?? $id, false );
+		$this->bindings[ $id ] = [ $concrete ?? $id, false ];
 	}
 
 	/**
@@ -51,7 +51,7 @@ class Container implements ContainerInterface {
 	 * @template T of object
 	 */
 	public function setShared( string $id, string|callable|null $concrete = null ): void {
-		$this->bindings[ $id ] = array( $concrete ?? $id, true );
+		$this->bindings[ $id ] = [ $concrete ?? $id, true ];
 	}
 
 	/**
@@ -77,7 +77,7 @@ class Container implements ContainerInterface {
 			return $this->instances[ $id ]; // @phpstan-ignore-line
 		}
 
-		[$concrete, $shared] = $this->bindings[ $id ] ?? array( $id, false );
+		[$concrete, $shared] = $this->bindings[ $id ] ?? [ $id, false ];
 
 		if ( is_callable( $concrete ) ) {
 			$resolved = $concrete( $this, $args );
@@ -99,7 +99,7 @@ class Container implements ContainerInterface {
 		}
 
 		$resolved = $reflector->newInstanceArgs(
-			array( ...$args, ...$this->getContextual( $id, ...$constructor->getParameters() ) )
+			[ ...$args, ...$this->getContextual( $id, ...$constructor->getParameters() ) ]
 		);
 
 		$resolved instanceof $id || $this->unresolvableEntry( $id );
@@ -126,7 +126,7 @@ class Container implements ContainerInterface {
 	 * @return T
 	 * @template T of object
 	 */
-	public function get( string $id, array $args = array() ): mixed {
+	public function get( string $id, array $args = [] ): mixed {
 		try {
 			return $this->resolve( $id, $args );
 		} catch ( Exception $e ) {
@@ -158,12 +158,12 @@ class Container implements ContainerInterface {
 	/** @return array<string,mixed> $resolved */
 	private function getContextual( string $id, ReflectionParameter ...$params ): array {
 		if ( ! $contextual = ( $this->context[ $id ] ?? null ) ) {
-			return array();
+			return [];
 		}
 
-		$dependencies   = array();
+		$dependencies   = [];
 		$paramTypeHints = array_reduce( $params, $this->toParamTypeByName( ... ), $dependencies );
-		$resolved       = array();
+		$resolved       = [];
 
 		foreach ( $paramTypeHints as $paramName => $abstract ) {
 			( $concrete = ( $contextual[ $abstract ] ?? null ) )
@@ -180,7 +180,7 @@ class Container implements ContainerInterface {
 	private function toParamTypeByName( array $carry, ReflectionParameter $param ): array {
 		$type = ( $t = $param->getType() ) instanceof ReflectionNamedType ? $t->getName() : '';
 
-		return array( ...$carry, ...array( $param->name => $type ) );
+		return [ ...$carry, ...[ $param->name => $type ] ];
 	}
 
 	private function unresolvableEntry( string $id ): never {

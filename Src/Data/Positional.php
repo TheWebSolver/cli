@@ -26,7 +26,7 @@ class Positional {
 			isVariadic: $input->isArray(),
 			isOptional: ! $input->isRequired(),
 			default: $input->getDefault(),
-			suggestedValues: Parser::suggestedValuesFrom( $input ) ?? array()
+			suggestedValues: Parser::suggestedValuesFrom( $input ) ?? []
 		);
 	}
 
@@ -60,10 +60,10 @@ class Positional {
 	/** @return null|string|bool|int|float|array{} */
 	private function normalizeDefault( mixed $value ): null|string|bool|int|float|array {
 		return match ( true ) {
-			default               => $this->isVariadic ? array() : null,
+			default               => $this->isVariadic ? [] : null,
 			! $this->isOptional   => null,
 			is_callable( $value ) => $this->normalizeDefault( $value() ),
-			$this->isVariadic     => is_array( $value ) ? $value : ( $this->variadicFromEnum( $value ) ?? array() ),
+			$this->isVariadic     => is_array( $value ) ? $value : ( $this->variadicFromEnum( $value ) ?? [] ),
 			is_string( $value )   => Parser::parseBackedEnumValue( $value ),
 			is_scalar( $value )   => $value
 		};

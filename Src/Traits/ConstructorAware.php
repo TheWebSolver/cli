@@ -12,7 +12,7 @@ trait ConstructorAware {
 	 * @param array<TParamNames,mixed> $updates
 	 * @return ($withParamNames is true ? array<TParamNames,mixed> : mixed[])
 	 */
-	private function mapConstructor( array $updates = array(), bool $withParamNames = false ): array {
+	private function mapConstructor( array $updates = [], bool $withParamNames = false ): array {
 		$map = array_map( fn( string $name ) => $updates[ $name ] ?? $this->{$name}, $this->paramNames );
 
 		return $withParamNames ? array_combine( $this->paramNames, $map ) : $map;

@@ -67,7 +67,7 @@ class Associative {
 			isOptional: ! $input->isValueRequired(),
 			default: $input->getDefault(),
 			shortcut: $input->getShortcut(),
-			suggestedValues: Parser::suggestedValuesFrom( $input ) ?? array()
+			suggestedValues: Parser::suggestedValuesFrom( $input ) ?? []
 		);
 	}
 
@@ -102,8 +102,8 @@ class Associative {
 	/** @return null|string|bool|int|float|array{} */
 	private function normalizeDefault( mixed $value ): null|string|bool|int|float|array {
 		return match ( true ) {
-			default                                 => $this->isVariadic ? array() : null,
-			$this->isOptionalDefault( $value )      => $this->isVariadic ? array() : '',
+			default                                 => $this->isVariadic ? [] : null,
+			$this->isOptionalDefault( $value )      => $this->isVariadic ? [] : '',
 			is_callable( $value )                   => $this->normalizeDefault( $value() ),
 			$this->isVariadic                       => $this->getVariadicDefault( $value ),
 			is_string( $value )                     => Parser::parseBackedEnumValue( $value ),
@@ -117,6 +117,6 @@ class Associative {
 
 	/** @return array{} */
 	private function getVariadicDefault( mixed $value ): array {
-		return is_array( $value ) ? $value : ( $this->variadicFromEnum( $value ) ?? array() );
+		return is_array( $value ) ? $value : ( $this->variadicFromEnum( $value ) ?? [] );
 	}
 }

@@ -72,8 +72,8 @@ class Flag {
 			$this->shortcut,
 			$this->mode,
 			$this->desc,
-			default: null,           // Cannot have default value.
-			suggestedValues: array() // Cannot suggest values.
+			default: null,      // Cannot have default value.
+			suggestedValues: [] // Cannot suggest values.
 		);
 	}
 

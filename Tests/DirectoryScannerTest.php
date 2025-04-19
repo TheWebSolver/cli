@@ -31,7 +31,7 @@ class DirectoryScannerTest extends TestCase {
 
 			/** @return string[] */
 			protected function getAllowedExtensions(): array {
-				return array( 'php', 'gitkeep' );
+				return [ 'php', 'gitkeep' ];
 			}
 
 			private string $currentRoot;
@@ -41,7 +41,7 @@ class DirectoryScannerTest extends TestCase {
 			}
 
 			public function run(): self {
-				foreach ( array( DirectoryScannerTest::SCAN_PATH, DirectoryScannerTest::STUB_PATH ) as $root ) {
+				foreach ( [ DirectoryScannerTest::SCAN_PATH, DirectoryScannerTest::STUB_PATH ] as $root ) {
 					$this->currentRoot = $root;
 
 					$this->scan( $root );
@@ -93,13 +93,13 @@ class DirectoryScannerTest extends TestCase {
 		foreach ( $firstDepths as $details ) {
 			if ( 'directory' === $details['type'] ) {
 				$this->assertTrue( $details['item']->isDir() );
-				$this->assertContains( $details['base'], array( 'FirstDepth', 'SubStub' ) );
+				$this->assertContains( $details['base'], [ 'FirstDepth', 'SubStub' ] );
 			} else {
 				$this->assertTrue( $details['item']->isFile() );
-				$this->assertContains( $details['base'], array( 'TestCommand.php', 'AnotherScannedCommand.php' ) );
+				$this->assertContains( $details['base'], [ 'TestCommand.php', 'AnotherScannedCommand.php' ] );
 			}
 
-			$this->assertSame( array( 'Stub' ), $details['tree'] );
+			$this->assertSame( [ 'Stub' ], $details['tree'] );
 		}
 
 		$this->assertCount( 2, $secondDepths = array_filter( $stubDir, fn( $details ) => 3 === $details['depth'] ) );
@@ -107,11 +107,11 @@ class DirectoryScannerTest extends TestCase {
 		foreach ( $secondDepths as $details ) {
 			if ( 'directory' === $details['type'] ) {
 				$this->assertTrue( $details['item']->isDir() );
-				$this->assertSame( array( 'Stub', 'FirstDepth' ), $details['tree'] );
+				$this->assertSame( [ 'Stub', 'FirstDepth' ], $details['tree'] );
 				$this->assertSame( 'SubStub', $details['base'] );
 			} else {
 				$this->assertTrue( $details['item']->isFile() );
-				$this->assertSame( array( 'Stub', 'SubStub' ), $details['tree'] );
+				$this->assertSame( [ 'Stub', 'SubStub' ], $details['tree'] );
 				$this->assertSame( 'FirstDepthCommand.php', $details['base'] );
 			}
 		}
@@ -124,7 +124,7 @@ class DirectoryScannerTest extends TestCase {
 		$this->assertSame( 'file', $item['type'] );
 		$this->assertSame( '.gitkeep', $item['base'] );
 		$this->assertTrue( $item['item']->isFile() );
-		$this->assertSame( array( 'Stub', 'FirstDepth', 'SubStub' ), $item['tree'] );
+		$this->assertSame( [ 'Stub', 'FirstDepth', 'SubStub' ], $item['tree'] );
 
 		$this->assertSame( 4, $scanner->getMaxDepth() );
 

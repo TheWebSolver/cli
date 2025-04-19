@@ -63,7 +63,7 @@ trait InputProperties {
 		$this->isOptional      = $isOptional ?? $this->isOptional();
 		$this->mode            = $this->normalizeMode();
 		$this->default         = $this->normalizeDefault( $default );
-		$this->suggestedValues = Parser::parseInputSuggestion( $suggestedValues ?? array() );
+		$this->suggestedValues = Parser::parseInputSuggestion( $suggestedValues ?? [] );
 	}
 
 	public function __toString(): string {

@@ -19,27 +19,27 @@ class PureArgTest extends TestCase {
 
 		$this->assertFalse( $attribute->hasPure() );
 
-		$arguments = array(
+		$arguments = [
 			'name' => 'test',
 			'arg1' => true,
 			'arg3' => null,
-			'arg2' => array(),
+			'arg2' => [],
 			'arg4' => null,
 			'arg5' => 5,
-		);
+		];
 
-		$this->assertSame( array( 'name' => 'test' ), $attribute->setPure( array( 'name' => 'test' ) )->getPure() );
+		$this->assertSame( [ 'name' => 'test' ], $attribute->setPure( [ 'name' => 'test' ] )->getPure() );
 		$this->assertTrue( $attribute->hasPure() );
 
 		$this->assertSame(
-			array( 'name' => 'test' ),
-			$attribute->setPure( array( 'cannot', 'update' ) )->getPure(),
+			[ 'name' => 'test' ],
+			$attribute->setPure( [ 'cannot', 'update' ] )->getPure(),
 			'Pure is never overridden unless purged first'
 		);
 
 		$this->assertTrue( $attribute->purgePure() );
 
-		$this->assertSame( array(), $attribute->getPure() );
+		$this->assertSame( [], $attribute->getPure() );
 		$this->assertFalse( $attribute->hasPure() );
 		$this->assertFalse( $attribute->purgePure() );
 
@@ -49,7 +49,7 @@ class PureArgTest extends TestCase {
 
 		extract( $arguments ); // phpcs:ignore -- test extraction in controlled env.
 
-		foreach ( array( 'name', 'arg1', 'arg2', 'arg5' ) as $expectedKey ) {
+		foreach ( [ 'name', 'arg1', 'arg2', 'arg5' ] as $expectedKey ) {
 			$this->assertArrayHasKey( $expectedKey, $collection );
 			$this->assertSame( $$expectedKey, $collection[ $expectedKey ] );
 		}
@@ -68,7 +68,7 @@ class PureArgTest extends TestCase {
 				?string $second = null,
 				bool $boolean = false,
 				?callable $ignored = null,
-				array $array = array(),
+				array $array = [],
 				int $integer = 5,
 				bool $simulator = false
 			) {
@@ -82,23 +82,23 @@ class PureArgTest extends TestCase {
 		$this->assertCount( 5, $pure->discoverableMethod( simulator: true )->getPure() );
 
 		$this->assertSame(
-			array( 'string', 'second', 'boolean', 'ignored', 'array', 'integer', 'simulator' ),
+			[ 'string', 'second', 'boolean', 'ignored', 'array', 'integer', 'simulator' ],
 			$pure->paramNames
 		);
 
-		foreach ( array( 'string', 'boolean', 'array', 'integer', 'simulator' ) as $expectedKey ) {
+		foreach ( [ 'string', 'boolean', 'array', 'integer', 'simulator' ] as $expectedKey ) {
 			$this->assertArrayHasKey( $expectedKey, $pure->getPure() );
 		}
 
 		$pure->purgePure();
 
 		// Simulate only values upto array passed.
-		$this->assertCount( 3, $pure->discoverableMethod( array: array() )->getPure() );
+		$this->assertCount( 3, $pure->discoverableMethod( array: [] )->getPure() );
 
 		$pure->purgePure();
 
 		// Every param value is pure as none of them is `null`.
-		$pure->discoverableMethod( 'one', 'two', true, $pure->hasPure( ... ), array(), 6, true );
+		$pure->discoverableMethod( 'one', 'two', true, $pure->hasPure( ... ), [], 6, true );
 
 		$this->assertCount( 7, $pure->getPure() );
 	}

@@ -36,7 +36,7 @@ class CommandSubscriberTest extends TestCase {
 
 		$app->add( $command );
 
-		return array( $tester, $command, $app );
+		return [ $tester, $command, $app ];
 	}
 
 	#[Test]
@@ -44,16 +44,16 @@ class CommandSubscriberTest extends TestCase {
 		[$tester, $command] = $this->getApplicationTester();
 
 		$command
-			->addArgument( 'number', InputArgument::REQUIRED, 'no validate', suggestedValues: array( 'one', 2, 'three' ) )
+			->addArgument( 'number', InputArgument::REQUIRED, 'no validate', suggestedValues: [ 'one', 2, 'three' ] )
 			->setCode( static fn( InputInterface $i, OutputInterface $o ) => $o->write( $i->getArgument( 'number' ) . ' number' ) );
 
 		CommandSubscriber::disableSuggestionValidation();
 
 		$tester->run(
-			$input = array(
+			$input = [
 				'command' => 'test:command',
 				'number'  => 'not a suggested value but validation is suppressed',
-			)
+			]
 		);
 
 		$tester->assertCommandIsSuccessful();
@@ -75,14 +75,14 @@ class CommandSubscriberTest extends TestCase {
 		CommandSubscriber::disableSuggestionValidation( false );
 
 		$command
-			->addOption( 'option', default: 'nine', mode: InputOption::VALUE_REQUIRED, suggestedValues: array( 1, 'two', 'nine' ) )
+			->addOption( 'option', default: 'nine', mode: InputOption::VALUE_REQUIRED, suggestedValues: [ 1, 'two', 'nine' ] )
 			->setCode( static fn( InputInterface $i, OutputInterface $o ) => $o->write( $i->getOption( 'option' ) . ' option!' ) );
 
 		$result = $tester->run(
-			array(
+			[
 				'command'  => 'test:command',
 				'--option' => 1,
-			)
+			]
 		);
 
 		$tester->assertCommandIsSuccessful();
@@ -91,15 +91,15 @@ class CommandSubscriberTest extends TestCase {
 		$this->assertStringContainsString( $tester->getDisplay(), '1 option!' );
 
 		$command
-			->addArgument( 'number', InputArgument::OPTIONAL, 'no validate', suggestedValues: array( 'one', 2, 'three' ) )
-			->addOption( 'option', default: 'nine', mode: InputOption::VALUE_REQUIRED, suggestedValues: array( 1, 'two', 'nine' ) )
+			->addArgument( 'number', InputArgument::OPTIONAL, 'no validate', suggestedValues: [ 'one', 2, 'three' ] )
+			->addOption( 'option', default: 'nine', mode: InputOption::VALUE_REQUIRED, suggestedValues: [ 1, 'two', 'nine' ] )
 			->setCode( static fn( InputInterface $i, OutputInterface $o ) => $o->write( $i->getArgument( 'number' ) . ' number' ) );
 
 		$tester->run(
-			array(
+			[
 				'command' => 'test:command',
 				'number'  => 'three',
-			)
+			]
 		);
 
 		$tester->assertCommandIsSuccessful();
@@ -123,14 +123,14 @@ class CommandSubscriberTest extends TestCase {
 		[$tester, $command] = $this->getApplicationTester( TestNoValidate::class );
 
 		$command
-			->addArgument( 'number', InputArgument::REQUIRED, 'no validate', suggestedValues: array( 'one', 2, 'three' ) )
+			->addArgument( 'number', InputArgument::REQUIRED, 'no validate', suggestedValues: [ 'one', 2, 'three' ] )
 			->setCode( static fn( InputInterface $i, OutputInterface $o ) => $o->write( $i->getArgument( 'number' ) ) );
 
 		$tester->run(
-			array(
+			[
 				'command' => 'test:command',
 				'number'  => 'invalid but will not be validated',
-			)
+			]
 		);
 
 		$tester->assertCommandIsSuccessful();

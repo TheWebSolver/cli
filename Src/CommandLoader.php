@@ -27,8 +27,8 @@ class CommandLoader implements Countable {
 	 * @param array<string,class-string<Console>> $commands
 	 */
 	final private function __construct(
-		private array $namespacedDirectory = array(),
-		private array $commands = array(),
+		private array $namespacedDirectory = [],
+		private array $commands = [],
 		private ?EventDispatcher $dispatcher = null
 	) {}
 
@@ -61,7 +61,7 @@ class CommandLoader implements Countable {
 	}
 
 	public function inDirectory( string $path, string $namespace ): static {
-		$this->namespacedDirectory[] = array( $namespace => $path );
+		$this->namespacedDirectory[] = [ $namespace => $path ];
 
 		return $this;
 	}
@@ -128,7 +128,7 @@ class CommandLoader implements Countable {
 			return;
 		}
 
-		$lazyload                       = array( $commandClass, 'start' );
+		$lazyload                       = [ $commandClass, 'start' ];
 		$commandName                    = $commandClass::asCommandName();
 		$this->commands[ $commandName ] = $commandClass;
 

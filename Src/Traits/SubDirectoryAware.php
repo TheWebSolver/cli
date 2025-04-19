@@ -9,7 +9,7 @@ trait SubDirectoryAware {
 	final public const ROOT_LEVEL = 1;
 
 	/** @var array<string,int[]> */
-	private array $subDirectories = array();
+	private array $subDirectories = [];
 
 
 	/**
@@ -21,8 +21,8 @@ trait SubDirectoryAware {
 	 *                       sub-directories that're also registered for discovery.
 	 */
 	final public function usingSubDirectory( string $name, int $depth = 2, int ...$depths ): static {
-		$registered                    = $this->subDirectories[ $name ] ?? array();
-		$this->subDirectories[ $name ] = array_unique( array( $depth, ...$depths, ...$registered ) );
+		$registered                    = $this->subDirectories[ $name ] ?? [];
+		$this->subDirectories[ $name ] = array_unique( [ $depth, ...$depths, ...$registered ] );
 
 		return $this;
 	}
@@ -33,7 +33,7 @@ trait SubDirectoryAware {
 
 	/** @return string[] */
 	final protected function currentSubDirectoryTree(): array {
-		return $this->subDirectoryExists( $tree = ( $this->ofCurrentDepth() ?? array() ) ) ? $tree : array();
+		return $this->subDirectoryExists( $tree = ( $this->ofCurrentDepth() ?? [] ) ) ? $tree : [];
 	}
 
 	/**
@@ -58,7 +58,7 @@ trait SubDirectoryAware {
 	private function subDirectoryExists( array $tree ): bool {
 		$dirname = $this->currentItem()->getBasename();
 
-		return ( $depths = ( $this->subDirectories[ $dirname ] ?? array() ) )
+		return ( $depths = ( $this->subDirectories[ $dirname ] ?? [] ) )
 			&& in_array( self::ROOT_LEVEL + count( $tree ), $depths, strict: true );
 	}
 }

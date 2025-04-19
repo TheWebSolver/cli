@@ -45,7 +45,7 @@ class Bootstrap {
 	private const NON_DISCOVERABLE_CONFIG_PATH = "Configuration file not provided.\nCLI Package created using this library must 'have a \"config.php\" file at root path that provides commands to be loaded.";
 
 	/** @param array{main?:string,cli?:string} $packages */
-	final private function __construct( private array $packages = array() ) {
+	final private function __construct( private array $packages = [] ) {
 		$slash              = DIRECTORY_SEPARATOR;
 		$installedVersions  = __DIR__ . "{$slash}vendor{$slash}composer{$slash}InstalledVersions.php";
 		$this->discoverable = file_exists( $installedVersions );
@@ -62,11 +62,11 @@ class Bootstrap {
 		$path        ??= $this->cliPath;
 		$commandLoader = $this->config['commandLoader'];
 
-		foreach ( $this->config['directory'] ?? array() as ['path' => $dirname, 'namespace' => $namespace] ) {
+		foreach ( $this->config['directory'] ?? [] as ['path' => $dirname, 'namespace' => $namespace] ) {
 			$commandLoader->inDirectory( $path . DIRECTORY_SEPARATOR . $dirname, $namespace );
 		}
 
-		foreach ( $this->config['subDirectory'] ?? array() as $subDirectoryName => $depth ) {
+		foreach ( $this->config['subDirectory'] ?? [] as $subDirectoryName => $depth ) {
 			/** @disregard P1013 Undefined method -- If sub-directory given, must be "SubDirectoryAware" */
 			$commandLoader->usingSubDirectory( $subDirectoryName, ...$depth );
 		}
@@ -123,7 +123,7 @@ class Bootstrap {
 	 * ```
 	 */
 	public static function commands( Closure $action, ?array $packages = null ): void {
-		( $bootstrap = new static( $packages ?? array() ) );
+		( $bootstrap = new static( $packages ?? [] ) );
 
 		$action( $bootstrap );
 	}
@@ -205,7 +205,7 @@ class Bootstrap {
 
 		$config['commandLoader'] ??= CommandLoader::start();
 
-		return array( $cliPath, $cliConfig, $config );
+		return [ $cliPath, $cliConfig, $config ];
 	}
 
 	private function discoveredInstalledPathOf( ?string $package ): ?string {

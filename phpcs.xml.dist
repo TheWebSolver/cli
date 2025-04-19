@@ -70,6 +70,10 @@
 		<exclude name="Universal.CodeAnalysis.NoDoubleNegative.FoundDouble"/>
 	</rule>
 
+	<rule ref="Universal.Arrays">
+		<exclude name="Universal.Arrays.DisallowShortArraySyntax.Found" />
+	</rule>
+
 	<!--
 	#############################################################################
 	GENERIC SNIFF RULE CONFIGURATIONS:
@@ -91,6 +95,8 @@
 	<rule ref="Generic.CodeAnalysis.UnusedFunctionParameter">
 		<exclude name="Generic.CodeAnalysis.UnusedFunctionParameter.FoundAfterLastUsed"/>
 	</rule>
+
+	<rule ref="Generic.Arrays.DisallowLongArraySyntax"/>
 
 	<!--
 	#############################################################################

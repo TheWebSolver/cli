@@ -12,7 +12,7 @@ trait DirectoryScanner {
 
 	private DirectoryIterator $currentScannedItem;
 	/** @var string[] */
-	private array $scannedDirectories = array();
+	private array $scannedDirectories = [];
 	/** @var array<string,string> */
 	private array $scannedPaths;
 
@@ -91,7 +91,7 @@ trait DirectoryScanner {
 		$this->scannedDirectories[] = $directory;
 
 		$this->realDirectoryPath( $this->getRootPath() ) === $directory
-			&& $this->maybeRegisterCurrentDepth( count: 0, parts: array(), item: $scanner );
+			&& $this->maybeRegisterCurrentDepth( count: 0, parts: [], item: $scanner );
 
 		while ( $scanner->valid() ) {
 			$this->currentScannedItem = $scanner->current();
@@ -110,7 +110,7 @@ trait DirectoryScanner {
 	 * @return string[]
 	 */
 	protected function getAllowedExtensions(): array {
-		return array( 'php' );
+		return [ 'php' ];
 	}
 
 	// phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.Found -- May be used by exhibiting class.

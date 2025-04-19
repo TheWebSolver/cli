@@ -59,7 +59,7 @@ class Console extends Command {
 	 */
 	final public static function start(
 		?ContainerInterface $container = null,
-		array $constructorArgs = array(),
+		array $constructorArgs = [],
 		bool $infer = true
 	): static {
 		[$command, $reflection] = static::getInstance( $container, $constructorArgs );
@@ -134,7 +134,7 @@ class Console extends Command {
 	protected static function getInstance( ?ContainerInterface $container, array $constructorArgs ): array {
 		$reflection = new ReflectionClass( static::class );
 		$command    = $container
-			? self::resolveSharedFromContainer( array( $container, $reflection, $constructorArgs ) )
+			? self::resolveSharedFromContainer( [ $container, $reflection, $constructorArgs ] )
 			: new static( ...$constructorArgs );
 
 		$command->setApplication( ( $app = $container?->get( Cli::class ) ) instanceof Cli ? $app : null );
@@ -143,7 +143,7 @@ class Console extends Command {
 			// Name might already be set using constructor args. Use it if that's the case.
 			$name = $command->getName() ?? self::commandNameFromClassname( $reflection );
 
-			return array( $command->setName( $name ), $reflection );
+			return [ $command->setName( $name ), $reflection ];
 		}
 
 		$attribute = $attributes[0]->newInstance();
@@ -153,7 +153,7 @@ class Console extends Command {
 			->setAliases( $attribute->altNames )
 			->setHidden( $attribute->isInternal );
 
-		return array( $command, $reflection );
+		return [ $command, $reflection ];
 	}
 
 	/**

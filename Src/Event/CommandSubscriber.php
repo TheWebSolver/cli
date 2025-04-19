@@ -24,11 +24,11 @@ class CommandSubscriber implements EventSubscriberInterface {
 	}
 
 	public static function getSubscribedEvents() {
-		return array(
-			ConsoleEvents::COMMAND => array(
-				array( 'validateWithAutoComplete', -1 ),
-			),
-		);
+		return [
+			ConsoleEvents::COMMAND => [
+				[ 'validateWithAutoComplete', -1 ],
+			],
+		];
 	}
 
 	public static function suggestionToString( string|int|Suggestion $suggestion ): string|int {
@@ -54,7 +54,7 @@ class CommandSubscriber implements EventSubscriberInterface {
 
 		$tokens = ( $argv = $event->getInput() ) instanceof ArgvInput ? $argv->getRawTokens( true ) : null;
 
-		foreach ( self::getSuggestions( $event ) ?? array() as $inputName => $suggestions ) {
+		foreach ( self::getSuggestions( $event ) ?? [] as $inputName => $suggestions ) {
 			$suggestedValues = self::inputSuggestedValues( $suggestions, $tokens );
 
 			if ( ! empty( $suggestedValues ) ) {
@@ -101,7 +101,7 @@ class CommandSubscriber implements EventSubscriberInterface {
 		$attribute = self::getCommandFrom( $event )?->getInputAttribute()?->getInputBy( $inputName );
 		$variant   = $attribute ? InputVariant::fromAttribute( $attribute::class )?->value : null;
 		$input     = 'input' . ( $variant ? " {$variant}" : '' );
-		$msg       = array(
+		$msg       = [
 			Console::COMMAND_VALUE_ERROR,
 			Console::LONG_SEPARATOR,
 			sprintf( 'Value does not match any of the suggested values provided for %1$s "%2$s".', $input, $inputName ),
@@ -109,7 +109,7 @@ class CommandSubscriber implements EventSubscriberInterface {
 			'Use one of the below suggested values and try again.',
 			Console::LONG_SEPARATOR_LINE,
 			implode( ' | ', $suggestions ),
-		);
+		];
 
 		throw new OutOfBoundsException( implode( separator: PHP_EOL, array: $msg ) );
 	}

@@ -31,7 +31,7 @@ trait ContainerAware {
 		}
 
 		$reflection = $options[1] ?? null;
-		$args       = $options[2] ?? array();
+		$args       = $options[2] ?? [];
 		$instance   = $reflection
 			? $container->resolve( static::class, $args, reflector: $reflection )
 			: $container->get( static::class, $args );

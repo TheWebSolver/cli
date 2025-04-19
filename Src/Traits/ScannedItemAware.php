@@ -23,7 +23,7 @@ trait ScannedItemAware {
 
 	final public function getMaxDepth(): int {
 		return $this->treeMaxDepth
-			??= ( $depths = array_reduce( $this->getScannedItemsDepth(), self::toOnlyDepths( ... ), initial: array() ) )
+			??= ( $depths = array_reduce( $this->getScannedItemsDepth(), self::toOnlyDepths( ... ), initial: [] ) )
 				? max( $depths )
 				: self::ROOT_LEVEL;
 	}
@@ -32,7 +32,7 @@ trait ScannedItemAware {
 	final protected function registerCurrentItemDepth( array $parts, int $depth, DirectoryIterator $item ): void {
 		$rootBasename = $this->getRootBasename(); // Store items indexed by root dir.
 		$isNotRoot    = ! ! array_pop( $parts );  // Omit tree structure for root dir.
-		$tree         = $isNotRoot ? array( $rootBasename, ...$parts ) : array();
+		$tree         = $isNotRoot ? [ $rootBasename, ...$parts ] : [];
 		$type         = $item->isDir() ? 'directory' : 'file';
 		$base         = $this->inferIfScannedIsRoot( $item );
 
@@ -61,7 +61,7 @@ trait ScannedItemAware {
 	 * @return int[]
 	 */
 	private static function toOnlyDepths( array $depths, array $scanned ): array {
-		return array( ...$depths, ...array_column( $scanned, column_key: 'depth' ) );
+		return [ ...$depths, ...array_column( $scanned, column_key: 'depth' ) ];
 	}
 
 	private function inferIfScannedIsRoot( DirectoryIterator $item ): string {
