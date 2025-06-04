@@ -65,7 +65,7 @@ class ConsoleTest extends TestCase {
 class Command_Without_Attribute extends Console {
 	public const CLI_NAMESPACE = 'create';
 
-	public function __construct( InputAttribute $inputAttribute = null ) {
+	public function __construct( ?InputAttribute $inputAttribute = null ) {
 		$inputAttribute && $this->setInputAttribute( $inputAttribute );
 
 		parent::__construct();

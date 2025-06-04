@@ -294,7 +294,7 @@ class InputAttribute {
 	}
 
 	/** @param ReflectionClass<Console> $target */
-	private function withCurrentTarget( ReflectionClass $target = null ): self {
+	private function withCurrentTarget( ?ReflectionClass $target = null ): self {
 		$this->current['ref'] = $target ?? $this->target;
 		$this->hierarchy[]    = $this->current['ref']->name;
 

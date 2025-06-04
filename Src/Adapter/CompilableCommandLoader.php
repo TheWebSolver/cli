@@ -18,7 +18,7 @@ class CompilableCommandLoader extends CommandLoader {
 	}
 
 	protected function useFoundCommand( string $classname, callable $command, string $commandName ): void {
-		$this->file->addCallable( $classname, $command ); // @phpstan-ignore-line -- $command is always callable.
+		$this->file->addImportableContent( $classname, $command );
 
 		parent::useFoundCommand( $classname, $command, $commandName );
 	}

@@ -72,7 +72,7 @@ class Container implements ContainerInterface {
 	 * @throws ContainerExceptionInterface&Exception When could not resolve instance from $id.
 	 * @template T of object
 	 */
-	public function resolve( string $id, array $args, ReflectionClass $reflector = null ): object {
+	public function resolve( string $id, array $args, ?ReflectionClass $reflector = null ): object {
 		if ( $this->isInstance( $id ) ) {
 			return $this->instances[ $id ]; // @phpstan-ignore-line
 		}

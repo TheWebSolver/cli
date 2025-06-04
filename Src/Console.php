@@ -58,7 +58,7 @@ class Console extends Command {
 	 * @param bool                $infer           Whether to infer inputs from this class attributes.
 	 */
 	final public static function start(
-		ContainerInterface $container = null,
+		?ContainerInterface $container = null,
 		array $constructorArgs = array(),
 		bool $infer = true
 	): static {
@@ -79,7 +79,7 @@ class Console extends Command {
 	 * - **_non-empty-string:_** Using classname itself: `static::CLI_NAMESPACE` . **':camelCaseClassName'**, or
 	 * - **_empty-string:_**     If command name from classname is disabled: `Cli::useClassNameAsCommand(false)`.
 	 */
-	final public static function asCommandName( ReflectionClass $ref = null ): string {
+	final public static function asCommandName( ?ReflectionClass $ref = null ): string {
 		$ref ??= new ReflectionClass( static::class );
 
 		return ( $attribute = Parser::parseClassAttribute( CommandAttribute::class, $ref ) )

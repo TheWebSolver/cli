@@ -40,12 +40,12 @@ class Associative {
 	 */
 	public function __construct(
 		string $name,
-		string $desc = null,
-		bool $isVariadic = null,
-		bool $isOptional = null,
-		string|bool|int|float|array|callable $default = null,
-		string|array $shortcut = null,
-		string|array|callable $suggestedValues = null,
+		?string $desc = null,
+		?bool $isVariadic = null,
+		?bool $isOptional = null,
+		null|string|bool|int|float|array|callable $default = null,
+		null|string|array $shortcut = null,
+		null|string|array|callable $suggestedValues = null,
 	) {
 		/** @var array<'name'|'desc'|'isVariadic'|'isOptional'|'default'|'shortcut'|'suggestedValues'> */
 		$names            = $this->discoverPureFrom( methodName: __FUNCTION__, values: func_get_args() );

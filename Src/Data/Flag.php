@@ -32,9 +32,9 @@ class Flag {
 	 */
 	public function __construct(
 		public readonly string $name,
-		string $desc = null,
-		bool $isNegatable = null,
-		string|array $shortcut = null
+		?string $desc = null,
+		?bool $isNegatable = null,
+		null|string|array $shortcut = null
 	) {
 		$this->paramNames  = $this->discoverPureFrom( methodName: __FUNCTION__, values: func_get_args() );
 		$this->desc        = $desc ?? '';

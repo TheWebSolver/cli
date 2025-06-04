@@ -65,9 +65,9 @@ class PureArgTest extends TestCase {
 
 			public function discoverableMethod(
 				string $string = 'some',
-				string $second = null,
+				?string $second = null,
 				bool $boolean = false,
-				callable $ignored = null,
+				?callable $ignored = null,
 				array $array = array(),
 				int $integer = 5,
 				bool $simulator = false

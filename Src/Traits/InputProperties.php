@@ -47,11 +47,11 @@ trait InputProperties {
 	 */
 	public function __construct(
 		string $name,
-		string $desc = null,
-		bool $isVariadic = null,
-		bool $isOptional = null,
-		string|bool|int|float|array|callable $default = null,
-		string|array|callable $suggestedValues = null
+		?string $desc = null,
+		?bool $isVariadic = null,
+		?bool $isOptional = null,
+		null|string|bool|int|float|array|callable $default = null,
+		null|string|array|callable $suggestedValues = null
 	) {
 		/** @var TParamNames[] */
 		$names                 = $this->discoverPureFrom( methodName: __FUNCTION__, values: func_get_args() );

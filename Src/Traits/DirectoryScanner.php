@@ -50,7 +50,7 @@ trait DirectoryScanner {
 		return in_array( $ext = end( $nameParts ), $this->getAllowedExtensions(), strict: true ) ? $ext : null;
 	}
 
-	final protected function withoutExtension( string $filename = null ): string {
+	final protected function withoutExtension( ?string $filename = null ): string {
 		$ext = $this->extensionOf( $filename ?? $this->currentItem()->getFilename() ) ?? '';
 
 		return ! $filename
@@ -85,7 +85,7 @@ trait DirectoryScanner {
 	 * `$directory` may or may not be same as `$this->getRootPath()`
 	 * based on whether exhibit is using `SubDirectoryAware`.
 	 */
-	final protected function scan( string $directory = null ): static {
+	final protected function scan( ?string $directory = null ): static {
 		$directory                  = $this->realDirectoryPath( $directory ?? $this->getRootPath() );
 		$scanner                    = new DirectoryIterator( $directory );
 		$this->scannedDirectories[] = $directory;
@@ -123,7 +123,7 @@ trait DirectoryScanner {
 	}
 
 	/** @param string[] $parts */
-	private function maybeRegisterCurrentDepth( int $count, array $parts, DirectoryIterator $item = null ): void {
+	private function maybeRegisterCurrentDepth( int $count, array $parts, ?DirectoryIterator $item = null ): void {
 		$depth = self::ROOT_LEVEL + $count;
 
 		$this->exhibitIsUsing( ScannedItemAware::class )

@@ -11,59 +11,60 @@ parameters:
 		- # Only invoked if subDirectory provided in config file.
 				path: bootstrap.php
 				identifier: method.notFound
-				message: '|\:\:usingSubDirectory\(\)|'
-		- # Readonly property initialized outside constructor.
-			path: bootstrap.php
-			identifier: property.uninitializedReadonly
-		- # Readonly property assigned outside constructor
-			path: bootstrap.php
-			identifier: property.readOnlyAssignNotInConstructor
-		- # Readonly property already assigned
-			path: bootstrap.php
-			identifier: assign.readOnlyProperty
+				message: '#^Call to an undefined method .*?CommandLoader::usingSubDirectory\(\).$#'
 		-
+			path: bootstrap.php
+			messages:
+				- '#^Readonly property .*?Bootstrap::\$(cliPath|cliConfig|config|commandLoader) is already assigned.$#'
+				- '#^Readonly property .*?Bootstrap::\$(cliPath|cliConfig|config|commandLoader) is assigned outside of the constructor.$#'
+				- '#^Class .*?Bootstrap has an uninitialized readonly property \$containerPath. Assign it in the constructor.$#'
+		- # Container binding as an array: [$commandClassname, 'start']
 			path: Src/CommandLoader.php
 			identifier: argument.type
-			message: '|CommandLoader\:\:useFoundCommand\(\) expects callable|'
-			count: 1 # 1 for ConsoleChildClass::start() as container binding.
+			count: 1
+			message: '#^Parameter \#2 \$command of method .*?CommandLoader::useFoundCommand\(\) expects callable.*?, array{class-string\<.*?Console\>, ''start''} given.$#'
 		-
 			path: Src/Traits/DirectoryScanner.php
 			identifier: method.notFound
-			message: "|::registerCurrentItemDepth|"
+			message: '#^Call to an undefined method .*?::registerCurrentItemDepth\(\).$#'
 		-
 			path: Src/Traits/DirectoryScanner.php
 			identifier: argument.type
 			messages:
-				- '|\$value of function count expects array\|Countable\, mixed given|'
-				- '|\:\:maybeRegisterCurrentDepth\(\) expects array\<string\>\, mixed given|'
-		-
-			paths:
-				- Src/CommandLoader.php
-				- Tests/DirectoryScannerTest.php
+				- '#^Parameter \#1 \$value of function count expects array\|Countable\, mixed given.$#'
+				- '#^Parameter \$parts of method .*?::maybeRegisterCurrentDepth\(\) expects array\<string\>\, mixed given.$#'
+		- # Available when respective traits are used by exhibiting class.
+			path: Src/Traits/DirectoryScanner.php
 			identifier: method.notFound
-			messages:
-				- "|::currentSubDirectoryTree|"
-				- "|::forCurrentSubDirectory|"
+			message: '#^Call to an undefined method .*?::(currentSubDirectoryTree\(\)|forCurrentSubDirectory\(\)).$#'
 		-
+			# Parser::parseInputSuggestion() -> BackedEnum is never callable.
+			# Parser::suggestedValuesFrom()  -> ReflectionProperty::getValue() return type is mixed and not narrowed.
 			path: Src/Helper/Parser.php
-			identifier: return.type # Parser::parseInputSuggestion() -> BackedEnum is never callable.
-		-
+			identifier: return.type
+			message: '#^Method .*?Parser::.*?\(\) should return .*? but returns .*?.$#'
+		- # Walked collection is converted to Symfony Inputs.
 			path: Src/Helper/InputAttribute.php
 			identifier: return.type
-			count: 1 # Walked collection is converted to Symfony Inputs.
-		-
+			count: 1
+			message: '#^Method .*?InputAttribute::toSymfonyInput\(\) should return array\<.*?, array\<string, Symfony.*?\>\> but returns array\<.*?, array\<string, TheWebSolver.*?\>\>.$#'
+		- # Internal data for setting value (that's the intent).
 			path: Src/Traits/ConstructorAware.php
-			identifier: argument.type # Internal data for setting value (that's the intent).
-			count: 3                  # Positional|Associative|Flag classes use it.
-		-
+			identifier: argument.type
+			count: 3
+			message: '#^Parameter \#1 \$name of class .*?(Positional|Associative|Flag) constructor expects string, mixed given.$#'
+		- # Assigned in constructor of `InputProperties` trait.
 			path: Src/Data/Associative.php
 			identifier: property.readOnlyAssignNotInConstructor
-			count: 7 # All readonly properties are assigned in constructor of `InputProperties` trait.
-		-
+			count: 7
+			message: '#^Readonly property .*?Associative::\$.*? is assigned outside of the constructor.$#'
+		- # `ConstructorAware` trait generics always matches Flag::__construct() method's parameter names.
 			path: Src/Data/Flag.php
 			identifier: assign.propertyType
-			count: 1 # Param names are __construct method's parameter names.
-		-
-			path: Tests/DirectoryScannerTest.php
+			count: 1
+			message: '#^Property .*?Flag::\$paramNames \(array\<.*?\>\) does not accept array\<string\>.$#'
+		- # Callable is always an array: [$commandClassname, 'start'].
+			path: Src/Adapter/CompilableCommandLoader.php
 			identifier: argument.type
-			count: 2
+			count: 1
+			message: '#^Parameter \#2 \$value of method .*?ArrayPhpFile::addImportableContent\(\) expects array\{string, string}\|Closure\|string, callable.*? given.$#'
