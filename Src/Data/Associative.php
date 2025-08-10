@@ -31,7 +31,7 @@ class Associative {
 	 * @param bool            $isOptional Whether the option's value can be omitted. Eg: '--show` or `--show=yes".
 	 *                                    Defaults to `false`.
 	 * @param (
-	 *   string|bool|int|float|array{}|class-string<BackedEnum>|(callable(): string|bool|int|float|array{})
+	 *   string|bool|int|float|array{}|class-string<BackedEnum>|BackedEnum|(callable(): string|bool|int|float|array{})
 	 * )                      $default  The option's default value.
 	 * @param string|string[] $shortcut Shortcut. For eg: "-s" for "--show".
 	 * @param (
@@ -43,7 +43,7 @@ class Associative {
 		?string $desc = null,
 		?bool $isVariadic = null,
 		?bool $isOptional = null,
-		null|string|bool|int|float|array|callable $default = null,
+		null|string|bool|int|float|array|callable|BackedEnum $default = null,
 		null|string|array $shortcut = null,
 		null|string|array|callable $suggestedValues = null,
 	) {

@@ -54,6 +54,8 @@ class PositionalTest extends TestCase {
 			[ true, true, 'optionalValueButIsVariadicCanOnlyBeArray', [] ],
 			[ true, true, InputVariant::class, [ 'argument', 'option', 'flag' ] ],
 			[ true, true, [ 1, 2, 3 ], [ 1, 2, 3 ] ],
+			[ true, false, InputVariant::Positional, 'argument' ],
+			[ true, true, InputVariant::Positional, [] ],
 			[ true, false, 'isDefault', 'isDefault' ],
 			[ true, false, InputVariant::class, [ 'argument', 'option', 'flag' ] ],
 			[ false, true, 'requiredValueButVariadic', null ],

@@ -53,6 +53,8 @@ class AssociativeTest extends TestCase {
 			[ true, true, 'optionalValueButVariadic', [] ],
 			[ false, true, 'requiredValueButVariadic', [] ],
 			[ true, true, InputVariant::class, [ 'argument', 'option', 'flag' ] ],
+			[ true, false, InputVariant::Associative, 'option' ],
+			[ true, true, InputVariant::Associative, [] ],
 			[ true, true, [ 1, 2, 3 ], [ 1, 2, 3 ] ],
 			[ true, false, 'isDefault', 'isDefault' ],
 			[ true, false, InputVariant::class, [ 'argument', 'option', 'flag' ] ],

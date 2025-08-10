@@ -39,7 +39,7 @@ trait InputProperties {
 	 * @param bool   $isOptional Whether input value can be omitted. If set to false, input requires
 	 *                           a value, else uses **default** value (if provided).
 	 * @param (
-	 *   string|class-string<BackedEnum>|bool|int|float|array{}|(callable(): string|bool|int|float|array{})
+	 *   string|class-string<BackedEnum>|BackedEnum|bool|int|float|array{}|(callable(): string|bool|int|float|array{})
 	 * ) $default         The default value to use if input **isOptional**.
 	 * @param (
 	 *   class-string<BackedEnum>|array<string|int>|callable(CompletionInput): list<string|Suggestion>
@@ -50,13 +50,13 @@ trait InputProperties {
 		?string $desc = null,
 		?bool $isVariadic = null,
 		?bool $isOptional = null,
-		null|string|bool|int|float|array|callable $default = null,
+		null|string|bool|int|float|array|callable|BackedEnum $default = null,
 		null|string|array|callable $suggestedValues = null
 	) {
 		/** @var TParamNames[] */
 		$names                 = $this->discoverPureFrom( methodName: __FUNCTION__, values: func_get_args() );
 		$this->paramNames    ??= $names;
-		$this->userDefault     = $default;
+		$this->userDefault     = $default = $default instanceof BackedEnum ? $default->value : $default;
 		$this->name            = $name;
 		$this->desc            = $desc ?? '';
 		$this->isVariadic      = $isVariadic ?? $this->isVariadic();
