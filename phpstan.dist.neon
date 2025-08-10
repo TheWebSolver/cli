@@ -42,11 +42,12 @@ parameters:
 			path: Src/Helper/Parser.php
 			identifier: return.type
 			message: '#^Method .*?Parser::.*?\(\) should return .*? but returns .*?.$#'
-		- # Walked collection is converted to Symfony Inputs.
+		-
 			path: Src/Helper/InputAttribute.php
-			identifier: return.type
-			count: 1
-			message: '#^Method .*?InputAttribute::toSymfonyInput\(\) should return array\<.*?, array\<string, Symfony.*?\>\> but returns array\<.*?, array\<string, TheWebSolver.*?\>\>.$#'
+			messages:
+				# Walked collection is converted to Symfony Inputs.
+				- '#^Method .*?InputAttribute::toSymfonyInput\(\) should return array\<.*?, array\<string, Symfony.*?\>\> but returns array\<.*?, array\<string, TheWebSolver.*?\>\>.$#'
+				- '#^Property .*?InputAttribute::\$current on left side of \?\? is not nullable nor uninitialized.$#'
 		- # Internal data for setting value (that's the intent).
 			path: Src/Traits/ConstructorAware.php
 			identifier: argument.type
