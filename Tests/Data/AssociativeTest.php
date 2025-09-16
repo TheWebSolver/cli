@@ -31,6 +31,7 @@ class AssociativeTest extends TestCase {
 			[ false, false, InputOption::VALUE_REQUIRED ],
 			[ true, false, InputOption::VALUE_OPTIONAL ],
 			[ true, true, InputOption::VALUE_OPTIONAL | InputOption::VALUE_IS_ARRAY ],
+			[ false, true, InputOption::VALUE_REQUIRED | InputOption::VALUE_IS_ARRAY ],
 		];
 	}
 
