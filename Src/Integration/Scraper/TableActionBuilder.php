@@ -3,7 +3,6 @@ declare( strict_types = 1 );
 
 namespace TheWebSolver\Codegarage\Cli\Integration\Scraper;
 
-use Symfony\Component\Console\Helper\Table;
 use TheWebSolver\Codegarage\Cli\Enums\Symbol;
 use Symfony\Component\Console\Helper\TableCell;
 use Symfony\Component\Console\Helper\TableSeparator;
@@ -69,7 +68,7 @@ class TableActionBuilder {
 	}
 
 	/** @return array<string,array{Status:TableCell,Action:string,Details:string|int}> */
-	public function build( Table $table, string $context ): array {
+	public function build( ScrapedTable $table, string $context ): array {
 		$built = [];
 
 		foreach ( $this->rows as $rowIndex => $Action ) {

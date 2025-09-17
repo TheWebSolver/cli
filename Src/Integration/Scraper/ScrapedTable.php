@@ -6,6 +6,7 @@ namespace TheWebSolver\Codegarage\Cli\Integration\Scraper;
 use TheWebSolver\Codegarage\Cli\Console;
 use Symfony\Component\Console\Helper\Table;
 use TheWebSolver\Codegarage\Cli\Enums\Symbol;
+use Symfony\Component\Console\Helper\TableCell;
 use Symfony\Component\Console\Helper\TableCellStyle;
 use Symfony\Component\Console\Output\OutputInterface;
 
@@ -19,10 +20,10 @@ class ScrapedTable extends Table {
 	private bool $success       = true;
 
 	public function __construct(
-		private OutputInterface $output,
-		private bool $cachingDisabled = false,
+		private readonly OutputInterface $output,
+		private readonly bool $cachingDisabled = false,
 		private string $commandName = '',
-		public readonly TableActionBuilder $builder = new TableActionBuilder()
+		private readonly TableActionBuilder $builder = new TableActionBuilder()
 	) {
 		parent::__construct( $output );
 
@@ -47,27 +48,23 @@ class ScrapedTable extends Table {
 
 		$this->builder->withSymbol( TableActionBuilder::ROW_INDEX, Symbol::NotAllowed );
 
-		$disallowedIndexKeys
-			&& $keys = array_filter( $keys, static fn( $key ) => ! in_array( $key, $disallowedIndexKeys, true ) );
+		$disallowedIndexKeys && $keys = array_filter(
+			array: $keys,
+			callback: static fn( string $key ): bool => ! in_array( $key, $disallowedIndexKeys, strict: true )
+		);
 
-		if ( ! $keys ) {
-			$suffix = '';
-		} else {
-			$oneOf  = count( $keys ) === 1 ? '' : ' one of';
-			$suffix = " (Possible option is{$oneOf}: {$this->builder->convertToString( $keys )})";
-		}
-
-		$this->builder->withAction( TableActionBuilder::ROW_INDEX, TableActionBuilder::NOT_AVAILABLE . "$suffix" );
-
-		return $this;
+		return $this->withRegisteredAllowedIndexKeyAction( $keys );
 	}
 
 	public function fetchedItemsCount( int $count ): self {
 		$this->builder->withAction( TableActionBuilder::ROW_FETCH, $count );
 
+		0 === $count && $this->builder->withSymbol( TableActionBuilder::ROW_FETCH, Symbol::Red );
+
 		return $this;
 	}
 
+	/** @param null|non-empty-string $action */
 	public function accentedCharacters( ?string $action ): self {
 		$this->builder->withAction( TableActionBuilder::ROW_ACCENTS, $action ?? TableActionBuilder::NOT_AVAILABLE );
 
@@ -76,52 +73,23 @@ class ScrapedTable extends Table {
 		return $this;
 	}
 
-	/** @param array{0:string,1:string|false,2:int|false} $data */
-	public function withCacheDetails( ?array $data ): self {
-		if ( null === $data ) {
-			return $this;
-		}
+	public function withCacheDetails( string $path, string|false $content, int|false $bytes ): self {
+		$realpath       = realpath( $path ) ?: $path;
+		$hasContent     = false !== $content;
+		$extractionInfo = $this->getRegisteredContentParsedAction( $realpath, $hasContent );
+		$cacheInfo      = $this->getRegisteredContentCachedAction( $bytes, $realpath, $hasContent );
 
-		[$cachePath, $content, $bytes] = $data;
+		( ! $hasContent || false === $bytes ) && $this->success = false;
+		false === $this->success && $this->consoleColor         = [ 'red', '#eee' ];
 
-		if ( false === $content ) {
-			$this->builder
-				->withSymbol( TableActionBuilder::ROW_PATH, Symbol::Red )
-				->withAction( TableActionBuilder::ROW_PATH, $cachePath );
-
-			$contentFooter = 'Could not extract';
-			$this->success = false;
-		} else {
-			$cachePath     = realpath( $cachePath ) ?: $cachePath;
-			$contentFooter = 'Extracted';
-
-			$this->builder->withSymbol( TableActionBuilder::ROW_PATH, Symbol::Green );
-			$this->builder->withAction( TableActionBuilder::ROW_PATH, $cachePath );
-		}
-
-		if ( false === $bytes ) {
-			$this->builder
-				->withSymbol( TableActionBuilder::ROW_BYTES, Symbol::Red )
-				->withAction( TableActionBuilder::ROW_BYTES, 0 );
-
-				$butOrAnd      = $this->success ? 'but' : 'and';
-				$byteFooter    = "could not cache to a file: {$cachePath}";
-				$this->success = false;
-		} else {
-			$this->builder
-				->withSymbol( TableActionBuilder::ROW_BYTES, Symbol::Green )
-				->withAction( TableActionBuilder::ROW_BYTES, $bytes );
-
-			$butOrAnd   = $this->success ? 'and' : 'but';
-			$byteFooter = "cached to a file: {$cachePath}";
-		}
-
-		! $this->success && $this->consoleColor = [ 'red', '#eee' ];
-
-		$footerSymbol = $this->success ? Symbol::Tick : Symbol::Cross;
-		$this->footer = [ "{$contentFooter} {$butOrAnd} {$byteFooter}", $footerSymbol ];
+		$this->footer = [ "{$extractionInfo} {$cacheInfo}", $this->success ? Symbol::Tick : Symbol::Cross ];
 
 		return $this;
+	}
+
+	/** @return array<string,array{Status:TableCell,Action:string,Details:string|int}> */
+	public function getBuiltRows( string $context ): array {
+		return $this->builder->build( $this, $context );
 	}
 
 	/** @return array{0:string,1:string} bg and fg. */
@@ -150,9 +118,7 @@ class ScrapedTable extends Table {
 		$this->tableRendered = true;
 
 		$this->resetWhenCacheIsDisabled();
-
-		$this->builder->build( $this, $context );
-
+		$this->getBuiltRows( $context );
 		$this->output->writeln( PHP_EOL );
 		$this->setFooterTitle( $this->getFormattedCommandName() )->render();
 		$this->output->writeln( PHP_EOL );
@@ -168,6 +134,42 @@ class ScrapedTable extends Table {
 
 	public function writeCommandRan( string $topPad = PHP_EOL, string $bottomPad = PHP_EOL ): self {
 		$this->tableRendered || $this->output->writeln( $this->getFormattedCommandName( $topPad, $bottomPad ) );
+
+		return $this;
+	}
+
+	private function getRegisteredContentParsedAction( string $path, bool $hasContent ): string {
+		[$symbol, $details] = $hasContent ? [ Symbol::Green, 'Parsed' ] : [ Symbol::Red, 'Could not parse' ];
+
+		$this->builder->withAction( TableActionBuilder::ROW_PATH, $path );
+		$this->builder->withSymbol( TableActionBuilder::ROW_PATH, $symbol );
+
+		return $details;
+	}
+
+	private function getRegisteredContentCachedAction( int|false $bytes, string $path, bool $hasContent ): string {
+		[$symbol, $details] = false !== $bytes
+			? [ Symbol::Green, ( $hasContent ? 'and' : 'but' ) . ' cached to a file' ]
+			: [ Symbol::Red, ( $hasContent ? 'but' : 'and' ) . ' could not cache to a file' ];
+
+		$this->builder->withAction( TableActionBuilder::ROW_BYTES, $bytes ?: 0 );
+		$this->builder->withSymbol( TableActionBuilder::ROW_BYTES, $symbol );
+
+		return "{$details}: {$path}";
+	}
+
+	/** @param string[] $keys */
+	private function withRegisteredAllowedIndexKeyAction( array $keys ): self {
+		$NA = TableActionBuilder::NOT_AVAILABLE;
+
+		if ( ! $keys ) {
+			$status = $NA;
+		} else {
+			$oneOf  = count( $keys ) === 1 ? '' : ' one of';
+			$status = "{$NA} (Possible option is{$oneOf}: {$this->builder->convertToString( $keys )})";
+		}
+
+		$this->builder->withAction( TableActionBuilder::ROW_INDEX, $status );
 
 		return $this;
 	}
