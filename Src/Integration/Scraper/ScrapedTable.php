@@ -74,15 +74,15 @@ class ScrapedTable extends Table {
 	}
 
 	public function withCacheDetails( string $path, string|false $content, int|false $bytes ): self {
-		$realpath       = realpath( $path ) ?: $path;
-		$hasContent     = false !== $content;
-		$extractionInfo = $this->getRegisteredContentParsedAction( $realpath, $hasContent );
-		$cacheInfo      = $this->getRegisteredContentCachedAction( $bytes, $realpath, $hasContent );
+		$realpath      = realpath( $path ) ?: $path;
+		$hasContent    = false !== $content;
+		$parseAndCache = $this->getRegisteredContentParsedAction( $realpath, $hasContent )
+			. ' ' . $this->getRegisteredContentCachedAction( $bytes, $hasContent );
 
 		( ! $hasContent || false === $bytes ) && $this->success = false;
 		false === $this->success && $this->consoleColor         = [ 'red', '#eee' ];
 
-		$this->footer = [ "{$extractionInfo} {$cacheInfo}", $this->success ? Symbol::Tick : Symbol::Cross ];
+		$this->footer = [ "{$parseAndCache}: {$realpath}", $this->success ? Symbol::Tick : Symbol::Cross ];
 
 		return $this;
 	}
@@ -117,7 +117,7 @@ class ScrapedTable extends Table {
 	public function write( string $context ): self {
 		$this->tableRendered = true;
 
-		$this->resetWhenCacheIsDisabled();
+		$this->polyfillWhenCachingIsDisabled();
 		$this->getBuiltRows( $context );
 		$this->output->writeln( PHP_EOL );
 		$this->setFooterTitle( $this->getFormattedCommandName() )->render();
@@ -126,12 +126,14 @@ class ScrapedTable extends Table {
 		return $this;
 	}
 
+	/** Writes footer info only if table is not written. */
 	public function writeFooter( string $topPad = PHP_EOL, string $bottomPad = PHP_EOL ): self {
 		$this->tableRendered || $this->output->writeln( "{$topPad}{$this->getFooter()[0]}$bottomPad" );
 
 		return $this;
 	}
 
+	/** Writes footer info only if table is not written. */
 	public function writeCommandRan( string $topPad = PHP_EOL, string $bottomPad = PHP_EOL ): self {
 		$this->tableRendered || $this->output->writeln( $this->getFormattedCommandName( $topPad, $bottomPad ) );
 
@@ -147,7 +149,7 @@ class ScrapedTable extends Table {
 		return $details;
 	}
 
-	private function getRegisteredContentCachedAction( int|false $bytes, string $path, bool $hasContent ): string {
+	private function getRegisteredContentCachedAction( int|false $bytes, bool $hasContent ): string {
 		[$symbol, $details] = false !== $bytes
 			? [ Symbol::Green, ( $hasContent ? 'and' : 'but' ) . ' cached to a file' ]
 			: [ Symbol::Red, ( $hasContent ? 'but' : 'and' ) . ' could not cache to a file' ];
@@ -155,7 +157,7 @@ class ScrapedTable extends Table {
 		$this->builder->withAction( TableActionBuilder::ROW_BYTES, $bytes ?: 0 );
 		$this->builder->withSymbol( TableActionBuilder::ROW_BYTES, $symbol );
 
-		return "{$details}: {$path}";
+		return $details;
 	}
 
 	/** @param string[] $keys */
@@ -182,7 +184,7 @@ class ScrapedTable extends Table {
 		return "{$topPad}{$symbol->value} {$format} Ran command: \"{$this->commandName}\" </>{$bottomPad}";
 	}
 
-	private function resetWhenCacheIsDisabled(): bool {
+	private function polyfillWhenCachingIsDisabled(): bool {
 		if ( ! $this->cachingDisabled ) {
 			return false;
 		}

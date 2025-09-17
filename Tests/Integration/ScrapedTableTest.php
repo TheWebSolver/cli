@@ -256,4 +256,76 @@ class ScrapedTableTest extends TestCase {
 			[ 'Parsed and cached to a file: test.pass', [ 'test.pass', 'content', 10 ], 'top', 'bottom' ],
 		];
 	}
+
+	#[Test]
+	#[DataProvider( 'provideOutputVerbosity' )]
+	public function itOutputsBasedOnVerbosityLevel(
+		int $outputVerbosity,
+		int $writeVerbosity,
+		bool $isEmptyOutput
+	): void {
+		( new ScrapedTable( $output = new BufferedOutput( $outputVerbosity ) ) )
+			->writeWhenVerbose( 'test', $writeVerbosity );
+
+		$this->assertSame( $isEmptyOutput, empty( $output->fetch() ) );
+	}
+
+	public static function provideOutputVerbosity(): array {
+		return [
+			[ OutputInterface::VERBOSITY_NORMAL, OutputInterface::VERBOSITY_DEBUG, true ],
+			[ OutputInterface::VERBOSITY_VERY_VERBOSE, OutputInterface::VERBOSITY_VERBOSE, false ],
+			[ OutputInterface::VERBOSITY_NORMAL, OutputInterface::VERBOSITY_SILENT, false ],
+		];
+	}
+
+	#[Test]
+	public function itPolyfillsWhenTableCachingIsDisabled(): void {
+		( new ScrapedTable( $output = new BufferedOutput(), cachingDisabled: false ) )->write( 'test' );
+
+		$this->assertStringNotContainsString( 'Total Bytes Written', $written = $output->fetch() );
+		$this->assertStringNotContainsString( 'Cache Filepath', $written );
+
+		( new ScrapedTable( $output = new BufferedOutput(), cachingDisabled: true ) )->write( 'test' );
+
+		$this->assertStringContainsString( 'Total Bytes Written', $written = $output->fetch() );
+		$this->assertStringContainsString( 'Cache Filepath', $written );
+
+		preg_match_all( '/skipped/', $written, $matches );
+
+		$this->assertCount( 2, $matches[0] );
+	}
+
+	#[Test]
+	public function itEnsuresBuiltRowsAreOutputted(): void {
+		( new ScrapedTable( $output = new BufferedOutput() ) )
+			->forCommand( 'PHP CLI' )
+			->accentedCharacters( 'transliterated' )
+			->collectedUsing( [ 'a', 'b', 'c' ], 'd', 'a' )
+			->fetchedItemsCount( 10 )
+			->withCacheDetails( 'pass.test', 'content', 7 )
+			->write( 'test' )
+			->writeFooter()
+			->writeCommandRan();
+
+		$written = $output->fetch();
+
+		$this->assertStringContainsString( 'No. of test Fetched', $written );
+		$this->assertStringContainsString( '10', $written );
+		$this->assertStringContainsString( 'Collection Keys', $written );
+		$this->assertStringContainsString( '"a" | "b" | "c"', $written );
+		$this->assertStringContainsString( 'Indexed by Value of', $written );
+		$this->assertStringContainsString( 'N/A (Possible option is one of: "b" | "c")', $written );
+		$this->assertStringContainsString( 'Accented Characters', $written );
+		$this->assertStringContainsString( 'transliterated', $written );
+		$this->assertStringContainsString( 'Total Bytes Written', $written );
+		$this->assertStringContainsString( '7', $written );
+		$this->assertStringContainsString( 'Cache Filepath', $written );
+		$this->assertStringContainsString( 'pass.test', $written );
+		$this->assertStringContainsString( Symbol::Tick->value . '  Ran command: "PHP CLI"', $written );
+
+		preg_match_all( '/Ran command/', $written, $matches );
+
+		$this->assertStringNotContainsString( 'Parse', $written, 'Footer output when table is not written.' );
+		$this->assertCount( 1, $matches[0], 'Either as table footer or output when table is not written.' );
+	}
 }
