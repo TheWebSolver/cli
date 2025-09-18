@@ -37,20 +37,22 @@ class ScrapedTable extends Table {
 	}
 
 	/** @param non-empty-array<int,string> $keys */
-	public function collectedUsing( array $keys, ?string $indexKey, string ...$disallowedIndexKeys ): self {
+	public function collectedUsing( IndexKey $indexKey ): self {
+		$keys = $indexKey->collection;
+
 		$this->builder->withAction( TableActionBuilder::ROW_KEYS, $this->builder->convertToString( $keys ) );
 
-		if ( ! $indexKey || in_array( $indexKey, $keys, true ) ) {
-			$this->builder->withAction( TableActionBuilder::ROW_INDEX, $indexKey );
+		if ( ! $indexKey->value || in_array( $indexKey->value, $keys, true ) ) {
+			$this->builder->withAction( TableActionBuilder::ROW_INDEX, $indexKey->value );
 
 			return $this;
 		}
 
 		$this->builder->withSymbol( TableActionBuilder::ROW_INDEX, Symbol::NotAllowed );
 
-		$disallowedIndexKeys && $keys = array_filter(
+		! empty( $disallowed = $indexKey->disallowed ) && $keys = array_filter(
 			array: $keys,
-			callback: static fn( string $key ): bool => ! in_array( $key, $disallowedIndexKeys, strict: true )
+			callback: static fn( string $key ): bool => ! in_array( $key, $disallowed, strict: true )
 		);
 
 		return $this->withRegisteredAllowedIndexKeyAction( $keys );
@@ -59,7 +61,7 @@ class ScrapedTable extends Table {
 	public function fetchedItemsCount( int $count ): self {
 		$this->builder->withAction( TableActionBuilder::ROW_FETCH, $count );
 
-		0 === $count && $this->builder->withSymbol( TableActionBuilder::ROW_FETCH, Symbol::Red );
+		! ! $count || $this->builder->withSymbol( TableActionBuilder::ROW_FETCH, Symbol::Red );
 
 		return $this;
 	}

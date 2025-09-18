@@ -9,6 +9,7 @@ use TheWebSolver\Codegarage\Cli\Enums\Symbol;
 use PHPUnit\Framework\Attributes\DataProvider;
 use Symfony\Component\Console\Output\BufferedOutput;
 use Symfony\Component\Console\Output\OutputInterface;
+use TheWebSolver\Codegarage\Cli\Integration\Scraper\IndexKey;
 use TheWebSolver\Codegarage\Cli\Integration\Scraper\ScrapedTable;
 
 class ScrapedTableTest extends TestCase {
@@ -65,12 +66,12 @@ class ScrapedTableTest extends TestCase {
 	#[Test]
 	#[DataProvider( 'provideCollectionDetails' )]
 	public function itCreatesRowsFromCollectionDetails(
-		array $args,
+		IndexKey $indexKey,
 		int $count,
 		array $KeysInfo,
 		?array $indexInfo = null
 	): void {
-		$rows = $this->table->collectedUsing( ...$args )->getBuiltRows( 'test' );
+		$rows = $this->table->collectedUsing( $indexKey )->getBuiltRows( 'test' );
 
 		$this->assertCount( $count, $rows );
 
@@ -95,46 +96,46 @@ class ScrapedTableTest extends TestCase {
 
 	public static function provideCollectionDetails(): array {
 		return [
-			[ [ [ 'a' ], null ], 1, [ Symbol::Green->value, '', '"a"' ] ],
-			[ [ [ 'a', 'b' ], null, 'no-effect', 'when-null' ], 1, [ Symbol::Green->value, 's', '"a" | "b"' ] ],
+			[ new IndexKey( null, [ 'a' ] ), 1, [ Symbol::Green->value, '', '"a"' ] ],
+			[ new IndexKey( null, [ 'a', 'b' ], [ 'no-effect', 'when-null' ] ), 1, [ Symbol::Green->value, 's', '"a" | "b"' ] ],
 			[
-				[ [ 'a' ], 'b' ],
+				new IndexKey( 'b', [ 'a' ] ),
 				2,
 				[ Symbol::Green->value, '', '"a"' ],
 				[ Symbol::NotAllowed->value, 'N/A (Possible option is: "a")' ],
 			],
 			[
-				[ [ 'a' ], 'b', 'a' ],
+				new IndexKey( 'b', [ 'a' ], [ 'a' ] ),
 				2,
 				[ Symbol::Green->value, '', '"a"' ],
 				[ Symbol::NotAllowed->value, 'N/A' ],
 			],
 			[
-				[ [ 'a', 'c' ], 'b' ],
+				new IndexKey( 'b', [ 'a', 'c' ] ),
 				2,
 				[ Symbol::Green->value, 's', '"a" | "c"' ],
 				[ Symbol::NotAllowed->value, 'N/A (Possible option is one of: "a" | "c")' ],
 			],
 			[
-				[ [ 'a', 'c' ], 'b', 'a' ],
+				new IndexKey( 'b', [ 'a', 'c' ], [ 'a' ] ),
 				2,
 				[ Symbol::Green->value, 's', '"a" | "c"' ],
 				[ Symbol::NotAllowed->value, 'N/A (Possible option is: "c")' ],
 			],
 			[
-				[ [ 'a', 'c', 'd' ], 'b', 'a', 'd' ],
+				new IndexKey( 'b', [ 'a', 'c', 'd' ], [ 'a', 'd' ] ),
 				2,
 				[ Symbol::Green->value, 's', '"a" | "c" | "d"' ],
 				[ Symbol::NotAllowed->value, 'N/A (Possible option is: "c")' ],
 			],
 			[
-				[ [ 'a', 'c', 'd', 'e' ], 'b', 'a', 'd' ],
+				new IndexKey( 'b', [ 'a', 'c', 'd', 'e' ], [ 'a', 'd' ] ),
 				2,
 				[ Symbol::Green->value, 's', '"a" | "c" | "d" | "e"' ],
 				[ Symbol::NotAllowed->value, 'N/A (Possible option is one of: "c" | "e")' ],
 			],
 			[
-				[ [ 'a', 'b', 'c' ], 'b' ],
+				new IndexKey( 'b', [ 'a', 'b', 'c' ] ),
 				2,
 				[ Symbol::Green->value, 's', '"a" | "b" | "c"' ],
 				[ Symbol::Green->value, 'b' ],
@@ -300,7 +301,7 @@ class ScrapedTableTest extends TestCase {
 		( new ScrapedTable( $output = new BufferedOutput() ) )
 			->forCommand( 'PHP CLI' )
 			->accentedCharacters( 'transliterated' )
-			->collectedUsing( [ 'a', 'b', 'c' ], 'd', 'a' )
+			->collectedUsing( new IndexKey( 'd', [ 'a', 'b', 'c' ], [ 'a' ] ) )
 			->fetchedItemsCount( 10 )
 			->withCacheDetails( 'pass.test', 'content', 7 )
 			->write( 'test' )
