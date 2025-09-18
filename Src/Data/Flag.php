@@ -13,6 +13,8 @@ class Flag {
 	/** @use ConstructorAware<'name'|'desc'|'isNegatable'|'shortcut'> */
 	use PureArg, ConstructorAware;
 
+	/** @var string Input name. */
+	public readonly string $name;
 	/** @var int-mask-of<InputOption::*> The input mode. */
 	public readonly int $mode;
 	/** @var string The short description about the flag. */
@@ -31,12 +33,13 @@ class Flag {
 	 * @param string|string[] $shortcut    Shortcut. For eg: "-s" for "--show".
 	 */
 	public function __construct(
-		public readonly string $name,
+		string $name,
 		?string $desc = null,
 		?bool $isNegatable = null,
 		null|string|array $shortcut = null
 	) {
 		$this->paramNames  = $this->discoverPureFrom( methodName: __FUNCTION__, values: func_get_args() );
+		$this->name        = strtolower( $name );
 		$this->desc        = $desc ?? '';
 		$this->shortcut    = $shortcut;
 		$this->isNegatable = $isNegatable ?? false;

@@ -75,7 +75,7 @@ class InputAttributeTest extends TestCase {
 		$this->assertTrue( $switchInput->isNegatable );
 		$this->assertSame( 'test based on infer mode', $switchInput->desc );
 
-		$onlyInMiddleSource = $middleClassSource[ Associative::class ]['onlyInMiddle'];
+		$onlyInMiddleSource = $middleClassSource[ Associative::class ]['onlyinmiddle'];
 		$onlyInMiddleInput  = $parser->getInputBy( 'onlyInMiddle', Associative::class );
 
 		$this->assertEqualsCanonicalizing( [ 'desc', 'shortcut', 'isOptional', 'isVariadic' ], $onlyInMiddleSource );
@@ -86,8 +86,8 @@ class InputAttributeTest extends TestCase {
 
 		$this->assertCount( 1, $baseClassSource = $source[ BaseClass::class ] );
 
-		$keyValueSource = $baseClassSource[ Associative::class ]['keyValue'];
-		$keyValueInput  = $parser->getInputBy( 'keyValue', Associative::class );
+		$keyValueSource = $baseClassSource[ Associative::class ]['key-value'];
+		$keyValueInput  = $parser->getInputBy( 'key-Value', Associative::class );
 
 		$this->assertEqualsCanonicalizing( [ 'desc' ], $keyValueSource );
 		$this->assertSame( 'key value pair in base class', $keyValueInput->desc );
@@ -109,8 +109,8 @@ class InputAttributeTest extends TestCase {
 		$this->assertNull( $positionInput->default, 'Null if positional input is optional non-variadic' );
 		$this->assertSame( [ 1.0, 2.0, 3.0 ], $positionInput->suggestedValues );
 
-		$keyValueSource = $topClassSource[ Associative::class ]['keyValue'];
-		$keyValueInput  = $parser->getInputBy( 'keyValue', Associative::class );
+		$keyValueSource = $topClassSource[ Associative::class ]['key-value'];
+		$keyValueInput  = $parser->getInputBy( 'key-Value', Associative::class );
 
 		$this->assertEqualsCanonicalizing(
 			[ 'desc', 'isVariadic', 'isOptional', 'default' ],
@@ -130,7 +130,7 @@ class InputAttributeTest extends TestCase {
 
 		$this->assertCount( 1, $middleClassSource = $source[ MiddleClass::class ] );
 
-		$onlyInMiddleSource = $middleClassSource[ Associative::class ]['onlyInMiddle'];
+		$onlyInMiddleSource = $middleClassSource[ Associative::class ]['onlyinmiddle'];
 		$onlyInMiddleInput  = $parser->getInputBy( 'onlyInMiddle', Associative::class );
 
 		$this->assertEqualsCanonicalizing( [ 'desc', 'shortcut', 'isOptional', 'isVariadic' ], $onlyInMiddleSource );
@@ -177,7 +177,7 @@ class InputAttributeTest extends TestCase {
 
 		$this->assertEqualsCanonicalizing(
 			[ 'desc', 'shortcut', 'isOptional', 'isVariadic' ],
-			$middleClassSource[ Associative::class ]['onlyInMiddle']
+			$middleClassSource[ Associative::class ]['onlyinmiddle']
 		);
 
 		$onlyInMiddleInput = $parser->getInputBy( 'onlyInMiddle', Associative::class );
@@ -187,9 +187,9 @@ class InputAttributeTest extends TestCase {
 		$this->assertTrue( $onlyInMiddleInput->isOptional );
 		$this->assertSame( 'no update or replace', $onlyInMiddleInput->desc );
 
-		$this->assertEqualsCanonicalizing( [ 'desc' ], $baseClassSource[ Associative::class ]['keyValue'] );
+		$this->assertEqualsCanonicalizing( [ 'desc' ], $baseClassSource[ Associative::class ]['key-value'] );
 
-		$keyValueInput = $parser->getInputBy( 'keyValue', Associative::class );
+		$keyValueInput = $parser->getInputBy( 'key-Value', Associative::class );
 
 		$this->assertSame( 'key value pair in base class', $keyValueInput->desc );
 	}
@@ -227,10 +227,10 @@ class InputAttributeTest extends TestCase {
 
 		$this->assertArrayNotHasKey( Flag::class, $baseClassSource, 'Nothing left to source' );
 
-		$keyValueInput = $parser->getInputBy( 'keyValue', Associative::class );
+		$keyValueInput = $parser->getInputBy( 'key-Value', Associative::class );
 		$this->assertEqualsCanonicalizing(
 			[ 'desc', 'isVariadic', 'isOptional', 'default' ],
-			$topClassSource[ Associative::class ]['keyValue']
+			$topClassSource[ Associative::class ]['key-value']
 		);
 		$this->assertArrayNotHasKey( Associative::class, $baseClassSource );
 
@@ -286,7 +286,7 @@ class InputAttributeTest extends TestCase {
 
 		$this->assertCount( 4, $flattened );
 		$this->assertEqualsCanonicalizing(
-			[ 'position', 'keyValue', 'onlyInMiddle', 'switch' ],
+			[ 'position', 'key-value', 'onlyinmiddle', 'switch' ],
 			array_column( $flattened, 'name' )
 		);
 	}
@@ -371,7 +371,7 @@ class InputAttributeTest extends TestCase {
 	default: InputVariant::class,
 	suggestedValues: [ 1, 2, 3 ],
 )]
-#[Associative( 'keyValue', 'key value pair in base class' )]
+#[Associative( 'key-Value', 'key value pair in base class' )]
 #[Flag( name: 'switch', isNegatable: true )]
 class BaseClass extends Console {}
 
@@ -386,7 +386,7 @@ class BaseClass extends Console {}
 )]
 class MiddleClass extends BaseClass {}
 
-#[Associative( 'keyValue', 'updated irrespective of no-named argument', true, true, default: InputVariant::class )]
+#[Associative( 'key-Value', 'updated irrespective of no-named argument', true, true, default: InputVariant::class )]
 #[Flag( name: 'switch', desc: 'final switch', shortcut: 'f' )]
 #[Positional(
 	name: 'position',

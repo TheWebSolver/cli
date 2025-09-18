@@ -135,6 +135,8 @@ class InputAttribute {
 			return null;
 		}
 
+		$name = strtolower( $name );
+
 		return $attributeName
 			? ( $c[ $attributeName ][ $name ] ?? null )
 			: ( $c[ Assoc::class ][ $name ] ?? $c[ Flag::class ][ $name ] ?? $c[ Pos::class ][ $name ] ?? null );
