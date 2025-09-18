@@ -53,9 +53,7 @@ trait InputProperties {
 		null|string|bool|int|float|array|callable|BackedEnum $default = null,
 		null|string|array|callable $suggestedValues = null
 	) {
-		/** @var TParamNames[] */
-		$names                 = $this->discoverPureFrom( methodName: __FUNCTION__, values: func_get_args() );
-		$this->paramNames    ??= $names;
+		$this->paramNames    ??= $this->discoverPureFrom( methodName: __FUNCTION__, values: func_get_args() );
 		$this->userDefault     = $default = $default instanceof BackedEnum ? $default->value : $default;
 		$this->name            = strtolower( $name );
 		$this->desc            = $desc ?? '';

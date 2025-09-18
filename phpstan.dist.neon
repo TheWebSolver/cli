@@ -68,3 +68,7 @@ parameters:
 			identifier: argument.type
 			count: 1
 			message: '#^Parameter \#2 \$value of method .*?ArrayPhpFile::addImportableContent\(\) expects array\{string, string}\|Closure\|string, callable.*? given.$#'
+		- # Discovered parameter names using reflection are always valid.
+			path: Src/Traits/InputProperties.php
+			identifier: assign.propertyType
+			message: '#^Property .*?paramNames \(array\<.*?\>\) does not accept array\<string\>.$#'
