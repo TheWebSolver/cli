@@ -4,6 +4,7 @@ declare( strict_types = 1 );
 namespace TheWebSolver\Codegarage\Cli\Helper;
 
 use Closure;
+use UnitEnum;
 use BackedEnum;
 use ReflectionClass;
 use ReflectionMethod;
@@ -18,9 +19,13 @@ use Symfony\Component\Console\Completion\CompletionInput;
 class Parser {
 	/** @return ($name is class-string<BackedEnum> ? array<($caseAsIndex is true ? string : int),string|int> : string)*/
 	public static function parseBackedEnumValue( string $name, bool $caseAsIndex = false ): string|array {
-		return is_a( $name, BackedEnum::class, allow_string: true )
-			? array_column( $name::cases(), 'value', index_key: $caseAsIndex ? 'name' : null )
-			: $name;
+		$column = match ( true ) {
+			is_a( $name, BackedEnum::class, allow_string: true ) => 'value',
+			is_a( $name, UnitEnum::class, allow_string: true )   => 'name',
+			default                                              => null
+		};
+
+		return $column ? array_column( $name::cases(), $column, index_key: $caseAsIndex ? 'name' : null ) : $name;
 	}
 
 	/**

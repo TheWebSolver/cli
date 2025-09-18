@@ -13,7 +13,6 @@ class ParserTest extends TestCase {
 	#[Test]
 	public function itReturnsBackedEnumCasesAsKeyValuePair(): void {
 		$this->assertSame( [ 'argument', 'option', 'flag' ], Parser::parseBackedEnumValue( InputVariant::class ) );
-
 		$this->assertSame(
 			actual: Parser::parseBackedEnumValue( InputVariant::class, caseAsIndex: true ),
 			expected: [
@@ -22,6 +21,9 @@ class ParserTest extends TestCase {
 				'Flag'        => 'flag',
 			]
 		);
+
+		$this->assertSame( $names = [ 'One', 'Two', 'Three' ], Parser::parseBackedEnumValue( UnitEnumTest::class ) );
+		$this->assertSame( array_combine( $names, $names ), Parser::parseBackedEnumValue( UnitEnumTest::class, caseAsIndex: true ) );
 	}
 
 	#[Test]
@@ -34,4 +36,12 @@ class ParserTest extends TestCase {
 
 		$this->assertSame( $expected, Parser::parseInputSuggestion( [ 'argument', 'option', 'flag' ] ) );
 	}
+}
+
+// phpcs:disable Generic.Files.OneObjectStructurePerFile.MultipleFound
+
+enum UnitEnumTest {
+	case One;
+	case Two;
+	case Three;
 }
