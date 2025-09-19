@@ -17,9 +17,7 @@
     "composer-runtime-api": "^2.2"
   },
   "require-dev": {
-    "thewebsolver/code-generator": "dev-master",
-    "thewebsolver/iso": "dev-main",
-    "thewebsolver/iso-cli": "dev-main"
+    "thewebsolver/code-generator": "dev-master"
   },
   "repositories": [
     {
@@ -29,22 +27,6 @@
     {
       "type": "path",
       "url": "../container"
-    },
-    {
-      "type": "path",
-      "url": "../iso"
-    },
-    {
-      "type": "path",
-      "url": "../cli-packages/iso-cli"
-    },
-    {
-      "type": "path",
-      "url": "../cli"
-    },
-    {
-      "type": "path",
-      "url": "../scraper"
     }
   ]
 }
