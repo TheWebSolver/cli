@@ -10,6 +10,7 @@ trait PureArg {
 	/** @var array<string,mixed> */
 	private array $pureArgs;
 
+	/** @phpstan-assert-if-true =non-empty-array<string,mixed> $this->pureArgs */
 	public function hasPure(): bool {
 		return ! ! ( $this->pureArgs ?? false );
 	}
