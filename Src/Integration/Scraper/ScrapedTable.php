@@ -36,7 +36,6 @@ class ScrapedTable extends Table {
 		return $this;
 	}
 
-	/** @param non-empty-array<int,string> $keys */
 	public function collectedUsing( IndexKey $indexKey ): self {
 		$keys = $indexKey->collection;
 

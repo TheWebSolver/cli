@@ -19,7 +19,7 @@ final readonly class IndexKey {
 	 */
 	public function __construct( public ?string $value, public array $collection, public array $disallowed = [] ) {}
 
-	/** @throws OutOfBoundException When index key is invalid or not allowed. */
+	/** @throws OutOfBoundsException When index key is invalid or not allowed. */
 	public function validated(): self {
 		$allowed = array_diff( $this->collection, $this->disallowed );
 
