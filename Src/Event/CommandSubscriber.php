@@ -31,14 +31,14 @@ class CommandSubscriber implements EventSubscriberInterface {
 		];
 	}
 
-	public static function suggestionToString( string|int|Suggestion $suggestion ): string|int {
-		return $suggestion instanceof Suggestion ? (string) $suggestion : $suggestion;
+	public static function suggestionToString( string|int|Suggestion $suggestion ): string {
+		return (string) $suggestion;
 	}
 
 	/**
 	 * @param Closure(CompletionInput): array<string|int, string|Suggestion>|array<string|int, string|int> $given
 	 * @param ?list<string>                                                                                $argv
-	 * @return array<string|int>
+	 * @return string[]
 	 */
 	public static function inputSuggestedValues( Closure|array $given, ?array $argv ): array {
 		$suggestedValue = $given instanceof Closure ? $given( new CompletionInput( $argv ) ) : $given;
@@ -74,13 +74,12 @@ class CommandSubscriber implements EventSubscriberInterface {
 			: null;
 	}
 
-	/** @param array<string|int> $suggestions */
+	/** @param string[] $suggestions */
 	private static function validateInput( array $suggestions, string $name, Event $event ): true {
 		$input   = $event->getInput();
 		$value   = $input->hasOption( $name ) ? $input->getOption( $name ) : $input->getArgument( $name );
 		$isValid = match ( true ) {
-			// phpcs:ignore -- Strict comparison not required. Value may not always be string.
-			default            => in_array( $value, $suggestions ),
+			default            => in_array( $value, $suggestions, strict: true ),
 			is_array( $value ) => empty( array_diff( $value, $suggestions ) ),
 			is_null( $value )  => true,
 		};
