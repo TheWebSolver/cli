@@ -298,7 +298,7 @@ class InputAttributeTest extends TestCase {
 	}
 
 	#[Test]
-	public function itEnsuresParsingStopsOnTheGivenInheritanceHierarchyParentClass(): void {
+	public function itEnsuresParsingStopsOnTheGivenInheritanceHierarchyParentClass(): InputAttribute {
 		$parser = InputAttribute::from( TopClass::class )->till( BaseClass::class )->register()->parse();
 		$debug  = $parser->__debugInfo();
 
@@ -307,13 +307,60 @@ class InputAttributeTest extends TestCase {
 		$this->assertSame( BaseClass::class, $debug['target']['base'] );
 		$this->assertSame( [ TopClass::class, MiddleClass::class ], $debug['hierarchy'] );
 
-		$parser = InputAttribute::from( UnnamedTarget::class )->till( MiddleTarget::class )->register()->parse();
-		$debug  = $parser->__debugInfo();
+		$parser2 = InputAttribute::from( UnnamedTarget::class )->till( MiddleTarget::class )->register()->parse();
+		$debug   = $parser2->__debugInfo();
 
 		$this->assertSame( $debug['target']['from'], UnnamedTarget::class );
 		$this->assertSame( $debug['target']['till'], UnnamedTarget::class );
 		$this->assertSame( $debug['target']['base'], MiddleTarget::class );
 		$this->assertSame( [ UnnamedTarget::class ], $debug['hierarchy'] );
+
+		return $parser;
+	}
+
+	#[Test]
+	#[Depends( 'itEnsuresParsingStopsOnTheGivenInheritanceHierarchyParentClass' )]
+	public function itRemovesRegisteredInputFromSourceAndCollectionAndSuggestion( InputAttribute $parser ): void {
+		$this->assertArrayHasKey( 'switch', $parser->getCollection()[ Flag::class ] );
+		$this->assertArrayHasKey( 'switch', $parser->getSource()[ TopClass::class ][ Flag::class ] );
+		$this->assertArrayHasKey( 'switch', $parser->getSource()[ MiddleClass::class ][ Flag::class ] );
+
+		$this->assertTrue( $parser->remove( 'switch' ) );
+
+		$this->assertArrayNotHasKey( 'switch', $parser->getCollection()[ Flag::class ] );
+		$this->assertArrayNotHasKey( 'switch', $parser->getSource()[ TopClass::class ][ Flag::class ] );
+		$this->assertArrayNotHasKey( 'switch', $parser->getSource()[ MiddleClass::class ][ Flag::class ] );
+
+		$this->assertArrayHasKey( 'position', $parser->getSuggestion() );
+		$this->assertArrayHasKey( 'position', $parser->getCollection()[ Positional::class ] );
+		$this->assertArrayHasKey( 'position', $parser->getSource()[ TopClass::class ][ Positional::class ] );
+		$this->assertArrayHasKey( 'position', $parser->getSource()[ MiddleClass::class ][ Positional::class ] );
+
+		$this->assertTrue( $parser->remove( 'position', Positional::class ) );
+
+		$this->assertArrayNotHasKey( 'position', $parser->getSuggestion() );
+		$this->assertArrayNotHasKey( 'position', $parser->getCollection()[ Positional::class ] );
+		$this->assertArrayNotHasKey( 'position', $parser->getSource()[ TopClass::class ][ Positional::class ] );
+		$this->assertArrayNotHasKey( 'position', $parser->getSource()[ MiddleClass::class ][ Positional::class ] );
+
+		$this->assertFalse( $parser->remove( 'position' ), 'Input already removed.' );
+
+		$this->assertEmpty( $parser->getCollection()[ Positional::class ] );
+		$this->assertEmpty( $parser->getCollection()[ Flag::class ] );
+		$this->assertEmpty( $parser->getSuggestion() );
+
+		foreach ( [ TopClass::class, MiddleClass::class ] as $target ) {
+			$this->assertEmpty( $parser->getSource()[ $target ][ Positional::class ] );
+			$this->assertEmpty( $parser->getSource()[ $target ][ Flag::class ] );
+		}
+
+		$this->assertEqualsCanonicalizing(
+			[ 'key-value', 'onlyinmiddle' ],
+			array_keys( $parser->getCollection()[ Associative::class ] )
+		);
+
+		$this->assertArrayHasKey( 'key-value', $parser->getSource()[ TopClass::class ][ Associative::class ] );
+		$this->assertArrayHasKey( 'onlyinmiddle', $parser->getSource()[ MiddleClass::class ][ Associative::class ] );
 	}
 
 	#[Test]

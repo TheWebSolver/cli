@@ -65,7 +65,7 @@ class InputAttribute {
 
 	/** @var array{ref:ReflectionClass<Console>,input:Pos|Assoc|Flag,prop:int|string,args:array<string,mixed>} */
 	private array $current;
-	/** @var array<class-string<Pos|Assoc|Flag>> */
+	/** @var non-empty-list<class-string<Pos|Assoc|Flag>> */
 	private array $inputClassNames;
 	/** @var array<class-string<Pos|Assoc|Flag>,array<string,array<array-key,mixed>>> */
 	private array $update;
@@ -133,15 +133,23 @@ class InputAttribute {
 	 * @template TAttribute of Pos|Assoc|Flag
 	 */
 	public function getInputBy( string $name, ?string $attributeName = null ): Pos|Assoc|Flag|null {
-		if ( ! $c = $this->getCollection() ) {
+		if ( ! $collection = $this->getCollection() ) {
 			return null;
 		}
 
 		$name = strtolower( $name );
 
-		return $attributeName
-			? ( $c[ $attributeName ][ $name ] ?? null )
-			: ( $c[ Assoc::class ][ $name ] ?? $c[ Flag::class ][ $name ] ?? $c[ Pos::class ][ $name ] ?? null );
+		if ( $attributeName ) {
+			return $collection[ $attributeName ][ $name ] ?? null;
+		}
+
+		foreach ( InputVariant::cases() as $variant ) {
+			if ( $input = ( $collection[ $variant->getClassName() ][ $name ] ?? null ) ) {
+				return $input;
+			}
+		}
+
+		return null;
 	}
 
 	/**
@@ -203,6 +211,16 @@ class InputAttribute {
 		$this->reset( current: $previous );
 
 		return $isAdded;
+	}
+
+	public function remove( string $inputName, ?string $attributeName = null ): bool {
+		if ( $this->suggestion ?? null ) {
+			unset( $this->suggestion[ $inputName ] );
+		}
+
+		$this->removeFromSource( $inputName, $attributeName );
+
+		return $this->removeFromCollection( $inputName, $attributeName );
 	}
 
 	/** @return array<class-string<Pos|Assoc|Flag>,array<string,InputArgument|InputOption>> */
@@ -431,5 +449,43 @@ class InputAttribute {
 			},
 			array: $inputs
 		);
+	}
+
+	private function removeFromSource( string $inputName, ?string $attributeName ): void {
+		$source = $this->source ?? [];
+
+		foreach ( $source as $sourceTarget => $sourceDetails ) {
+			if ( isset( $sourceDetails[ $attributeName ][ $inputName ] ) ) {
+				unset( $this->source[ $sourceTarget ][ $attributeName ][ $inputName ] );
+			} else {
+				foreach ( InputVariant::cases() as $variant ) {
+					if ( isset( $sourceDetails[ $variant->getClassName() ][ $inputName ] ) ) {
+						unset( $this->source[ $sourceTarget ][ $variant->getClassName() ][ $inputName ] );
+					}
+				}
+			}
+		}
+	}
+
+	private function removeFromCollection( string $inputName, ?string $attributeName ): bool {
+		if ( ! isset( $this->collection ) ) {
+			return false;
+		}
+
+		if ( isset( $this->collection[ $attributeName ][ $inputName ] ) ) {
+			unset( $this->collection[ $attributeName ][ $inputName ] );
+
+			return true;
+		}
+
+		foreach ( InputVariant::cases() as $variant ) {
+			if ( isset( $this->collection[ $variant->getClassName() ][ $inputName ] ) ) {
+				unset( $this->collection[ $variant->getClassName() ][ $inputName ] );
+
+				return true;
+			}
+		}
+
+		return false;
 	}
 }
