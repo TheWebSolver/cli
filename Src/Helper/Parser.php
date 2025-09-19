@@ -19,13 +19,13 @@ use Symfony\Component\Console\Completion\CompletionInput;
 class Parser {
 	/** @return ($name is class-string<BackedEnum> ? array<($caseAsIndex is true ? string : int),string|int> : string)*/
 	public static function parseBackedEnumValue( string $name, bool $caseAsIndex = false ): string|array {
-		$column = match ( true ) {
-			is_a( $name, BackedEnum::class, allow_string: true ) => 'value',
-			is_a( $name, UnitEnum::class, allow_string: true )   => 'name',
-			default                                              => null
-		};
+		if ( is_a( $name, BackedEnum::class, allow_string: true ) ) {
+			return array_column( $name::cases(), 'value', index_key: $caseAsIndex ? 'name' : null );
+		} elseif ( is_a( $name, UnitEnum::class, allow_string: true ) ) {
+			return array_column( $name::cases(), 'name', index_key: $caseAsIndex ? 'name' : null );
+		}
 
-		return $column ? array_column( $name::cases(), $column, index_key: $caseAsIndex ? 'name' : null ) : $name;
+		return $name;
 	}
 
 	/**
