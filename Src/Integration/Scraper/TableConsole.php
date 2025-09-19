@@ -43,8 +43,13 @@ abstract class TableConsole extends Console {
 	abstract protected function getTableContextForOutput(): string;
 	/** @return non-empty-string|null */
 	abstract protected function getAccentOperationTypeForOutput(): ?string;
-	/** @return array{0:?string,1:list<string>,2:string[]} */
+	/** @return array{0:?string,1:list<string>} */
 	abstract protected function getIndicesSourceForOutput(): array;
+
+	/** @return string[] */
+	protected function disallowedIndexKeys(): array {
+		return [];
+	}
 
 	/**
 	 * @param array<TTableRowDataType> $content
@@ -139,7 +144,7 @@ abstract class TableConsole extends Console {
 		return ( new IndexKey(
 			value: (string) $input->getOption( 'with-key' ),
 			collection: $this->getCollectionKeysFromInput( $input instanceof ArgvInput ? $input->getRawTokens( strip: true ) : null ),
-			disallowed: []
+			disallowed: $this->disallowedIndexKeys()
 		) )->validated()->value;
 	}
 
@@ -157,11 +162,13 @@ abstract class TableConsole extends Console {
 	}
 
 	private function createTableFor( OutputInterface $output, int $rowsCount ): ScrapedTable {
+		[$indexKey, $datasetIndices] = $this->getIndicesSourceForOutput();
+
 		return ( new ScrapedTable( $output, $this->isCachingDisabled() ) )
 			->setHeaderTitle( $this->getTitleForOutput() )
 			->forCommand( $this->getName() ?? '' )
 			->accentedCharacters( $this->getAccentOperationTypeForOutput() )
-			->collectedUsing( new IndexKey( ...$this->getIndicesSourceForOutput() ) )
+			->collectedUsing( new IndexKey( $indexKey, $datasetIndices, $this->disallowedIndexKeys() ) )
 			->fetchedItemsCount( $rowsCount );
 	}
 }
