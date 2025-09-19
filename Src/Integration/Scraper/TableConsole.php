@@ -4,7 +4,6 @@ declare( strict_types = 1 );
 namespace TheWebSolver\Codegarage\Cli\Integration\Scraper;
 
 use Closure;
-use LogicException;
 use OutOfBoundsException;
 use TheWebSolver\Codegarage\Cli\Console;
 use TheWebSolver\Codegarage\Cli\Data\Flag;
@@ -42,6 +41,7 @@ abstract class TableConsole extends Console {
 
 	abstract protected function getTitleForOutput(): string;
 	abstract protected function getTableContextForOutput(): string;
+	/** @return non-empty-string|null */
 	abstract protected function getAccentOperationTypeForOutput(): ?string;
 	/** @return array{0:?string,1:list<string>,2:string[]} */
 	abstract protected function getIndicesSourceForOutput(): array;
@@ -84,7 +84,7 @@ abstract class TableConsole extends Console {
 	 * Inheriting class may override this method to provide allowed keys directly.
 	 *
 	 * @param ?list<string> $argv
-	 * @return array<string|int>
+	 * @return string[]
 	 */
 	protected function getCollectionKeysFromInput( ?array $argv ): array {
 		return ( $given = $this->getInputAttribute()->getSuggestion()['collection-key'] )
@@ -92,12 +92,6 @@ abstract class TableConsole extends Console {
 			: [];
 	}
 
-	/**
-	 * @throws ScraperError         When parsing fails.
-	 * @throws LogicException       When cannot write parsed content to a JSON file.
-	 * @throws OutOfBoundsException When collection key is not valid collection source indices.
-	 * @throws InvalidSource        When indices source not provided to create row dataset.
-	 */
 	protected function execute( InputInterface $input, OutputInterface $output ): int {
 		$content = $this->scrapeAndParseContent( $input, $output );
 		$table   = $this->createTableFor( $output, rowsCount: count( $content ) );
@@ -141,7 +135,7 @@ abstract class TableConsole extends Console {
 	}
 
 	/** @throws OutOfBoundsException When key cannot be inferred. */
-	protected function validatedIndexKeyFromArgument( InputInterface $input ): string {
+	protected function validatedIndexKeyFromArgument( InputInterface $input ): ?string {
 		return ( new IndexKey(
 			value: (string) $input->getOption( 'with-key' ),
 			collection: $this->getCollectionKeysFromInput( $input instanceof ArgvInput ? $input->getRawTokens( strip: true ) : null ),

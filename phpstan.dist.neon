@@ -72,3 +72,11 @@ parameters:
 			path: Src/Traits/InputProperties.php
 			identifier: assign.propertyType
 			message: '#^Property .*?paramNames \(array\<.*?\>\) does not accept array\<string\>.$#'
+		- # Input argument value is always of string type.
+			path: Src/Integration/Scraper/TableConsole.php
+			identifier: cast.string
+			count: 4
+		- # Input option values are always of string type.
+			path: Src/Integration/Scraper/TableConsole.php
+			identifier: assign.propertyType
+			count: 1
