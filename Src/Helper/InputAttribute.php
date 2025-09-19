@@ -29,6 +29,8 @@ class InputAttribute {
 
 	/** @var self::INFER_AND* */
 	private int $mode = self::INFER_AND_REPLACE;
+	/** @var self::INFER_AND* */
+	private int $singleAddMode;
 
 	/** @var class-string<Console> */
 	private string $baseClassName;
@@ -192,10 +194,12 @@ class InputAttribute {
 	 * @return bool True if input was added, false otherwise.
 	 */
 	public function add( Pos|Assoc|Flag $input, ?int $mode = null ): bool {
-		$previous = $this->registerCurrentInput( $input );
-		$isAdded  = $this->inferCurrentInput( ignoreIfExists: self::INFER_AND_REPLACE === $mode );
+		$this->singleAddMode = $mode ?? $this->mode;
+		$previous            = $this->registerCurrentInput( $input );
+		$isAdded             = $this->inferCurrentInput( ignoreIfExists: ! $this->inUpdateMode() );
 
 		$this->inUpdateMode() && $this->walkCollectionWithUpdatedInputProperties();
+
 		$this->reset( current: $previous );
 
 		return $isAdded;
@@ -214,7 +218,7 @@ class InputAttribute {
 	}
 
 	private function inUpdateMode(): bool {
-		return self::INFER_AND_UPDATE === $this->mode;
+		return self::INFER_AND_UPDATE === ( $this->singleAddMode ?? $this->mode );
 	}
 
 	private function inCollectionStack(): Pos|Assoc|Flag|null {
@@ -223,7 +227,7 @@ class InputAttribute {
 		$inputName     = $input->name;
 
 		/** @see self::walkCollectionWithUpdatedInputProperties() */
-		func_num_args() !== 2 || ( [$attributeName, $inputName] = func_get_args() );
+		func_num_args() === 2 && ( [$attributeName, $inputName] = func_get_args() );
 
 		return $this->collection[ $attributeName ][ $inputName ] ?? null;
 	}
@@ -245,7 +249,7 @@ class InputAttribute {
 	private function pushCurrentInputToCollectionStack(): bool {
 		['input' => $input, 'ref' => $target, 'args' => $namedArguments] = $this->current;
 
-		! $this->canUpdateCurrentInput() || ( $this->update[ $input::class ][ $input->name ] = $namedArguments );
+		$this->canUpdateCurrentInput() && ( $this->update[ $input::class ][ $input->name ] = $namedArguments );
 
 		$this->collection[ $input::class ][ $input->name ]              = $input;
 		$this->source[ $target->name ][ $input::class ][ $input->name ] = array_keys( $namedArguments );
@@ -259,7 +263,12 @@ class InputAttribute {
 		return ( $ignoreIfExists || ! $this->inCollectionStack() ) && $this->pushCurrentInputToCollectionStack();
 	}
 
-	/** @return array{0:bool,1:null|string|class-string<BackedEnum>|bool|int|float|array{}|(callable(): string|bool|int|float|array{})}*/
+	/**
+	 * @return array{
+	 *  0: bool,
+	 *  1: null|string|class-string<BackedEnum>|bool|int|float|array{}|(callable(): string|bool|int|float|array{})
+	 * }
+	 */
 	private function getCurrentInputDefaultPropertyValue(): array {
 		return [
 			'default' === $this->current['prop'],
@@ -275,8 +284,8 @@ class InputAttribute {
 	}
 
 	private function currentPropertyValueToUpdateStack( mixed $value ): void {
-		[$isDefaultProperty, $propertyValue] = $this->getCurrentInputDefaultPropertyValue();
-		$value                               = $isDefaultProperty ? $propertyValue : $value;
+		[$isDefaultProperty, $defaultValue]  = $this->getCurrentInputDefaultPropertyValue();
+		$value                               = $isDefaultProperty ? $defaultValue : $value;
 		['input' => $input, 'prop' => $prop] = $this->current;
 
 		$this->update[ $input::class ][ $input->name ][ $prop ]                         = $value;
@@ -383,6 +392,8 @@ class InputAttribute {
 	/** @param ?array{ref:ReflectionClass<Console>,input:Pos|Assoc|Flag,prop:int|string,args:array<string,mixed>} $current */
 	private function reset( ?array $current ): void {
 		$current && ( $this->current = $current );
+
+		unset( $this->singleAddMode );
 	}
 
 	private function purge(): self {
@@ -409,7 +420,7 @@ class InputAttribute {
 	 */
 	private static function toSymfonyInputs( array &$inputs, string $key, ?InputDefinition $definition ): void {
 		$inputs = array_map(
-			callback: static function ( Pos|Assoc|Flag $attribute ) use ( $definition ) {
+			callback: static function ( Pos|Assoc|Flag $attribute ) use ( $definition ): InputArgument|InputOption {
 				if ( ( $input = $attribute->input() ) instanceof InputArgument ) {
 					$definition?->addArgument( $input );
 				} else {
