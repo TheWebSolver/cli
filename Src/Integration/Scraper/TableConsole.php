@@ -31,12 +31,11 @@ abstract class TableConsole extends Console {
 	/** @var list<string> */
 	private array $datasetIndicesFromArgument      = [];
 	private ?string $validatedIndexKeyFromArgument = null;
+	private string $operationTypeFromOption        = '';
 
 	abstract protected function isCachingDisabled(): bool;
 	/** @return array<TTableRowDataType> */
 	abstract protected function getParsedContent( bool $ignoreCache, ?Closure $outputWriter = null ): array;
-
-	abstract protected function setAccentOperationTypeFromInput( string $action ): bool;
 
 	abstract protected function getTitleForOutput(): string;
 	abstract protected function getTableContextForOutput(): string;
@@ -69,7 +68,9 @@ abstract class TableConsole extends Console {
 	}
 
 	protected function initialize( InputInterface $input, OutputInterface $output ) {
-		$this->datasetIndicesFromArgument = $input->getArgument( 'collection-key' ) ?: [];
+		$this->validatedIndexKeyFromArgument = $this->validatedIndexKeyFromArgument( $input );
+		$this->datasetIndicesFromArgument    = $input->getArgument( 'collection-key' ) ?: [];
+		$this->operationTypeFromOption       = (string) $input->getOption( 'accent' );
 	}
 
 	/** @return list<string> */
@@ -79,6 +80,10 @@ abstract class TableConsole extends Console {
 
 	protected function getRowDatasetIndexKeyFromInput(): ?string {
 		return $this->validatedIndexKeyFromArgument;
+	}
+
+	protected function getAccentOperationTypeFromInput(): string {
+		return $this->operationTypeFromOption;
 	}
 
 	/**
@@ -146,10 +151,7 @@ abstract class TableConsole extends Console {
 
 	/** @return array<array-key,mixed> */
 	private function scrapeAndParseContent( InputInterface $input, OutputInterface $output ): array {
-		$this->setAccentOperationTypeFromInput( (string) $input->getOption( 'accent' ) );
-
-		$this->validatedIndexKeyFromArgument = $this->validatedIndexKeyFromArgument( $input );
-		$vv                                  = $this->getOutputSection( $output, OutputInterface::VERBOSITY_VERY_VERBOSE );
+		$vv = $this->getOutputSection( $output, OutputInterface::VERBOSITY_VERY_VERBOSE );
 
 		return $this->getParsedContent(
 			ignoreCache: true === $input->getOption( 'force' ),
