@@ -27,7 +27,6 @@ use TheWebSolver\Codegarage\Cli\Integration\Scraper\ScrapedTable;
 #[Flag( 'show', desc: 'Display parsed data in console' )]
 #[Associative( 'accent', desc: 'Handle accented characters in parsed content', isOptional: false )]
 #[Flag( 'force', desc: 'Invalidate already cached data and scrape again from source' )]
-#[Flag( 'numeric-to-number', desc: 'Convert numeric string to number', shortcut: 'c' )]
 abstract class TableConsole extends Console {
 	/** @var list<string> */
 	private array $datasetIndicesFromArgument      = [];
@@ -113,8 +112,7 @@ abstract class TableConsole extends Console {
 
 	/**
 	 * @param mixed[] $content
-	 * @return array{0:string,1:string|false,2:int|false} The cache path, parsed content, bytes written
-	 *                                                    and unicode escape status.
+	 * @return array{0:string,1:string|false,2:int|false} The cache path, parsed content, and bytes written.
 	 */
 	private function formatAndCache( array $content, InputInterface $input ): array {
 		return $this->cacheWithResourceDetailsFromInput(
