@@ -44,15 +44,9 @@ abstract class TableConsole extends Console {
 	/** @return array{0:?string,1:list<string>} */
 	abstract protected function getIndicesSourceForOutput(): array;
 
-	/** @return string[] */
-	protected function disallowedIndexKeys(): array {
-		return [];
-	}
-
 	/**
 	 * @param array<TTableRowDataType> $content
-	 * @return array{0:string,1:string|false,2:int|false} The cache path, parsed content, bytes written
-	 *                                                    and unicode escape status.
+	 * @return array{0:string,1:string|false,2:int|false} The cache path, parsed content, and bytes written.
 	 */
 	abstract protected function cacheWithResourceDetailsFromInput(
 		array $content,
@@ -87,6 +81,17 @@ abstract class TableConsole extends Console {
 	}
 
 	/**
+	 * Returns subset of collection keys that are not allowed to be used as an index key.
+	 *
+	 * @return string[]
+	 *
+	 * Inheriting class may override this method to provide disallowed index keys.
+	 */
+	protected function disallowedIndexKeys(): array {
+		return [];
+	}
+
+	/**
 	 * Gets the Positional Attribute "collection-key"'s suggested values as allowed keys.
 	 *
 	 * Inheriting class may override this method to provide allowed keys directly.
@@ -101,35 +106,37 @@ abstract class TableConsole extends Console {
 	}
 
 	protected function execute( InputInterface $input, OutputInterface $output ): int {
-		$content = $this->scrapeAndParseContent( $input, $output );
-		$table   = $this->createTableFor( $output, rowsCount: count( $content ) );
+		$ignoreCache = true === $input->getOption( 'force' );
+		$vv          = $this->getOutputSection( $output, OutputInterface::VERBOSITY_VERY_VERBOSE );
+		$content     = $this->getParsedContent( $ignoreCache, outputWriter: $vv ? $vv->writeln( ... ) : null );
+		$table       = $this->createTableFor( $output, rowsCount: count( $content ) );
 
 		if ( $vvv = $this->getOutputSection( $output ) ) {
 			$this->outputParsedContent( $content, $vvv );
 			$vvv->writeln( $vvv->getContent() );
 		}
 
-		$this->isCachingDisabled() || $table->withCacheDetails( ...$this->formatAndCache( $content, $input ) );
+		$this->isCachingDisabled() || $table->withCacheDetails(
+			...$this->cacheWithResourceDetailsFromInput(
+				$content,
+				fileName: (string) $input->getOption( 'to-filename' ),
+				fileFormat: (string) ( $input->getOption( 'format' ) ?: 'json' )
+			)
+		);
 
 		return $table->writeWhenVerbose( $this->getTableContextForOutput() )
-			->writeFooter()->writeCommandRan()->getStatusCode();
+			->writeFooter()
+			->writeCommandRan()
+			->getStatusCode();
 	}
 
-	/**
-	 * @param mixed[] $content
-	 * @return array{0:string,1:string|false,2:int|false} The cache path, parsed content, and bytes written.
-	 */
-	private function formatAndCache( array $content, InputInterface $input ): array {
-		return $this->cacheWithResourceDetailsFromInput(
-			$content,
-			fileName: (string) $input->getOption( 'to-filename' ),
-			fileFormat: (string) ( $input->getOption( 'format' ) ?: 'json' )
-		);
-	}
-
-	private function getOutputSection( OutputInterface $o, ?int $verbosity = null ): ?ConsoleSectionOutput {
-		return $o instanceof ConsoleOutputInterface &&
-			( $verbosity ?? OutputInterface::VERBOSITY_DEBUG ) <= $o->getVerbosity() ? $o->section() : null;
+	private function getOutputSection(
+		OutputInterface $output,
+		int $verbosity = OutputInterface::VERBOSITY_DEBUG
+	): ?ConsoleSectionOutput {
+		return $output instanceof ConsoleOutputInterface && $verbosity <= $output->getVerbosity()
+			? $output->section()
+			: null;
 	}
 
 	/** @param mixed[] $content */
@@ -141,22 +148,14 @@ abstract class TableConsole extends Console {
 	}
 
 	/** @throws OutOfBoundsException When key cannot be inferred. */
-	protected function validatedIndexKeyFromArgument( InputInterface $input ): ?string {
-		return ( new IndexKey(
-			value: (string) $input->getOption( 'with-key' ),
-			collection: $this->getCollectionKeysFromInput( $input instanceof ArgvInput ? $input->getRawTokens( strip: true ) : null ),
-			disallowed: $this->disallowedIndexKeys()
-		) )->validated()->value;
-	}
-
-	/** @return array<array-key,mixed> */
-	private function scrapeAndParseContent( InputInterface $input, OutputInterface $output ): array {
-		$vv = $this->getOutputSection( $output, OutputInterface::VERBOSITY_VERY_VERBOSE );
-
-		return $this->getParsedContent(
-			ignoreCache: true === $input->getOption( 'force' ),
-			outputWriter: $vv ? $vv->writeln( ... ) : null
+	private function validatedIndexKeyFromArgument( InputInterface $input ): ?string {
+		$value      = (string) $input->getOption( 'with-key' );
+		$disallowed = $this->disallowedIndexKeys();
+		$collection = $this->getCollectionKeysFromInput(
+			$input instanceof ArgvInput ? $input->getRawTokens( strip: true ) : null
 		);
+
+		return ( new IndexKey( $value, $collection, $disallowed ) )->validated()->value;
 	}
 
 	private function createTableFor( OutputInterface $output, int $rowsCount ): ScrapedTable {
