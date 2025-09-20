@@ -58,9 +58,8 @@ abstract class TableConsole extends Console {
 	 */
 	abstract protected function cacheWithResourceDetailsFromInput(
 		array $content,
-		string $fileName = '',
-		string $fileFormat = 'json',
-		bool $toNumber = false
+		string $fileName,
+		string $fileFormat
 	): array;
 
 	protected function configure() {
@@ -121,8 +120,7 @@ abstract class TableConsole extends Console {
 		return $this->cacheWithResourceDetailsFromInput(
 			$content,
 			fileName: (string) $input->getOption( 'to-filename' ),
-			fileFormat: (string) ( $input->getOption( 'format' ) ?: 'json' ),
-			toNumber: true === $input->getOption( 'numeric-to-number' )
+			fileFormat: (string) ( $input->getOption( 'format' ) ?: 'json' )
 		);
 	}
 
