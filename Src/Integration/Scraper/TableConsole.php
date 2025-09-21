@@ -28,31 +28,24 @@ use TheWebSolver\Codegarage\Cli\Integration\Scraper\ScrapedTable;
 #[Associative( 'accent', desc: 'Handle accented characters in parsed content', isOptional: false )]
 #[Flag( 'force', desc: 'Invalidate already cached data and scrape again from source' )]
 abstract class TableConsole extends Console {
-	/** @var list<string> */
-	private array $datasetIndicesFromArgument      = [];
-	private ?string $validatedIndexKeyFromArgument = null;
-	private string $operationTypeFromOption        = '';
+	/** @var array{indexKey:?string,datasetKeys:?non-empty-list<string>,accent:?non-empty-string} */
+	private array $inputValue;
 
-	abstract protected function isCachingDisabled(): bool;
 	/** @return array<TTableRowDataType> */
-	abstract protected function getParsedContent( bool $ignoreCache, ?Closure $outputWriter = null ): array;
-
-	abstract protected function getTitleForOutput(): string;
-	abstract protected function getTableContextForOutput(): string;
-	/** @return non-empty-string|null */
-	abstract protected function getAccentOperationTypeForOutput(): ?string;
-	/** @return array{0:?string,1:list<string>} */
-	abstract protected function getIndicesSourceForOutput(): array;
+	abstract protected function getTableRows( bool $ignoreCache, ?Closure $outputWriter = null ): array;
 
 	/**
-	 * @param array<TTableRowDataType> $content
-	 * @return array{0:string,1:string|false,2:int|false} The cache path, parsed content, and bytes written.
+	 * @param array<TTableRowDataType> $tableRows
+	 * @return array{path:string,bytes:int|false,content:non-empty-string|false}
 	 */
-	abstract protected function cacheWithResourceDetailsFromInput(
-		array $content,
-		string $fileName,
-		string $fileFormat
-	): array;
+	abstract protected function getCacheDetails( array $tableRows, string $fileName, string $fileFormat ): array;
+	abstract protected function isCachingDisabled(): bool;
+
+	/** @return array{indexKey:?string,datasetKeys:?non-empty-list<string>,accent:?non-empty-string} */
+	abstract protected function getInputDefaultsForOutput(): array;
+	abstract protected function getTitleForOutput(): string;
+	abstract protected function getTableContextForOutput(): string;
+
 
 	protected function configure() {
 		parent::configure();
@@ -62,72 +55,89 @@ abstract class TableConsole extends Console {
 	}
 
 	protected function initialize( InputInterface $input, OutputInterface $output ) {
-		$this->validatedIndexKeyFromArgument = $this->validatedIndexKeyFromArgument( $input );
-		$this->datasetIndicesFromArgument    = $input->getArgument( 'collection-key' ) ?: [];
-		$this->operationTypeFromOption       = (string) $input->getOption( 'accent' );
+		$this->inputValue['accent']      = ( $accent = $input->getOption( 'accent' ) ) ? (string) $accent : null;
+		$this->inputValue['datasetKeys'] = ! empty( $keys = $input->getArgument( 'collection-key' ) ) ? $keys : null;
+		$this->inputValue['indexKey']    = $this->getValidatedIndexKeyFromInput( $input );
 	}
 
-	/** @return list<string> */
-	protected function getRowDatasetMappedIndicesFromInput(): array {
-		return $this->datasetIndicesFromArgument;
+	/** @return array{indexKey:?string,datasetKeys:?non-empty-list<string>,accent:?non-empty-string} */
+	protected function getInputValue(): array {
+		return $this->inputValue;
 	}
 
-	protected function getRowDatasetIndexKeyFromInput(): ?string {
-		return $this->validatedIndexKeyFromArgument;
-	}
+	/** @return ?non-empty-list<string> */
+	final protected function getUserProvidedCollectionKeys(): ?array {
+		$default      = $this->getInputAttribute()->getInputBy( 'collection-key', Positional::class )?->default;
+		$userProvided = $this->getInputValue()['datasetKeys'];
 
-	protected function getAccentOperationTypeFromInput(): string {
-		return $this->operationTypeFromOption;
+		return $default === $userProvided ? null : $userProvided;
 	}
 
 	/**
 	 * Returns subset of collection keys that are not allowed to be used as an index key.
 	 *
-	 * @return string[]
+	 * @return list<string>
 	 *
 	 * Inheriting class may override this method to provide disallowed index keys.
 	 */
-	protected function disallowedIndexKeys(): array {
+	protected function getDisallowedIndexKeys(): array {
 		return [];
 	}
 
 	/**
-	 * Gets the Positional Attribute "collection-key"'s suggested values as allowed keys.
+	 * Gets the Positional Attribute "collection-key"'s suggested values as collection keys.
 	 *
-	 * Inheriting class may override this method to provide allowed keys directly.
+	 * Inheriting class may override this method to provide collection keys.
 	 *
 	 * @param ?list<string> $argv
 	 * @return string[]
 	 */
-	protected function getCollectionKeysFromInput( ?array $argv ): array {
+	protected function getSuggestedCollectionKeys( ?array $argv ): array {
 		return ( $given = $this->getInputAttribute()->getSuggestion()['collection-key'] )
 			? CommandSubscriber::inputSuggestedValues( $given, $argv )
 			: [];
 	}
 
+	/**
+	 * Gets index key after validating against collection keys.
+	 *
+	 * @throws OutOfBoundsException When index key cannot be verified against collection keys.
+	 *
+	 * Inheriting class may override this method to validate index key.
+	 */
+	protected function getValidatedIndexKeyFromInput( InputInterface $input ): ?string {
+		$indexKey   = (string) $input->getOption( 'with-key' );
+		$default    = $this->getInputAttribute()->getInputBy( 'with-key', Associative::class )?->default;
+		$collection = $this->getUserProvidedCollectionKeys() ?? $this->getSuggestedCollectionKeys(
+			argv: $input instanceof ArgvInput ? $input->getRawTokens( strip: true ) : null
+		);
+
+		$key = new IndexKey( $indexKey, $collection, $this->getDisallowedIndexKeys() );
+
+		return $default === $indexKey ? $key->value : $key->validated()->value;
+	}
+
 	protected function execute( InputInterface $input, OutputInterface $output ): int {
 		$ignoreCache = true === $input->getOption( 'force' );
 		$vv          = $this->getOutputSection( $output, OutputInterface::VERBOSITY_VERY_VERBOSE );
-		$content     = $this->getParsedContent( $ignoreCache, outputWriter: $vv ? $vv->writeln( ... ) : null );
-		$table       = $this->createTableFor( $output, rowsCount: count( $content ) );
+		$tableRows   = $this->getTableRows( $ignoreCache, outputWriter: $vv ? $vv->writeln( ... ) : null );
+		$table       = $this->createTableFor( $output, rowsCount: count( $tableRows ) );
+		$context     = $this->getTableContextForOutput();
 
 		if ( $vvv = $this->getOutputSection( $output ) ) {
-			$this->outputParsedContent( $content, $vvv );
+			$this->outputParsedContent( $tableRows, $vvv );
 			$vvv->writeln( $vvv->getContent() );
 		}
 
 		$this->isCachingDisabled() || $table->withCacheDetails(
-			...$this->cacheWithResourceDetailsFromInput(
-				$content,
+			...$this->getCacheDetails(
+				$tableRows,
 				fileName: (string) $input->getOption( 'to-filename' ),
-				fileFormat: (string) ( $input->getOption( 'format' ) ?: 'json' )
+				fileFormat: (string) ( $input->getOption( 'format' ) )
 			)
 		);
 
-		return $table->writeWhenVerbose( $this->getTableContextForOutput() )
-			->writeFooter()
-			->writeCommandRan()
-			->getStatusCode();
+		return $table->writeWhenVerbose( $context )->writeFooter()->writeCommandRan()->getStatusCode();
 	}
 
 	private function getOutputSection(
@@ -147,25 +157,19 @@ abstract class TableConsole extends Console {
 		$vvv->addContent( json_encode( $content ) ?: '' );
 	}
 
-	/** @throws OutOfBoundsException When key cannot be inferred. */
-	private function validatedIndexKeyFromArgument( InputInterface $input ): ?string {
-		$value      = (string) $input->getOption( 'with-key' );
-		$disallowed = $this->disallowedIndexKeys();
-		$collection = $this->getCollectionKeysFromInput(
-			$input instanceof ArgvInput ? $input->getRawTokens( strip: true ) : null
-		);
-
-		return ( new IndexKey( $value, $collection, $disallowed ) )->validated()->value;
-	}
-
 	private function createTableFor( OutputInterface $output, int $rowsCount ): ScrapedTable {
-		[$indexKey, $datasetIndices] = $this->getIndicesSourceForOutput();
-
-		return ( new ScrapedTable( $output, $this->isCachingDisabled() ) )
+		$input   = $this->getInputValue();
+		$default = $this->getInputDefaultsForOutput();
+		$table   = ( new ScrapedTable( $output, $this->isCachingDisabled() ) )
 			->setHeaderTitle( $this->getTitleForOutput() )
 			->forCommand( $this->getName() ?? '' )
-			->accentedCharacters( $this->getAccentOperationTypeForOutput() )
-			->collectedUsing( new IndexKey( $indexKey, $datasetIndices, $this->disallowedIndexKeys() ) )
+			->accentedCharacters( $default['accent'] )
 			->fetchedItemsCount( $rowsCount );
+
+		empty( $collection = $input['datasetKeys'] ?? $default['datasetKeys'] ) || $table->collectedUsing(
+			new IndexKey( $input['indexKey'] ?? $default['indexKey'], $collection, $this->getDisallowedIndexKeys() )
+		);
+
+		return $table;
 	}
 }
