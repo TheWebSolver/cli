@@ -35,6 +35,10 @@ abstract class TableConsole extends Console {
 	abstract protected function getTableRows( bool $ignoreCache, ?Closure $outputWriter = null ): array;
 
 	/**
+	 * Gets details after table rows as cached with given filename and file format.
+	 *
+	 * This method is only invoked when `$this->isCachingDisabled()` method returns `false`.
+	 *
 	 * @param array<TTableRowDataType> $tableRows
 	 * @return array{path:string,bytes:int|false,content:non-empty-string|false}
 	 */
@@ -73,11 +77,9 @@ abstract class TableConsole extends Console {
 	}
 
 	/**
-	 * Returns subset of collection keys that are not allowed to be used as an index key.
+	 * Gets subset of collection keys that are not allowed to be used as an index key.
 	 *
 	 * @return list<string>
-	 *
-	 * Inheriting class may override this method to provide disallowed index keys.
 	 */
 	protected function getDisallowedIndexKeys(): array {
 		return [];
@@ -85,8 +87,6 @@ abstract class TableConsole extends Console {
 
 	/**
 	 * Gets the Positional Attribute "collection-key"'s suggested values as collection keys.
-	 *
-	 * Inheriting class may override this method to provide collection keys.
 	 *
 	 * @param ?list<string> $argv
 	 * @return string[]
