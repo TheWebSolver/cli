@@ -43,7 +43,6 @@ abstract class TableConsole extends Console {
 
 	/** @return array{indexKey:?string,datasetKeys:?non-empty-list<string>,accent:?non-empty-string} */
 	abstract protected function getInputDefaultsForOutput(): array;
-	abstract protected function getTitleForOutput(): string;
 	abstract protected function getTableContextForOutput(): string;
 
 
@@ -140,6 +139,25 @@ abstract class TableConsole extends Console {
 		return $table->writeWhenVerbose( $context )->writeFooter()->writeCommandRan()->getStatusCode();
 	}
 
+	final protected function getTableActionStatus(): string {
+		$actions                                 = [ 'Scraped', 'parsed' ];
+		$this->isCachingDisabled() || $actions[] = 'cached';
+		$lastAction                              = array_pop( $actions );
+
+		return implode( ', ', $actions ) . " and {$lastAction} " . $this->getTableContextForOutput();
+	}
+
+	/**
+	 * Gets table helper instance to output scraped, parsed, and/or cached table rows.
+	 *
+	 * It is recommended to provide the table header title by the inheriting class
+	 * when this method is overridden. Otherwise, no header title will be set.
+	 */
+	protected function getOutputTable( OutputInterface $output ): ScrapedTable {
+		return ( new ScrapedTable( $output, $this->isCachingDisabled() ) )
+			->setHeaderTitle( $this->getTableActionStatus() );
+	}
+
 	private function getOutputSection(
 		OutputInterface $output,
 		int $verbosity = OutputInterface::VERBOSITY_DEBUG
@@ -160,8 +178,7 @@ abstract class TableConsole extends Console {
 	private function createTableFor( OutputInterface $output, int $rowsCount ): ScrapedTable {
 		$input   = $this->getInputValue();
 		$default = $this->getInputDefaultsForOutput();
-		$table   = ( new ScrapedTable( $output, $this->isCachingDisabled() ) )
-			->setHeaderTitle( $this->getTitleForOutput() )
+		$table   = $this->getOutputTable( $output )
 			->forCommand( $this->getName() ?? '' )
 			->accentedCharacters( $default['accent'] )
 			->fetchedItemsCount( $rowsCount );
