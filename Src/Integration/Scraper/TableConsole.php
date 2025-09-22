@@ -23,32 +23,35 @@ use TheWebSolver\Codegarage\Cli\Integration\Scraper\ScrapedTable;
 #[Positional( 'collection-key', desc: 'Items to collect from scraped content', isVariadic: true )]
 #[Associative( 'with-key', desc: 'Collection key to use as index' )]
 #[Associative( 'to-filename', desc: 'The filename (without extension) to write cached content to', shortcut: 'r' )]
-#[Associative( 'format', desc: 'Format to save cache to. Defaults to "json"', shortcut: 'x' )]
+#[Associative( 'extension', desc: 'Filename extension to save cache to.', shortcut: 'x', default: 'json' )]
 #[Flag( 'show', desc: 'Display parsed data in console' )]
 #[Associative( 'accent', desc: 'Handle accented characters in parsed content', isOptional: false )]
 #[Flag( 'force', desc: 'Invalidate already cached data and scrape again from source' )]
 abstract class TableConsole extends Console {
-	/** @var array{indexKey:?string,datasetKeys:?non-empty-list<string>,accent:?non-empty-string} */
+	/**
+	 * @var array{
+	 *  indexKey   : ?string,
+	 *  datasetKeys: ?non-empty-list<string>,
+	 *  accent     : ?non-empty-string,
+	 *  filename   : string,
+	 *  extension  : string
+	 * }
+	 */
 	private array $inputValue;
 
-	/** @return array<TTableRowDataType> */
-	abstract protected function getTableRows( bool $ignoreCache, ?Closure $outputWriter = null ): array;
-
 	/**
-	 * Gets details after table rows as cached with given filename and file format.
+	 * Gets parsed table raws.
 	 *
-	 * This method is only invoked when `$this->isCachingDisabled()` method returns `false`.
-	 *
-	 * @param array<TTableRowDataType> $tableRows
-	 * @return array{path:string,bytes:int|false,content:non-empty-string|false}
+	 * @return array{
+	 *  data : array<TTableRowDataType>,
+	 *  cache: ?array{path:string,bytes:int|false,content:non-empty-string|false}
+	 * } The `cache` value must be `null` when table rows data is not cached.
 	 */
-	abstract protected function getCacheDetails( array $tableRows, string $fileName, string $fileFormat ): array;
-	abstract protected function isCachingDisabled(): bool;
+	abstract protected function getTableRows( bool $ignoreCache, ?Closure $outputWriter ): array;
 
 	/** @return array{indexKey:?string,datasetKeys:?non-empty-list<string>,accent:?non-empty-string} */
 	abstract protected function getInputDefaultsForOutput(): array;
 	abstract protected function getTableContextForOutput(): string;
-
 
 	protected function configure() {
 		parent::configure();
@@ -61,9 +64,19 @@ abstract class TableConsole extends Console {
 		$this->inputValue['accent']      = ( $accent = $input->getOption( 'accent' ) ) ? (string) $accent : null;
 		$this->inputValue['datasetKeys'] = ! empty( $keys = $input->getArgument( 'collection-key' ) ) ? $keys : null;
 		$this->inputValue['indexKey']    = $this->getValidatedIndexKeyFromInput( $input );
+		$this->inputValue['filename']    = (string) $input->getOption( 'to-filename' );
+		$this->inputValue['extension']   = (string) ( $input->getOption( 'extension' ) );
 	}
 
-	/** @return array{indexKey:?string,datasetKeys:?non-empty-list<string>,accent:?non-empty-string} */
+	/**
+	 * @return array{
+	 *  indexKey   : ?string,
+	 *  datasetKeys: ?non-empty-list<string>,
+	 *  accent     : ?non-empty-string,
+	 *  filename   : string,
+	 *  extension  : string
+	 * }
+	 */
 	protected function getInputValue(): array {
 		return $this->inputValue;
 	}
@@ -120,29 +133,22 @@ abstract class TableConsole extends Console {
 		$ignoreCache = true === $input->getOption( 'force' );
 		$vv          = $this->getOutputSection( $output, OutputInterface::VERBOSITY_VERY_VERBOSE );
 		$tableRows   = $this->getTableRows( $ignoreCache, outputWriter: $vv ? $vv->writeln( ... ) : null );
-		$table       = $this->createTableFor( $output, rowsCount: count( $tableRows ) );
-		$context     = $this->getTableContextForOutput();
 
-		if ( $vvv = $this->getOutputSection( $output ) ) {
-			$this->outputParsedContent( $tableRows, $vvv );
-			$vvv->writeln( $vvv->getContent() );
-		}
+		$this->outputParsedContent( $tableRows['data'], vvv: $this->getOutputSection( $output ) );
 
-		$this->isCachingDisabled() || $table->withCacheDetails(
-			...$this->getCacheDetails(
-				$tableRows,
-				fileName: (string) $input->getOption( 'to-filename' ),
-				fileFormat: (string) ( $input->getOption( 'format' ) )
-			)
-		);
+		$cacheDetails = $tableRows['cache'];
+		$table        = $this->createTableFor( $output, count( $tableRows['data'] ), cached: ! ! $cacheDetails );
+		$context      = $this->getTableContextForOutput();
+
+		! ! $cacheDetails && $table->withCacheDetails( ...$cacheDetails );
 
 		return $table->writeWhenVerbose( $context )->writeFooter()->writeCommandRan()->getStatusCode();
 	}
 
-	final protected function getTableActionStatus(): string {
-		$actions                                 = [ 'Scraped', 'parsed' ];
-		$this->isCachingDisabled() || $actions[] = 'cached';
-		$lastAction                              = array_pop( $actions );
+	final protected function getTableActionStatus( bool $cachingDisabled ): string {
+		$actions                       = [ 'Scraped', 'parsed' ];
+		$cachingDisabled || $actions[] = 'cached';
+		$lastAction                    = array_pop( $actions );
 
 		return implode( ', ', $actions ) . " and {$lastAction} " . $this->getTableContextForOutput();
 	}
@@ -153,9 +159,9 @@ abstract class TableConsole extends Console {
 	 * It is recommended to provide the table header title by the inheriting class
 	 * when this method is overridden. Otherwise, no header title will be set.
 	 */
-	protected function getOutputTable( OutputInterface $output ): ScrapedTable {
-		return ( new ScrapedTable( $output, $this->isCachingDisabled() ) )
-			->setHeaderTitle( $this->getTableActionStatus() );
+	protected function getOutputTable( OutputInterface $output, bool $cachingDisabled ): ScrapedTable {
+		return ( new ScrapedTable( $output, $cachingDisabled ) )
+			->setHeaderTitle( $this->getTableActionStatus( $cachingDisabled ) );
 	}
 
 	private function getOutputSection(
@@ -168,17 +174,22 @@ abstract class TableConsole extends Console {
 	}
 
 	/** @param mixed[] $content */
-	private function outputParsedContent( array $content, ConsoleSectionOutput $vvv ): void {
+	private function outputParsedContent( array $content, ?ConsoleSectionOutput $vvv ): void {
+		if ( ! $vvv ) {
+			return;
+		}
+
 		$vvv->addContent( self::LONG_SEPARATOR_LINE );
 		$vvv->addContent( "List of {$this->getTableContextForOutput()}:" );
 		$vvv->addContent( self::LONG_SEPARATOR_LINE );
 		$vvv->addContent( json_encode( $content ) ?: '' );
+		$vvv->writeln( $vvv->getContent() );
 	}
 
-	private function createTableFor( OutputInterface $output, int $rowsCount ): ScrapedTable {
+	private function createTableFor( OutputInterface $output, int $rowsCount, bool $cached ): ScrapedTable {
 		$input   = $this->getInputValue();
 		$default = $this->getInputDefaultsForOutput();
-		$table   = $this->getOutputTable( $output )
+		$table   = $this->getOutputTable( $output, ! $cached )
 			->forCommand( $this->getName() ?? '' )
 			->accentedCharacters( $default['accent'] )
 			->fetchedItemsCount( $rowsCount );
