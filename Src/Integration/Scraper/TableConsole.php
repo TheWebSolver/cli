@@ -21,7 +21,7 @@ use TheWebSolver\Codegarage\Cli\Integration\Scraper\ScrapedTable;
 
 /** @template TTableRowDataType */
 #[Positional( 'collection-key', desc: 'Items to collect from scraped content', isVariadic: true )]
-#[Associative( 'with-key', desc: 'Collection key to use as index' )]
+#[Associative( 'with-key', desc: 'Collection key to use as index', shortcut: 'k' )]
 #[Associative( 'to-filename', desc: 'The filename (without extension) to write cached content to', shortcut: 'r' )]
 #[Associative( 'extension', desc: 'Filename extension to save cache to.', shortcut: 'x', default: 'json' )]
 #[Flag( 'show', desc: 'Display parsed data in console' )]
@@ -114,19 +114,18 @@ abstract class TableConsole extends Console {
 	 * Gets index key after validating against collection keys.
 	 *
 	 * @throws OutOfBoundsException When index key cannot be verified against collection keys.
-	 *
-	 * Inheriting class may override this method to validate index key.
 	 */
 	protected function getValidatedIndexKeyFromInput( InputInterface $input ): ?string {
 		$indexKey   = (string) $input->getOption( 'with-key' );
-		$default    = $this->getInputAttribute()->getInputBy( 'with-key', Associative::class )?->default;
+		$keyInput   = $this->getInputAttribute()->getInputBy( 'with-key', Associative::class );
 		$collection = $this->getUserProvidedCollectionKeys() ?? $this->getSuggestedCollectionKeys(
 			argv: $input instanceof ArgvInput ? $input->getRawTokens( strip: true ) : null
 		);
 
+		( $s = $keyInput?->shortcut ) && $this->stringFromShortcut( $indexKey, $input, (array) $s );
 		$key = new IndexKey( $indexKey, $collection, $this->getDisallowedIndexKeys() );
 
-		return $default === $indexKey ? $key->value : $key->validated()->value;
+		return $keyInput?->default === $indexKey ? $key->value : $key->validated()->value;
 	}
 
 	protected function execute( InputInterface $input, OutputInterface $output ): int {
@@ -162,6 +161,15 @@ abstract class TableConsole extends Console {
 	protected function getOutputTable( OutputInterface $output, bool $cachingDisabled ): ScrapedTable {
 		return ( new ScrapedTable( $output, $cachingDisabled ) )
 			->setHeaderTitle( $this->getTableActionStatus( $cachingDisabled ) );
+	}
+
+	/** @param string[] $shortcuts */
+	private function stringFromShortcut( string &$value, InputInterface $input, array $shortcuts ): void {
+		str_starts_with( $value, needle: '=' )
+			&& array_filter(
+				array: array_map( static fn( string $s ): string => "-{$s}", $shortcuts ),
+				callback: $input->getParameterOption( ... )
+			) && $value = substr( $value, offset: 1 );
 	}
 
 	private function getOutputSection(

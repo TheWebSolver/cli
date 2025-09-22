@@ -76,7 +76,13 @@ parameters:
 			path: Src/Integration/Scraper/TableConsole.php
 			identifier: cast.string
 			count: 4
-		- # Input option values are always of string type.
+		- # Non-variadic input option values are always of string type.
 			path: Src/Integration/Scraper/TableConsole.php
 			identifier: assign.propertyType
 			count: 1
+		- # Array filter callback that returns mixed value.
+			path: Src/Integration/Scraper/TableConsole.php
+			identifier: argument.type
+			count: 1
+			message: '#^Parameter \$callback of function array_filter expects \(callable\(.*?\)\: bool\)\|null, Closure\(.*?\)\: mixed given.$#'
+
