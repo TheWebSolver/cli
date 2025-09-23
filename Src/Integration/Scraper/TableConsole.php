@@ -105,7 +105,7 @@ abstract class TableConsole extends Console {
 	 * @return string[]
 	 */
 	protected function getSuggestedCollectionKeys( ?array $argv ): array {
-		return ( $given = $this->getInputAttribute()->getSuggestion()['collection-key'] )
+		return ( $given = ( $this->getInputAttribute()->getSuggestion()['collection-key'] ?? false ) )
 			? CommandSubscriber::inputSuggestedValues( $given, $argv )
 			: [];
 	}
@@ -163,6 +163,19 @@ abstract class TableConsole extends Console {
 			->setHeaderTitle( $this->getTableActionStatus( $cachingDisabled ) );
 	}
 
+	/** @param mixed[] $content */
+	protected function outputParsedContent( array $content, ?ConsoleSectionOutput $vvv ): void {
+		if ( ! $vvv ) {
+			return;
+		}
+
+		$vvv->addContent( self::LONG_SEPARATOR_LINE );
+		$vvv->addContent( "List of {$this->getTableContextForOutput()}:" );
+		$vvv->addContent( self::LONG_SEPARATOR_LINE );
+		$vvv->addContent( json_encode( $content ) ?: '' );
+		$vvv->writeln( $vvv->getContent() );
+	}
+
 	/** @param string[] $shortcuts */
 	private function stringFromShortcut( string &$value, InputInterface $input, array $shortcuts ): void {
 		str_starts_with( $value, needle: '=' )
@@ -179,19 +192,6 @@ abstract class TableConsole extends Console {
 		return $output instanceof ConsoleOutputInterface && $verbosity <= $output->getVerbosity()
 			? $output->section()
 			: null;
-	}
-
-	/** @param mixed[] $content */
-	private function outputParsedContent( array $content, ?ConsoleSectionOutput $vvv ): void {
-		if ( ! $vvv ) {
-			return;
-		}
-
-		$vvv->addContent( self::LONG_SEPARATOR_LINE );
-		$vvv->addContent( "List of {$this->getTableContextForOutput()}:" );
-		$vvv->addContent( self::LONG_SEPARATOR_LINE );
-		$vvv->addContent( json_encode( $content ) ?: '' );
-		$vvv->writeln( $vvv->getContent() );
 	}
 
 	private function createTableFor( OutputInterface $output, int $rowsCount, bool $cached ): ScrapedTable {
