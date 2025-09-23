@@ -12,7 +12,7 @@ class IndexKeyTest extends TestCase {
 	#[Test]
 	#[DataProvider( 'provideCollectablesAndDisallowedKeys' )]
 	public function itValidatesIndexKeyWithCollectableAndDisallowedKeys(
-		string $key,
+		?string $key,
 		array $collection,
 		array $disallowed,
 		?string $thrown = null
@@ -29,6 +29,8 @@ class IndexKeyTest extends TestCase {
 
 	public static function provideCollectablesAndDisallowedKeys(): array {
 		return [
+			[ '', [ 'a', 'b', 'c' ], [] ],
+			[ null, [ 'a', 'b', 'c' ], [] ],
 			[ 'a', [ 'a', 'b', 'c' ], [] ],
 			[ 'b', [ 'a', 'b', 'c' ], [ 'a' ] ],
 			[

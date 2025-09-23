@@ -25,6 +25,7 @@ final readonly class IndexKey {
 
 		return match ( true ) {
 			default                                                     => $this,
+			! $this->value                                              => $this,
 			empty( $allowed )                                           => $this->throwInvalid( replacements: null ),
 			in_array( $this->value, $this->disallowed, strict: true ),
 			! in_array( $this->value, $this->collection, strict: true ) => $this->throwInvalid( replacements: $allowed ),
