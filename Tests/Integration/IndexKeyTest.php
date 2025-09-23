@@ -17,14 +17,11 @@ class IndexKeyTest extends TestCase {
 		array $disallowed,
 		?string $thrown = null
 	): void {
-
 		if ( $thrown ) {
-			$this->expectExceptionMessage( $thrown );
+			$this->expectExceptionMessage( sprintf( IndexKey::INVALID, $key ) . ' ' . $thrown );
 		}
 
-		$indexKey = new IndexKey( $key, $collection, $disallowed );
-
-		$this->assertSame( $key, $indexKey->validated()->value );
+		$this->assertSame( $key, ( new IndexKey( $key, $collection, $disallowed ) )->validated()->value );
 	}
 
 	public static function provideCollectablesAndDisallowedKeys(): array {
@@ -33,36 +30,14 @@ class IndexKeyTest extends TestCase {
 			[ null, [ 'a', 'b', 'c' ], [] ],
 			[ 'a', [ 'a', 'b', 'c' ], [] ],
 			[ 'b', [ 'a', 'b', 'c' ], [ 'a' ] ],
-			[
-				'a',
-				[ 'a' ],
-				[ 'a' ],
-				sprintf( IndexKey::CANNOT_USE, 'a' ) . ' ' . IndexKey::ONLY_DISALLOWED_OPTION,
-			],
-			[
-				'b',
-				[ 'a', 'b' ],
-				[ 'b' ],
-				sprintf( IndexKey::CANNOT_USE, 'b' ) . ' ' . sprintf( IndexKey::AVAILABLE_OPTION, '"a"' ),
-			],
-			[
-				'b',
-				[ 'a', 'b', 'c' ],
-				[ 'b' ],
-				sprintf( IndexKey::CANNOT_USE, 'b' ) . ' ' . sprintf( IndexKey::AVAILABLE_OPTION, '"a" | "c"' ),
-			],
-			[
-				'b',
-				[ 'c', 'd' ],
-				[],
-				sprintf( IndexKey::CANNOT_USE, 'b' ) . ' ' . sprintf( IndexKey::AVAILABLE_OPTION, '"c" | "d"' ),
-			],
-			[
-				'b',
-				[ 'c', 'd' ],
-				[ 'e' ],
-				sprintf( IndexKey::CANNOT_USE, 'b' ) . ' ' . sprintf( IndexKey::AVAILABLE_OPTION, '"c" | "d"' ),
-			],
+			[ 'b', [ 'a', 'b', 'c' ], [ 'd', 'e', 'f' ] ],
+			[ 'a', [ 'a' ], [ 'a' ], sprintf( IndexKey::NON_COLLECTABLE, '"a"' ) ],
+			[ 'a', [ 'a', 'b' ], [ 'a', 'b' ], sprintf( IndexKey::NON_COLLECTABLE, '"a" | "b"' ) ],
+			[ 'b', [ 'a', 'b' ], [ 'b' ], sprintf( IndexKey::ALLOWED_COLLECTABLE, '"a"' ) ],
+			[ 'b', [ 'a', 'b', 'c' ], [ 'b' ], sprintf( IndexKey::ALLOWED_COLLECTABLE, '"a" | "c"' ) ],
+			[ 'b', [ 'c', 'd' ], [], sprintf( IndexKey::ALLOWED_COLLECTABLE, '"c" | "d"' ) ],
+			[ 'b', [ 'c', 'd' ], [ 'e' ], sprintf( IndexKey::ALLOWED_COLLECTABLE, '"c" | "d"' ) ],
+			[ 'a', [], [], IndexKey::EMPTY_COLLECTABLE ],
 		];
 	}
 }

@@ -6,11 +6,14 @@ namespace TheWebSolver\Codegarage\Cli\Integration\Scraper;
 use OutOfBoundsException;
 
 final readonly class IndexKey {
-	/** @placeholder %s: The index key value. */
-	public const CANNOT_USE = '"%s" cannot be used as an index key.';
-	/** @placeholder %s: list of allowed collectable values. */
-	public const AVAILABLE_OPTION       = 'Available option: [%s]';
-	public const ONLY_DISALLOWED_OPTION = 'Only one collectable value provided that is not allowed to be used as an index key.';
+	/** @placeholder `%s`: The index key value. */
+	public const INVALID = '"%s" cannot be used as an index key.';
+	/** @placeholder `%s`: list of allowed collectable values. */
+	public const ALLOWED_COLLECTABLE = 'Available option: [%s]';
+	/** @placeholder `%s`: index key. */
+	public const EMPTY_COLLECTABLE = 'Given collection is empty.';
+	/** @placeholder: `%s`: list of allowed/disallowed (both are same) values. */
+	public const NON_COLLECTABLE = 'None of the values: [%s] in given collection is allowed to be used as an index key.';
 
 	/**
 	 * @param string   $value      One of the values in {@param $collection}. To be used as index for collected dataset.
@@ -21,27 +24,32 @@ final readonly class IndexKey {
 
 	/** @throws OutOfBoundsException When index key is invalid or not allowed. */
 	public function validated(): self {
-		$allowed = array_diff( $this->collection, $this->disallowed );
+		if ( ! $this->value ) {
+			return $this;
+		} elseif ( ! $allowed = array_diff( $this->collection, $this->disallowed ) ) {
+			$this->throwInvalid(
+				...( $this->collection ? [ self::NON_COLLECTABLE, $this->collection ] : [ self::EMPTY_COLLECTABLE, null ] )
+			);
+		} elseif ( ! $this->isIn( $this->collection ) || $this->isIn( $this->disallowed ) ) {
+			$this->throwInvalid( self::ALLOWED_COLLECTABLE, $allowed );
+		}
 
-		return match ( true ) {
-			default                                                     => $this,
-			! $this->value                                              => $this,
-			empty( $allowed )                                           => $this->throwInvalid( replacements: null ),
-			in_array( $this->value, $this->disallowed, strict: true ),
-			! in_array( $this->value, $this->collection, strict: true ) => $this->throwInvalid( replacements: $allowed ),
-		};
+		return $this;
+	}
+
+	/** @param string[] $stack */
+	private function isIn( array $stack ): bool {
+		return in_array( $this->value, $stack, strict: true );
 	}
 
 	/**
-	 * @param ?array<string|int> $replacements
+	 * @param ?non-empty-array<string> $allowed
 	 * @throws OutOfBoundsException Based on key given.
 	 */
-	private function throwInvalid( ?array $replacements ): never {
-		$prefix = sprintf( self::CANNOT_USE, $this->value );
-		$suffix = null === $replacements
-			? self::ONLY_DISALLOWED_OPTION
-			: sprintf( self::AVAILABLE_OPTION, '"' . implode( '" | "', $replacements ) . '"' );
+	private function throwInvalid( string $suffix, ?array $allowed = null ): never {
+		$prefix             = sprintf( self::INVALID, $this->value );
+		$allowed && $suffix = sprintf( $suffix, TableActionBuilder::convertToString( $allowed ) );
 
-		throw new OutOfBoundsException( trim( sprintf( '%1$s %2$s', $prefix, $suffix ) ) );
+		throw new OutOfBoundsException( trim( "{$prefix} {$suffix}" ) );
 	}
 }
