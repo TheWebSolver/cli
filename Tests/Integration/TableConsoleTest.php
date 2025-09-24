@@ -10,6 +10,7 @@ use Symfony\Component\Console\Application;
 use TheWebSolver\Codegarage\Cli\Enums\Symbol;
 use Symfony\Component\Console\Input\ArrayInput;
 use TheWebSolver\Codegarage\Cli\Data\Positional;
+use TheWebSolver\Codegarage\Cli\Data\Associative;
 use TheWebSolver\Codegarage\Cli\Attribute\Command;
 use Symfony\Component\Console\Output\OutputInterface;
 use PHPUnit\Framework\Attributes\DataProviderExternal;
@@ -94,7 +95,7 @@ class TableConsoleTest extends TestCase {
 		$bytes = array_shift( $rows );
 
 		$this->assertSame( 'Total Bytes Written', $bytes['Action'] );
-		$this->assertSame( $expectedRows['cache']['bytes'], $bytes['Details'] );
+		$this->assertSame( strlen( $expectedRows['cache']['content'] ), $bytes['Details'] );
 		$this->assertSame( Symbol::Green->value, (string) $bytes['Status'] );
 
 		$path = array_shift( $rows );
@@ -120,10 +121,12 @@ class TableConsoleTest extends TestCase {
 		$app->setCatchExceptions( false );
 
 		$command = new #[Command( 'test', 'key', 'Test key' )] class( $keys, $disallowed ) extends TableConsoleCommand {
+			public array $content;
+
 			public function __construct( private array $keys, private array $disallowed ) {
 				$rows = self::TABLE_ROWS;
 				// Using collection keys as data for array_combine to work with equal length.
-				$rows['data'] = $keys;
+				$rows['data'] = [ $keys ];
 
 				parent::__construct( tableRows: $rows );
 			}
@@ -133,11 +136,11 @@ class TableConsoleTest extends TestCase {
 			}
 
 			protected function outputParsedContent( array $content, ?ConsoleSectionOutput $vvv ): void {
-				TestCase::assertSame( array_combine( $this->keys, $this->keys ), $content );
+				$this->content = $content;
 			}
 		};
 
-		$app->add( $command::start( constructorArgs: compact( 'keys', 'disallowed' ) ) );
+		$app->add( $command = $command::start( constructorArgs: compact( 'keys', 'disallowed' ) ) );
 
 		if ( $thrown ) {
 			$this->expectException( OutOfBoundsException::class );
@@ -151,6 +154,18 @@ class TableConsoleTest extends TestCase {
 				'--with-key'     => $key ?: '',
 			]
 		);
+
+		$content = $command->content;
+
+		$this->assertCount( 1, $content );
+
+		$actualValue = current( $content );
+
+		$this->assertSame( $keys, array_keys( $actualValue ) );
+		$this->assertSame( $keys, array_values( $actualValue ) );
+
+		$this->assertSame( $key ?: 0, key( $content ), 'Key and value is array_combine of $keys.' );
+		$this->assertSame( $key ?: 0, $actualValue[ $key ] ?? 0, 'Key is $actualValue indexed by $key.' );
 	}
 
 	#[Test]
@@ -159,44 +174,81 @@ class TableConsoleTest extends TestCase {
 
 		$app->setAutoExit( false );
 
-		$command = new #[Command( 'from', 'suggestion', 'Keys from attribute' )]
+		$collectionFromAttribute = new #[Command( 'from', 'suggestion', 'Keys from attribute' )]
 		#[Positional( 'collection-key', suggestedValues: [ 'suggestOne', 'suggestTwo', 'suggestThree' ] )]
 		class() extends TableConsoleCommand {
+			public array $content;
+
 			protected function outputParsedContent( array $content, ?ConsoleSectionOutput $vvv ): void {
-				TestCase::assertSame(
-					[
-						'suggestOne'   => 'one',
-						'suggestTwo'   => 'two',
-						'suggestThree' => 'three',
-					],
-					$content
-				);
+				$this->content = $content;
 			}
 		};
 
-		$app->add( $command::start() );
+		$app->add( $collectionFromAttribute = $collectionFromAttribute::start() );
 		$tester->run( [ 'command' => 'from:suggestion' ] );
 
-		$command = new #[Command( 'from', 'input', 'Keys from input' )] class() extends TableConsoleCommand {
+		$this->assertSame(
+			[
+				'suggestOne'   => 'one',
+				'suggestTwo'   => 'two',
+				'suggestThree' => 'three',
+			],
+			$collectionFromAttribute->content[0]
+		);
+
+		$collectionFromInputArgument = new #[Command( 'from', 'input', 'Keys from input' )] class() extends TableConsoleCommand {
+			public array $content;
+
 			protected function outputParsedContent( array $content, ?ConsoleSectionOutput $vvv ): void {
-				TestCase::assertSame(
-					[
-						'keyOne'   => 'one',
-						'keyTwo'   => 'two',
-						'keyThree' => 'three',
-					],
-					$content
-				);
+				$this->content = $content;
 			}
 		};
 
-		$app->add( $command = $command::start() );
+		$app->add( $collectionFromInputArgument = $collectionFromInputArgument::start() );
 
 		$tester->run(
 			[
 				'command'        => 'from:input',
 				'collection-key' => [ 'keyOne', 'keyTwo', 'keyThree' ],
 			]
+		);
+
+		$this->assertSame(
+			[
+				'keyOne'   => 'one',
+				'keyTwo'   => 'two',
+				'keyThree' => 'three',
+			],
+			$collectionFromInputArgument->content[0]
+		);
+
+		$inputArgumentOverridesAttribute = new #[Command( 'arg', 'overrides', 'Collection keys from args overrides' )]
+		#[Positional( 'collection-key', suggestedValues: [ 'AttrOne', 'AttrTwo', 'AttrThree' ] )]
+		#[Associative( 'with-key', shortcut: [ 'i', 'k' ] )]
+		class() extends TableConsoleCommand {
+			public array $content;
+
+			protected function outputParsedContent( array $content, ?ConsoleSectionOutput $vvv ): void {
+				$this->content = $content;
+			}
+		};
+
+		$app->add( $inputArgumentOverridesAttribute = $inputArgumentOverridesAttribute::start() );
+
+		$tester->run(
+			[
+				'command'        => 'arg:overrides',
+				'collection-key' => [ 'overrideOne', 'overrideTwo', 'overrideThree' ],
+			]
+		);
+
+		$this->assertSame(
+			[
+				'overrideOne'   => 'one',
+				'overrideTwo'   => 'two',
+				'overrideThree' => 'three',
+			],
+			$inputArgumentOverridesAttribute->content[0]
 		);
 
 		$app->setCatchExceptions( false );
@@ -211,6 +263,42 @@ class TableConsoleTest extends TestCase {
 				'--with-key' => 'keyOne',
 				// 'collection-key' => [ 'keyOne', 'keyTwo', 'keyThree' ],
 			]
+		);
+	}
+
+	#[Test]
+	public function itMapsCollectionKeysAndIndexByValueOfAssignedIndexKey(): void {
+		$tester  = new ApplicationTester( $app = new Application() );
+		$command = new #[Command( 'index', 'shortcut', 'Uses index key provided with shortcut key' )]
+		#[Positional( 'collection-key', suggestedValues: [ 'AttrOne', 'AttrTwo', 'AttrThree' ] )]
+		#[Associative( 'with-key', shortcut: [ 'i', 'k' ] )]
+		class() extends TableConsoleCommand {
+			public array $content;
+
+			protected function outputParsedContent( array $content, ?ConsoleSectionOutput $vvv ): void {
+				$this->content = $content;
+			}
+		};
+
+		$app->setAutoExit( false );
+		$app->add( $command = $command::start() );
+
+		$tester->run(
+			[
+				'command' => 'index:shortcut',
+				'-k'      => 'AttrTwo',
+			]
+		);
+
+		$this->assertSame(
+			[
+				'two' => [
+					'AttrOne'   => 'one',
+					'AttrTwo'   => 'two',
+					'AttrThree' => 'three',
+				],
+			],
+			$command->content
 		);
 	}
 }

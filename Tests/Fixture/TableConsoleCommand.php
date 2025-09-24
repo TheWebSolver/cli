@@ -21,10 +21,10 @@ class TableConsoleCommand extends TableConsole {
 	];
 
 	public const TABLE_ROWS = [
-		'data'  => [ 'one', 'two', 'three' ],
+		'data'  => [ [ 'one', 'two', 'three' ] ],
 		'cache' => [
-			'bytes'   => 11,
-			'content' => '["one", "two", "three"]',
+			'bytes'   => 0,
+			'content' => '[["one","two","three"]]',
 			'path'    => 'test.path',
 		],
 	];
@@ -36,6 +36,8 @@ class TableConsoleCommand extends TableConsole {
 		protected array $tableRows = self::TABLE_ROWS
 	) {
 		parent::__construct();
+
+		$this->tableRows['cache']['bytes'] = strlen( $this->tableRows['cache']['content'] );
 	}
 
 	protected function getTableContextForOutput(): string {
@@ -43,16 +45,29 @@ class TableConsoleCommand extends TableConsole {
 	}
 
 	protected function getInputDefaultsForOutput(): array {
+		$this->defaults['datasetKeys'] = $this->getInputAttribute()->getSuggestion()['collection-key'] ?? null;
+
 		return $this->defaults;
 	}
 
 	protected function getTableRows( bool $ignoreCache, ?Closure $outputWriter ): array {
 		$outputWriter && $outputWriter( self::WRITE_BEFORE_TABLE_ROWS );
 
-		if ( $keys = $this->getInputValue()['datasetKeys'] ) {
-			$this->tableRows['data']             = $data = array_combine( $keys, $this->tableRows['data'] );
-			$this->tableRows['cache']['content'] = json_encode( $data );
+		$keys   = $this->getInputValue()['datasetKeys'] ?? $this->getInputDefaultsForOutput()['datasetKeys'] ?? [];
+		$update = [];
+
+		foreach ( $this->tableRows['data'] as $rowIndex => $rowValue ) {
+			if ( $keys ) {
+				$rowValue = array_combine( $keys, $rowValue );
+				$key      = $rowValue[ $this->getInputValue()['indexKey'] ] ?? null;
+			}
+
+			$update[ $key ?? $rowIndex ] = $rowValue;
 		}
+
+		$this->tableRows['data']             = $update;
+		$this->tableRows['cache']['content'] = $json = json_encode( $update );
+		// $this->tableRows['cache']['bytes']   = strlen( $json );
 
 		return $this->tableRows;
 	}
