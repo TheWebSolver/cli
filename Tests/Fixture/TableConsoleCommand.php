@@ -4,8 +4,8 @@ declare( strict_types = 1 );
 namespace TheWebSolver\Codegarage\Test\Fixture;
 
 use Closure;
-use Symfony\Component\Console\Output\OutputInterface;
 use TheWebSolver\Codegarage\Cli\Attribute\Command;
+use Symfony\Component\Console\Output\OutputInterface;
 use TheWebSolver\Codegarage\Cli\Integration\Scraper\ScrapedTable;
 use TheWebSolver\Codegarage\Cli\Integration\Scraper\TableConsole;
 
@@ -49,8 +49,10 @@ class TableConsoleCommand extends TableConsole {
 	protected function getTableRows( bool $ignoreCache, ?Closure $outputWriter ): array {
 		$outputWriter && $outputWriter( self::WRITE_BEFORE_TABLE_ROWS );
 
-		$keys                    = $this->getInputValue()['datasetKeys'];
-		$this->tableRows['data'] = $keys ? array_combine( $keys, $this->tableRows['data'] ) : $this->tableRows['data'];
+		if ( $keys = $this->getInputValue()['datasetKeys'] ) {
+			$this->tableRows['data']             = $data = array_combine( $keys, $this->tableRows['data'] );
+			$this->tableRows['cache']['content'] = json_encode( $data );
+		}
 
 		return $this->tableRows;
 	}

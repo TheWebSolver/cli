@@ -3,7 +3,6 @@ declare( strict_types = 1 );
 
 namespace TheWebSolver\Codegarage\Test\Integration;
 
-use Closure;
 use OutOfBoundsException;
 use PHPUnit\Framework\TestCase;
 use PHPUnit\Framework\Attributes\Test;
@@ -122,9 +121,11 @@ class TableConsoleTest extends TestCase {
 
 		$command = new #[Command( 'test', 'key', 'Test key' )] class( $keys, $disallowed ) extends TableConsoleCommand {
 			public function __construct( private array $keys, private array $disallowed ) {
-				parent::__construct();
+				$rows = self::TABLE_ROWS;
+				// Using collection keys as data for array_combine to work with equal length.
+				$rows['data'] = $keys;
 
-				$keys && $this->tableRows['data'] = $keys;
+				parent::__construct( tableRows: $rows );
 			}
 
 			protected function getDisallowedIndexKeys(): array {
@@ -132,11 +133,7 @@ class TableConsoleTest extends TestCase {
 			}
 
 			protected function outputParsedContent( array $content, ?ConsoleSectionOutput $vvv ): void {
-				if ( ! $this->keys ) {
-					TestCase::assertEmpty( $content );
-				} else {
-					TestCase::assertSame( array_combine( $this->keys, $this->keys ), $content );
-				}
+				TestCase::assertSame( array_combine( $this->keys, $this->keys ), $content );
 			}
 		};
 
