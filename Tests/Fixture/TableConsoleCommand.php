@@ -4,7 +4,9 @@ declare( strict_types = 1 );
 namespace TheWebSolver\Codegarage\Test\Fixture;
 
 use Closure;
+use TheWebSolver\Codegarage\Cli\Data\Associative;
 use TheWebSolver\Codegarage\Cli\Attribute\Command;
+use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
 use TheWebSolver\Codegarage\Cli\Integration\Scraper\ScrapedTable;
 use TheWebSolver\Codegarage\Cli\Integration\Scraper\TableConsole;
@@ -29,25 +31,43 @@ class TableConsoleCommand extends TableConsole {
 		],
 	];
 
-	private ScrapedTable $output__table;
+	public ScrapedTable $scrapedTable;
+
 
 	public function __construct(
 		protected array $defaults = self::DEFAULTS,
-		protected array $tableRows = self::TABLE_ROWS
+		public array $tableRows = self::TABLE_ROWS
 	) {
-		parent::__construct();
+		parent::__construct( self::asCommandName() );
 
 		$this->tableRows['cache']['bytes'] = strlen( $this->tableRows['cache']['content'] );
 	}
 
-	protected function getTableContextForOutput(): string {
-		return self::CONTEXT;
+	// phpcs:ignore Generic.CodeAnalysis.UselessOverridingMethod.Found -- Bumped visibility.
+	public function getInputValue(): array {
+		return parent::getInputValue();
 	}
 
-	protected function getInputDefaultsForOutput(): array {
-		$this->defaults['datasetKeys'] = $this->getInputAttribute()->getSuggestion()['collection-key'] ?? null;
+	// phpcs:ignore Squiz.Commenting.FunctionComment.WrongStyle -- Bumped visibility.
+	public function getInputDefaultsForOutput(): array {
+		$parser                        = $this->getInputAttribute();
+		$this->defaults['datasetKeys'] = $parser->getSuggestion()['collection-key'] ?? null;
+		$this->defaults['indexKey']    = $parser->getInputBy( 'with-key', Associative::class )?->default;
 
 		return $this->defaults;
+	}
+
+	protected function initialize( InputInterface $input, OutputInterface $output ) {
+		parent::initialize( $input, $output );
+
+		$filename = $input->getOption( 'to-filename' );
+		$format   = $input->getOption( 'extension' );
+
+		$filename && ( $this->tableRows['cache']['path'] = "{$filename}." . ( $format ? $format : 'test' ) );
+	}
+
+	protected function getTableContextForOutput(): string {
+		return self::CONTEXT;
 	}
 
 	protected function getTableRows( bool $ignoreCache, ?Closure $outputWriter ): array {
@@ -67,16 +87,12 @@ class TableConsoleCommand extends TableConsole {
 
 		$this->tableRows['data']             = $update;
 		$this->tableRows['cache']['content'] = $json = json_encode( $update );
-		// $this->tableRows['cache']['bytes']   = strlen( $json );
+		$this->tableRows['cache']['bytes']   = strlen( $json );
 
 		return $this->tableRows;
 	}
 
-	public function getTable(): ScrapedTable {
-		return $this->output__table;
-	}
-
 	protected function getOutputTable( OutputInterface $output, bool $cachingDisabled ): ScrapedTable {
-		return $this->output__table = parent::getOutputTable( $output, $cachingDisabled );
+		return $this->scrapedTable = parent::getOutputTable( $output, $cachingDisabled );
 	}
 }
