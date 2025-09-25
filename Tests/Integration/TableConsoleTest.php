@@ -276,6 +276,7 @@ class TableConsoleTest extends TestCase {
 		return [
 			'Validated against attribute when no argument passed' => [ 'y', null ],
 			'Validated against "1", "2", and "3"' => [ '2', [ '1', '2', '3' ] ],
+			'No validation if is default value'   => [ 'c', null ],
 		];
 	}
 
