@@ -199,7 +199,7 @@ abstract class TableConsole extends Console {
 		$default = $this->getInputDefaultsForOutput();
 		$table   = $this->getOutputTable( $output, ! $cached )
 			->forCommand( $this->getName() ?? '' )
-			->accentedCharacters( $default['accent'] )
+			->accentedCharacters( $input['accent'] ?? $default['accent'] )
 			->fetchedItemsCount( $rowsCount );
 
 		empty( $collection = $input['datasetKeys'] ?? $default['datasetKeys'] ) || $table->collectedUsing(

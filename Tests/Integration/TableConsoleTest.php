@@ -204,6 +204,30 @@ class TableConsoleTest extends TestCase {
 		);
 
 		$this->assertEmpty( $rows, 'All built table rows are asserted.' );
+
+		$this->tearDown();
+		$this->setUp();
+
+		$this->app->add( $command = $command::start() );
+		$this->tester->run(
+			[
+				'command'        => 'test:command',
+				'collection-key' => [ 'a', 'b', 'c' ],
+				'--accent'       => 'translit',
+			]
+		);
+
+		[
+			'keys' => $keys,
+			'index' => $key,
+			'accents' => $accentedCharacters
+		] = $command->scrapedTable->getBuiltRows( 'with collection keys and accent action from CLI input' );
+
+		$this->assertSame( '"a" | "b" | "c"', $keys['Details'], 'Collection keys from CLI input.' );
+		$this->assertSame( 'c', $key['Details'], 'Index key from CLI input.' );
+		$this->assertSame( Symbol::Green->value, (string) $key['Status'] );
+		$this->assertSame( 'translit', $accentedCharacters['Details'], 'Accented characters action from CLI input.' );
+		$this->assertSame( Symbol::Green->value, (string) $accentedCharacters['Status'] );
 	}
 
 	#[Test]
