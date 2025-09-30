@@ -26,7 +26,7 @@ final readonly class IndexKey {
 	public function validated(): self {
 		if ( ! $this->value ) {
 			return $this;
-		} elseif ( ! $allowed = array_diff( $this->collection, $this->disallowed ) ) {
+		} elseif ( ! $allowed = $this->withOnlyAllowed()->collection ) {
 			$this->throwInvalid(
 				...( $this->collection ? [ self::NON_COLLECTABLE, $this->collection ] : [ self::EMPTY_COLLECTABLE, null ] )
 			);
