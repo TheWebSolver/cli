@@ -29,7 +29,6 @@ class TableConsoleTest extends TestCase {
 	private ApplicationTester $tester;
 	private Application $app;
 
-
 	protected function setUp(): void {
 		$this->app    = new Application();
 		$this->tester = new ApplicationTester( $this->app );
@@ -43,7 +42,7 @@ class TableConsoleTest extends TestCase {
 	}
 
 	#[Test]
-	public function onCommandFixtureSetup(): TableConsoleCommand {
+	public function commandFixtureSetup(): TableConsoleCommand {
 		$command = new #[Command( 'test', 'command', 'Test inputs' )]
 		#[Positional( 'collection-key', suggestedValues: [ 'x', 'y', 'z' ] )]
 		#[Associative( 'with-key', default: 'c' )]
@@ -108,7 +107,7 @@ class TableConsoleTest extends TestCase {
 	}
 
 	#[Test]
-	#[Depends( 'onCommandFixtureSetup' )]
+	#[Depends( 'commandFixtureSetup' )]
 	public function itMocksOutputSectionIsInvokedWithTableRowsDataAndWritesToCli( TableConsoleCommand $command ): void {
 		$output  = $this->createMock( ConsoleOutputInterface::class );
 		$section = $this->createMock( ConsoleSectionOutput::class );
@@ -134,7 +133,7 @@ class TableConsoleTest extends TestCase {
 	}
 
 	#[Test]
-	#[Depends( 'onCommandFixtureSetup' )]
+	#[Depends( 'commandFixtureSetup' )]
 	public function itBuildsTableActionBuilderWithComputedData( TableConsoleCommand $command ): void {
 		$this->app->add( $fixture = $command::start() );
 		$this->tester->run(
@@ -174,7 +173,7 @@ class TableConsoleTest extends TestCase {
 		$this->assertSame(
 			'N/A (Possible option is one of: "x" | "y" | "z")',
 			$key['Details'],
-			'Collection keys provided in attribute used. Consequently, default indexKey as "b" is disallowed.'
+			'Collection keys provided in attribute used. Consequently, default indexKey as "c" is not allowed.'
 		);
 
 		$accentedCharacters = array_shift( $rows );
@@ -190,7 +189,7 @@ class TableConsoleTest extends TestCase {
 		$this->assertSame(
 			strlen( '[{"x":"one","y":"two","z":"three"}]' ),
 			$bytes['Details'],
-			'Table rows is never indexed by value of disallowed key. Collection done using attribute suggested values.'
+			'Table rows is never indexed by value of disallowed key. Corresponding values are indexed by collection keys.'
 		);
 
 		$path = array_shift( $rows );
@@ -218,16 +217,22 @@ class TableConsoleTest extends TestCase {
 		);
 
 		[
-			'keys' => $keys,
-			'index' => $key,
-			'accents' => $accentedCharacters
+			'keys'    => $keys,
+			'index'   => $key,
+			'accents' => $accentedCharacters,
+			'byte'    => $bytes,
 		] = $command->scrapedTable->getBuiltRows( 'with collection keys and accent action from CLI input' );
 
 		$this->assertSame( '"a" | "b" | "c"', $keys['Details'], 'Collection keys from CLI input.' );
-		$this->assertSame( 'c', $key['Details'], 'Index key from CLI input.' );
+		$this->assertSame( 'c', $key['Details'], "Index key from input option's default value." );
 		$this->assertSame( Symbol::Green->value, (string) $key['Status'] );
 		$this->assertSame( 'translit', $accentedCharacters['Details'], 'Accented characters action from CLI input.' );
 		$this->assertSame( Symbol::Green->value, (string) $accentedCharacters['Status'] );
+		$this->assertSame(
+			strlen( '{"three":{"a":"one","b":"two","c":"three"}}' ),
+			$bytes['Details'],
+			'Table rows are indexed by value of index-key. Table row values are indexed by collection keys.'
+		);
 	}
 
 	#[Test]
@@ -276,7 +281,7 @@ class TableConsoleTest extends TestCase {
 	}
 
 	#[Test]
-	#[Depends( 'onCommandFixtureSetup' )]
+	#[Depends( 'commandFixtureSetup' )]
 	#[DataProvider( 'provideIndexAndCollectionKeysForValidation' )]
 	public function itUsesSuggestedOrUserProvidedCollectionKeysForIndexKeyValidation(
 		string $indexKey,
@@ -300,7 +305,7 @@ class TableConsoleTest extends TestCase {
 		return [
 			'Validated against attribute when no argument passed' => [ 'y', null ],
 			'Validated against "1", "2", and "3"' => [ '2', [ '1', '2', '3' ] ],
-			'No validation if is default value'   => [ 'c', null ],
+			'No validation against CLI input or suggested values if is default value' => [ 'c', null ],
 		];
 	}
 
