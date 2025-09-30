@@ -40,4 +40,37 @@ class IndexKeyTest extends TestCase {
 			[ 'a', [], [], IndexKey::EMPTY_COLLECTABLE ],
 		];
 	}
+
+	#[Test]
+	#[DataProvider( 'provideAllowedAndDisallowedKeys' )]
+	public function itGetsNewInstanceIfCollectionContainsDisallowedKeys(
+		array $collection,
+		array $disallowed,
+		?array $expected,
+		bool $isNewInstance
+	): void {
+		$indexKey    = new IndexKey( null, $collection, $disallowed );
+		$allowedKeys = $indexKey->withOnlyAllowed();
+
+		if ( $isNewInstance ) {
+			$this->assertNotSame( $indexKey, $allowedKeys );
+			$this->assertEmpty( $allowedKeys->disallowed );
+		} else {
+			$this->assertSame( $indexKey, $allowedKeys );
+		}
+
+		$this->assertEqualsCanonicalizing( $expected ?? $collection, $allowedKeys->collection );
+	}
+
+	public static function provideAllowedAndDisallowedKeys(): array {
+		return [
+			[ [], [], null, false ],
+			[ [ 'a', 'b', 'c' ], [], null, false ],
+			[ [], [ 'a', 'b', 'c' ], null, false ],
+			[ [ 'a', 'b', 'c' ], [ 'x', 'y', 'z' ], null, false ],
+			[ [ 'a', 'b', 'c' ], [ 'x', 'a' ], [ 'b', 'c' ], true ],
+			[ [ 'a', 'b', 'c' ], [ 'a', 'b', 'c' ], [], true ],
+			[ [ 'a', 'b', 'c' ], [ 'x', 'y', 'c' ], [ 'a', 'b' ], true ],
+		];
+	}
 }

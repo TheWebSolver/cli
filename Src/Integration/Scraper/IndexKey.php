@@ -37,6 +37,16 @@ final readonly class IndexKey {
 		return $this;
 	}
 
+	public function withOnlyAllowed(): self {
+		if ( ! $this->disallowed || ! $this->collection ) {
+			return $this;
+		}
+
+		$allowed = array_filter( $this->collection, fn( string $key ) => ! in_array( $key, $this->disallowed, true ) );
+
+		return $this->collection === $allowed ? $this : new self( $this->value, $allowed, disallowed: [] );
+	}
+
 	/** @param string[] $stack */
 	private function isIn( array $stack ): bool {
 		return in_array( $this->value, $stack, strict: true );

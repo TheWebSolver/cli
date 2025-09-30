@@ -47,14 +47,7 @@ class ScrapedTable extends Table {
 			return $this;
 		}
 
-		$this->builder->withSymbol( TableActionBuilder::ROW_INDEX, Symbol::NotAllowed );
-
-		! empty( $disallowed = $indexKey->disallowed ) && $keys = array_filter(
-			array: $keys,
-			callback: static fn( string $key ): bool => ! in_array( $key, $disallowed, strict: true )
-		);
-
-		return $this->withRegisteredAllowedIndexKeyAction( $keys );
+		return $this->withRegisteredAllowedIndexKeyActionAndSymbol( $indexKey );
 	}
 
 	public function fetchedItemsCount( int $count ): self {
@@ -161,18 +154,18 @@ class ScrapedTable extends Table {
 		return $details;
 	}
 
-	/** @param string[] $keys */
-	private function withRegisteredAllowedIndexKeyAction( array $keys ): self {
+	private function withRegisteredAllowedIndexKeyActionAndSymbol( IndexKey $indexKey ): self {
 		$NA = TableActionBuilder::NOT_AVAILABLE;
 
-		if ( ! $keys ) {
+		if ( ! $allowedKeys = $indexKey->withOnlyAllowed()->collection ) {
 			$status = $NA;
 		} else {
-			$oneOf  = count( $keys ) === 1 ? '' : ' one of';
-			$status = "{$NA} (Possible option is{$oneOf}: {$this->builder->convertToString( $keys )})";
+			$oneOf  = count( $allowedKeys ) === 1 ? '' : ' one of';
+			$status = "{$NA} (Possible option is{$oneOf}: {$this->builder->convertToString( $allowedKeys )})";
 		}
 
 		$this->builder->withAction( TableActionBuilder::ROW_INDEX, $status );
+		$this->builder->withSymbol( TableActionBuilder::ROW_INDEX, Symbol::NotAllowed );
 
 		return $this;
 	}
