@@ -12,7 +12,6 @@ use TheWebSolver\Codegarage\Cli\Data\Positional;
 use TheWebSolver\Codegarage\Cli\Data\Associative;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
-use TheWebSolver\Codegarage\Cli\Helper\InputAttribute;
 use TheWebSolver\Codegarage\Cli\Event\CommandSubscriber;
 use Symfony\Component\Console\Output\ConsoleSectionOutput;
 use Symfony\Component\Console\Output\ConsoleOutputInterface;
