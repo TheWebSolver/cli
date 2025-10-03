@@ -34,7 +34,7 @@ class Console extends Command {
 	public const LONG_SEPARATOR_LINE     = '______________________________________________________________________________';
 	public const LONG_SEPARATOR          = '==============================================================================';
 
-	/** @param ReflectionClass<static> $ref */
+	/** @param ReflectionClass<Console> $ref */
 	final public static function getCommandAttribute( ReflectionClass $ref ): ?CommandAttribute {
 		return ( Parser::parseClassAttribute( CommandAttribute::class, $ref )[0] ?? null )?->newInstance();
 	}
@@ -157,7 +157,7 @@ class Console extends Command {
 	 * }
 	 * ```
 	 *
-	 * @param ReflectionClass<static> $reflection
+	 * @param ReflectionClass<Console> $reflection
 	 */
 	protected function withDefinitionsFrom( ReflectionClass $reflection ): static {
 		return $this->setDefined(
@@ -166,7 +166,7 @@ class Console extends Command {
 	}
 
 	/**
-	 * @param ReflectionClass<static> $ref
+	 * @param ReflectionClass<Console> $ref
 	 * @return non-empty-string
 	 */
 	private static function commandNameFromClassname( ReflectionClass $ref ): string {
@@ -175,9 +175,13 @@ class Console extends Command {
 		return static::CLI_NAMESPACE . ':' . lcfirst( $name );
 	}
 
-	/** @return ReflectionClass<static> */
+	/** @return ReflectionClass<Console> */
 	private function registerCommandDetails(): ReflectionClass {
-		if ( ! $attribute = $this->getCommandAttribute( $ref = new ReflectionClass( static::class ) ) ) {
+		$ref = $this->hasInputAttribute()
+			? $this->getInputAttribute()->getTargetReflection()
+			: new ReflectionClass( static::class );
+
+		if ( ! $attribute = $this->getCommandAttribute( $ref ) ) {
 			! ! $this->getName() || $this->setName( self::commandNameFromClassname( $ref ) );
 
 			return $ref;
@@ -194,7 +198,7 @@ class Console extends Command {
 		return $ref;
 	}
 
-	/** @param ReflectionClass<static> $reflection */
+	/** @param ReflectionClass<Console> $reflection */
 	private function registerParsedInputsToDefinitions( ReflectionClass $reflection ): static {
 		// Does not override InputAttribute if already set by inheriting class via constructor.
 		$this->setInputAttribute( $this->inputAttribute ?? InputAttribute::from( $reflection ) );
