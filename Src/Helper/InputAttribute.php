@@ -322,14 +322,6 @@ class InputAttribute {
 		return true;
 	}
 
-	/** @param ReflectionClass<Console> $target */
-	private function withCurrentTarget( ?ReflectionClass $target = null ): self {
-		$this->current['ref'] = $target ?? $this->target;
-		$this->hierarchy[]    = $this->current['ref']->name;
-
-		return $this;
-	}
-
 	/**
 	 * @param ReflectionAttribute<T> $reflection
 	 * @template T of object
@@ -361,17 +353,28 @@ class InputAttribute {
 		return $this->isInputVariant( $attribute ) && $this->registerCurrentInput( $attribute->newInstance() );
 	}
 
-	/** @return ReflectionClass<Console> */
-	private function useAttributes(): ReflectionClass {
-		foreach ( ( $target = $this->current['ref'] )->getAttributes() as $attribute ) {
+	/**
+	 * @param ReflectionClass<Console> $target
+	 * @return ReflectionClass<Console>
+	 */
+	private function inferAttributesFromTargetClass( ?ReflectionClass $target = null ): ReflectionClass {
+		$target            = $this->current['ref'] = $target ?? $this->target;
+		$this->hierarchy[] = $target->name;
+
+		foreach ( $target->getAttributes() as $attribute ) {
 			$this->ensureAndRegisterFrom( $attribute ) && $this->inferCurrentInput( ignoreIfExists: false );
 		}
 
 		return $target;
 	}
 
+	/** @param ?ReflectionClass<Console> $ref */
+	private function shouldTargetParent( ?ReflectionClass $ref = null ): bool {
+		return $this->getBaseClass() !== ( $ref ?? $this->getTargetReflection() )->name;
+	}
+
 	private function isCurrentTargetLastParent(): bool {
-		return ( $parent = $this->current['ref']->getParentClass() ) && $this->getBaseClass() === $parent->name;
+		return ( $parent = $this->current['ref']->getParentClass() ) && ! $this->shouldTargetParent( $parent );
 	}
 
 	/**
@@ -392,14 +395,18 @@ class InputAttribute {
 	}
 
 	private function infer(): self {
-		$parent = $this->withCurrentTarget()->useAttributes()->getParentClass();
+		$target = $this->inferAttributesFromTargetClass();
 
-		while ( $parent ) {
-			if ( $this->isCurrentTargetLastParent() ) {
-				break;
+		if ( $this->shouldTargetParent() ) {
+			$parent = $target->getParentClass();
+
+			while ( $parent ) {
+				if ( $this->isCurrentTargetLastParent() ) {
+					break;
+				}
+
+				$parent = $this->inferAttributesFromTargetClass( $parent )->getParentClass();
 			}
-
-			$parent = $this->withCurrentTarget( $parent )->useAttributes()->getParentClass();
 		}
 
 		$this->inUpdateMode() && $this->walkCollectionWithUpdatedInputProperties();

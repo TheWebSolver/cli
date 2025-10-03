@@ -407,9 +407,30 @@ class InputAttributeTest extends TestCase {
 		$this->assertTrue( $replaced->isOptional );
 		$this->assertSame( '', $replaced->desc );
 	}
+
+	#[Test]
+	public function itUsesParserFromInheritingClass(): void {
+		$this->assertEqualsCanonicalizing(
+			[ 'override', 'position', 'key-value', 'switch' ],
+			array_column( ( new Override() )->getInputAttribute()->toFlattenedArray(), 'name' )
+		);
+
+		$attrs = ( new Override( new InputAttribute( Override::class ) ) )->getInputAttribute()->toFlattenedArray();
+
+		$this->assertSame( [ 'override' ], array_column( $attrs, 'name' ) );
+	}
 }
 
 // phpcs:disable Generic.Files.OneObjectStructurePerFile.MultipleFound
+
+#[Flag( 'override' )]
+class Override extends BaseClass {
+	public function __construct( ?InputAttribute $parser = null ) {
+		$parser && $this->setInputAttribute( $parser->till( self::class )->register() );
+
+		parent::__construct();
+	}
+}
 
 #[Positional(
 	name: 'position',
