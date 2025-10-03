@@ -15,6 +15,7 @@ use TheWebSolver\Codegarage\Cli\Enums\InputVariant;
 use Symfony\Component\Console\Helper\HelperInterface;
 use TheWebSolver\Codegarage\Cli\Helper\InputAttribute;
 use TheWebSolver\Codegarage\Cli\Traits\ContainerAware;
+use Symfony\Component\Console\Exception\LogicException;
 use TheWebSolver\Codegarage\Cli\Data\Positional as Pos;
 use TheWebSolver\Codegarage\Cli\Data\Associative as Assoc;
 use TheWebSolver\Codegarage\Cli\Attribute\Command as CommandAttribute;
@@ -33,58 +34,35 @@ class Console extends Command {
 	public const LONG_SEPARATOR_LINE     = '______________________________________________________________________________';
 	public const LONG_SEPARATOR          = '==============================================================================';
 
-	// phpcs:disable Generic.CodeAnalysis.UselessOverridingMethod.Found
-	public function __construct( ?string $name = null ) {
-		parent::__construct( $name );
-	}
-
-	final public function setInputAttribute( InputAttribute $instance ): static {
-		$this->inputAttribute = $instance;
-
-		return $this;
-	}
-
-	final public function getInputAttribute(): InputAttribute {
-		return $this->inputAttribute;
-	}
-
-	final public function hasInputAttribute(): bool {
-		return isset( $this->inputAttribute );
+	/** @param ReflectionClass<static> $ref */
+	final public static function getCommandAttribute( ReflectionClass $ref ): ?CommandAttribute {
+		return ( Parser::parseClassAttribute( CommandAttribute::class, $ref )[0] ?? null )?->newInstance();
 	}
 
 	/**
 	 * @param ContainerInterface  $container       The DI container.
 	 * @param array<string,mixed> $constructorArgs Constructor's injected dependencies by the container.
-	 * @param bool                $infer           Whether to infer inputs from this class attributes.
 	 */
-	final public static function start(
-		?ContainerInterface $container = null,
-		array $constructorArgs = [],
-		bool $infer = true
-	): static {
-		[$command, $reflection] = static::getInstance( $container, $constructorArgs );
+	final public static function start( ?ContainerInterface $container = null, array $constructorArgs = [] ): static {
+		$command = $container
+			? self::resolveSharedFromContainer( [ $container, new ReflectionClass( static::class ), $constructorArgs ] )
+			: new static( ...$constructorArgs );
 
-		// Do not override InputAttribute if already set via constructor.
-		$command->setInputAttribute(
-			$command->inputAttribute ?? InputAttribute::from( $reflection )->register()
-		);
+		$command->setApplication( ( $app = $container?->get( Cli::class ) ) instanceof Cli ? $app : null );
 
-		return $command->isDefined() || ! $infer ? $command : $command->withDefinitionsFrom( $reflection );
+		return $command;
 	}
 
 	/**
 	 * @param ReflectionClass<static> $ref The reflection class, if any.
-	 * @return string Possible return values:
-	 * - **_non-empty-string:_** If class has attribute: `TheWebSolver\Codegarage\Cli\Attribute\Command`,
-	 * - **_non-empty-string:_** Using classname itself: `static::CLI_NAMESPACE` . **':camelCaseClassName'**, or
-	 * - **_empty-string:_**     If command name from classname is disabled: `Cli::useClassNameAsCommand(false)`.
+	 * @return non-empty-string Possible return values:
+	 * - From command attribute: `TheWebSolver\Codegarage\Cli\Attribute\Command`, or
+	 * - Using classname itself: `static::CLI_NAMESPACE` . **':camelCaseClassName'**
 	 */
 	final public static function asCommandName( ?ReflectionClass $ref = null ): string {
 		$ref ??= new ReflectionClass( static::class );
 
-		return ( $attribute = Parser::parseClassAttribute( CommandAttribute::class, $ref ) )
-			? $attribute[0]->newInstance()->commandName
-			: self::commandNameFromClassname( $ref );
+		return self::getCommandAttribute( $ref )->commandName ?? self::commandNameFromClassname( $ref );
 	}
 
 	/**
@@ -106,6 +84,30 @@ class Console extends Command {
 		return $asDefinition ? $attributes->toSymfonyInput() : $attributes->getCollection();
 	}
 
+	public function __construct( ?string $name = null ) {
+		try {
+			parent::__construct( $name );
+		} catch ( LogicException ) { // phpcs:ignore Generic.CodeAnalysis.EmptyStatement.DetectedCatch
+			// Ignore exception created by name. Filled either by attribute or from classname.
+		}
+
+		$this->registerParsedInputsToDefinitions( $this->registerCommandDetails() );
+	}
+
+	final public function setInputAttribute( InputAttribute $instance ): static {
+		$this->inputAttribute = $instance;
+
+		return $this;
+	}
+
+	final public function getInputAttribute(): InputAttribute {
+		return $this->inputAttribute;
+	}
+
+	final public function hasInputAttribute(): bool {
+		return isset( $this->inputAttribute );
+	}
+
 	final public function setDefined( bool $isDefined = true ): static {
 		$this->isDefined = $isDefined;
 
@@ -125,35 +127,6 @@ class Console extends Command {
 		return ( $helper = $this->getHelperSet()?->get( $helperClass ) ) instanceof $helperClass
 			? $helper
 			: new $helperClass();
-	}
-
-	/**
-	 * @param array<string,mixed> $constructorArgs
-	 * @return array{0:static,1:ReflectionClass<static>}
-	 */
-	protected static function getInstance( ?ContainerInterface $container, array $constructorArgs ): array {
-		$reflection = new ReflectionClass( static::class );
-		$command    = $container
-			? self::resolveSharedFromContainer( [ $container, $reflection, $constructorArgs ] )
-			: new static( ...$constructorArgs );
-
-		$command->setApplication( ( $app = $container?->get( Cli::class ) ) instanceof Cli ? $app : null );
-
-		if ( ! $attributes = Parser::parseClassAttribute( CommandAttribute::class, $reflection ) ) {
-			// Name might already be set using constructor args. Use it if that's the case.
-			$name = $command->getName() ?? self::commandNameFromClassname( $reflection );
-
-			return [ $command->setName( $name ), $reflection ];
-		}
-
-		$attribute = $attributes[0]->newInstance();
-
-		$command->setName( $attribute->commandName )
-			->setDescription( $attribute->description ?? '' )
-			->setAliases( $attribute->altNames )
-			->setHidden( $attribute->isInternal );
-
-		return [ $command, $reflection ];
 	}
 
 	/**
@@ -192,10 +165,42 @@ class Console extends Command {
 		);
 	}
 
-	/** @param ReflectionClass<static> $ref */
+	/**
+	 * @param ReflectionClass<static> $ref
+	 * @return non-empty-string
+	 */
 	private static function commandNameFromClassname( ReflectionClass $ref ): string {
 		$name = str_replace( search: '_', replace: '', subject: ucwords( $ref->getShortName(), separators: '_' ) );
 
 		return static::CLI_NAMESPACE . ':' . lcfirst( $name );
+	}
+
+	/** @return ReflectionClass<static> */
+	private function registerCommandDetails(): ReflectionClass {
+		if ( ! $attribute = $this->getCommandAttribute( $ref = new ReflectionClass( static::class ) ) ) {
+			! ! $this->getName() || $this->setName( self::commandNameFromClassname( $ref ) );
+
+			return $ref;
+		}
+
+		! ! $this->getName() || $this->setName( $attribute->commandName );
+
+		// Fallback to values set by Symfony Command.
+		$this->setDescription( $attribute->description ?? $this->getDescription() )
+			->setHidden( $attribute->isInternal || $this->isHidden() )
+			->setAliases( $attribute->altNames ?: $this->getAliases() )
+			->setHelp( $attribute->help ?? $this->getHelp() );
+
+		return $ref;
+	}
+
+	/** @param ReflectionClass<static> $reflection */
+	private function registerParsedInputsToDefinitions( ReflectionClass $reflection ): static {
+		// Does not override InputAttribute if already set by inheriting class via constructor.
+		$this->setInputAttribute(
+			$this->inputAttribute ?? InputAttribute::from( $reflection )->register()
+		);
+
+		return $this->isDefined() ? $this : $this->withDefinitionsFrom( $reflection );
 	}
 }

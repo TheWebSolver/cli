@@ -6,8 +6,12 @@ namespace TheWebSolver\Codegarage\Test;
 use PHPUnit\Framework\TestCase;
 use PHPUnit\Framework\Attributes\Test;
 use TheWebSolver\Codegarage\Cli\Console;
+use Symfony\Component\Console\Application;
 use TheWebSolver\Codegarage\Cli\Attribute\Command;
+use Symfony\Component\Console\Input\InputInterface;
+use Symfony\Component\Console\Output\OutputInterface;
 use TheWebSolver\Codegarage\Cli\Helper\InputAttribute;
+use Symfony\Component\Console\Tester\ApplicationTester;
 
 class ConsoleTest extends TestCase {
 	#[Test]
@@ -43,7 +47,7 @@ class ConsoleTest extends TestCase {
 		$console = new Console();
 		$parser  = $this->createStub( InputAttribute::class );
 
-		$this->assertFalse( $console->hasInputAttribute() );
+		$this->assertTrue( $console->hasInputAttribute() );
 		$this->assertSame( $parser, $console->setInputAttribute( $parser )->getInputAttribute() );
 		$this->assertTrue( $console->hasInputAttribute() );
 
@@ -67,6 +71,23 @@ class ConsoleTest extends TestCase {
 		$this->assertSame( $parser, $childCommand->getInputAttribute() );
 		$this->assertFalse( $childCommand->setDefined( false )->isDefined() );
 	}
+
+	#[Test]
+	public function itEnsuresCommandRunsWithNameAndAliases(): void {
+		$tester = new ApplicationTester( $app = new Application() );
+
+		$app->add( new Command_With_Attribute() );
+		$app->setAutoExit( false );
+		$tester->run( [ 'command' => 'test:nameFromAttribute' ] );
+
+		$tester->assertCommandIsSuccessful( 'Could not discover command: "nameFromAttribute"' );
+
+		foreach ( [ 'cli', 'console' ] as $alias ) {
+			$tester->run( [ 'command' => "test:{$alias}" ] );
+
+			$tester->assertCommandIsSuccessful( sprintf( 'Could not discover command using alias: "%s".', $alias ) );
+		}
+	}
 }
 
 // phpcs:disable Generic.Files.OneObjectStructurePerFile.MultipleFound
@@ -88,4 +109,16 @@ class Command_Without_Attribute extends Console {
 	/* altNames */     'cli',
 	/* altNames */     'console'
 )]
-class Command_With_Attribute extends Console {}
+class Command_With_Attribute extends Console {
+	protected function execute( InputInterface $input, OutputInterface $output ): int {
+		$success = $this->getApplication()?->get( 'test:nameFromAttribute' ) === $this;
+		$success = $success && ( 'This is a test command.' === $this->getDescription() );
+		$success = $success && $this->isHidden();
+
+		foreach ( [ 'cli', 'console' ] as $alias ) {
+			$success = $success && ( $this->getApplication()?->get( "test:{$alias}" ) === $this );
+		}
+
+		return $success ? self::SUCCESS : self::FAILURE;
+	}
+}

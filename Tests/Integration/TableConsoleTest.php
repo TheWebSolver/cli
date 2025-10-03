@@ -48,7 +48,7 @@ class TableConsoleTest extends TestCase {
 		#[Associative( 'with-key', default: 'c' )]
 		class() extends TableConsoleCommand {};
 
-		$this->app->add( $command = $command::start() );
+		$this->app->add( $command = new $command() );
 		$this->tester->run(
 			[
 				'command'        => 'test:command',
@@ -128,14 +128,14 @@ class TableConsoleTest extends TestCase {
 			}
 		);
 
-		$this->app->add( $fixture = $command::start() );
+		$this->app->add( $fixture = new $command() );
 		$fixture->run( new ArrayInput( [ 'command' => 'test:command' ] ), $output );
 	}
 
 	#[Test]
 	#[Depends( 'commandFixtureSetup' )]
 	public function itBuildsTableActionBuilderWithComputedData( TableConsoleCommand $command ): void {
-		$this->app->add( $fixture = $command::start() );
+		$this->app->add( $fixture = new $command() );
 		$this->tester->run(
 			[
 				'command'       => 'test:command',
@@ -207,7 +207,7 @@ class TableConsoleTest extends TestCase {
 		$this->tearDown();
 		$this->setUp();
 
-		$this->app->add( $command = $command::start() );
+		$this->app->add( $command = new $command() );
 		$this->tester->run(
 			[
 				'command'        => 'test:command',
@@ -254,7 +254,7 @@ class TableConsoleTest extends TestCase {
 			}
 		};
 
-		$this->app->add( $command = $command::start( constructorArgs: compact( 'keys', 'disallowed' ) ) );
+		$this->app->add( $command = new $command( $keys, $disallowed ) );
 
 		if ( $thrown ) {
 			$this->expectException( OutOfBoundsException::class );
@@ -295,7 +295,7 @@ class TableConsoleTest extends TestCase {
 
 		$collectionKey && $input['collection-key'] = $collectionKey;
 
-		$this->app->add( $suggested = $command::start() );
+		$this->app->add( $suggested = new $command() );
 		$this->tester->run( $input );
 
 		$this->assertSame( $indexKey, $suggested->getInputValue()['indexKey'] );
@@ -316,7 +316,7 @@ class TableConsoleTest extends TestCase {
 		// for "1" as "collection-key" input does not have suggested values to validate against.
 		$this->expectExceptionMessage( sprintf( IndexKey::INVALID, '1' ) . ' ' . IndexKey::EMPTY_COLLECTABLE );
 
-		$this->app->add( TableConsoleCommand::start() );
+		$this->app->add( new TableConsoleCommand() );
 		$this->tester->run(
 			[
 				'command'        => 'test:rows',

@@ -85,4 +85,8 @@ parameters:
 			identifier: argument.type
 			count: 1
 			message: '#^Parameter \$callback of function array_filter expects \(callable\(.*?\)\: bool\)\|null, Closure\(.*?\)\: mixed given.$#'
-
+		- # Command::getAliases() always returns array with string values.
+			path: Src/Console.php
+			identifier: argument.type
+			count: 1
+			message: '#^Parameter \#1 \$aliases of method Symfony\\Component\\Console\\Command\\Command\:\:setAliases\(\) expects iterable\<string\>\, array given.$#'

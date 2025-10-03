@@ -25,7 +25,7 @@ class CommandSubscriberTest extends TestCase {
 	private function getApplicationTester( string $className = TestCommand::class ): array {
 		$tester  = new ApplicationTester( $app = new Application() );
 		$parser  = $this->createMock( InputAttribute::class );
-		$command = $className::start( infer: false )
+		$command = $className::start()
 			->setInputAttribute( $parser )
 			->setName( 'test:command' );
 
