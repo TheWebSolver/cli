@@ -105,6 +105,7 @@ class Command_Without_Attribute extends Console {
 	/* namespace */    'test',
 	/* name */         'nameFromAttribute',
 	/* description */  'This is a test command.',
+	/* help */         'Command help',
 	/* isInternal */   true,
 	/* altNames */     'cli',
 	/* altNames */     'console'
@@ -113,6 +114,7 @@ class Command_With_Attribute extends Console {
 	protected function execute( InputInterface $input, OutputInterface $output ): int {
 		$success = $this->getApplication()?->get( 'test:nameFromAttribute' ) === $this;
 		$success = $success && ( 'This is a test command.' === $this->getDescription() );
+		$success = $success && ( 'Command help' === $this->getHelp() );
 		$success = $success && $this->isHidden();
 
 		foreach ( [ 'cli', 'console' ] as $alias ) {
