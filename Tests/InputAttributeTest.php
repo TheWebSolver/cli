@@ -144,7 +144,7 @@ class InputAttributeTest extends TestCase {
 
 	#[Test]
 	public function itParsesAndOnlyFillsWithParentAttributeIfNotFoundInChildAttribute(): void {
-		$parser = InputAttribute::from( MiddleClass::class )->register()->parse();
+		$parser = InputAttribute::from( MiddleClass::class )->parse();
 
 		$this->assertCount( 2, $source = $parser->getSource() );
 		$this->assertCount( 3, $middleClassSource = $source[ MiddleClass::class ] );
@@ -195,7 +195,7 @@ class InputAttributeTest extends TestCase {
 	}
 	#[Test]
 	public function itParsesAttributesFromMultiInheritanceHierarchy(): InputAttribute {
-		$parser = InputAttribute::from( TopClass::class )->register()->parse();
+		$parser = InputAttribute::from( TopClass::class )->parse();
 
 		$this->assertCount( 3, $source = $parser->getSource() );
 		$this->assertCount( 3, $topClassSource = $source[ TopClass::class ] );
@@ -299,7 +299,7 @@ class InputAttributeTest extends TestCase {
 
 	#[Test]
 	public function itEnsuresParsingStopsOnTheGivenInheritanceHierarchyParentClass(): InputAttribute {
-		$parser = InputAttribute::from( TopClass::class )->till( BaseClass::class )->register()->parse();
+		$parser = InputAttribute::from( TopClass::class )->till( BaseClass::class )->parse();
 		$debug  = $parser->__debugInfo();
 
 		$this->assertSame( TopClass::class, $debug['target']['from'] );
@@ -307,7 +307,7 @@ class InputAttributeTest extends TestCase {
 		$this->assertSame( BaseClass::class, $debug['target']['base'] );
 		$this->assertSame( [ TopClass::class, MiddleClass::class ], $debug['hierarchy'] );
 
-		$parser2 = InputAttribute::from( UnnamedTarget::class )->till( MiddleTarget::class )->register()->parse();
+		$parser2 = InputAttribute::from( UnnamedTarget::class )->till( MiddleTarget::class )->parse();
 		$debug   = $parser2->__debugInfo();
 
 		$this->assertSame( $debug['target']['from'], UnnamedTarget::class );
@@ -365,7 +365,7 @@ class InputAttributeTest extends TestCase {
 
 	#[Test]
 	public function itEnsuresUnnamedAttributesAreRecursivelyUpdated(): void {
-		$parser     = InputAttribute::from( UnnamedTarget::class )->register()->parse();
+		$parser     = InputAttribute::from( UnnamedTarget::class )->parse();
 		$positional = $parser->getInputBy( 'unnamed', Positional::class );
 
 		$this->assertTrue( $positional->isVariadic );
@@ -381,7 +381,7 @@ class InputAttributeTest extends TestCase {
 
 	#[Test]
 	public function itEnsuesNewlyAddedInputCanOverrideParsed(): void {
-		$parser = InputAttribute::from( TopClass::class )->register()->parse();
+		$parser = InputAttribute::from( TopClass::class )->parse();
 		$parsed = $parser->getInputBy( 'position', Positional::class );
 
 		$this->assertFalse( $parsed->isVariadic );
@@ -419,6 +419,21 @@ class InputAttributeTest extends TestCase {
 
 		$this->assertSame( [ 'override' ], array_column( $attrs, 'name' ) );
 	}
+
+	#[Test]
+	public function itEnsuresModeAndInputVariantsAreOnlyRegisteredOnce(): void {
+		$collection = ( new InputAttribute( TopClass::class ) )
+			->register( InputAttribute::INFER_AND_REPLACE, InputVariant::Positional )
+			->register( InputAttribute::INFER_AND_UPDATE, InputVariant::Positional, InputVariant::Flag )
+			->parse()
+			->getCollection();
+
+		$this->assertSame(
+			[ Positional::class ],
+			array_keys( $collection ),
+			'Only first invocation registers the input variant. Subsequent invocation does nothing.'
+		);
+	}
 }
 
 // phpcs:disable Generic.Files.OneObjectStructurePerFile.MultipleFound
@@ -426,7 +441,7 @@ class InputAttributeTest extends TestCase {
 #[Flag( 'override' )]
 class Override extends BaseClass {
 	public function __construct( ?InputAttribute $parser = null ) {
-		$parser && $this->setInputAttribute( $parser->till( self::class )->register() );
+		$parser && $this->setInputAttribute( $parser->till( self::class ) );
 
 		parent::__construct();
 	}

@@ -197,9 +197,7 @@ class Console extends Command {
 	/** @param ReflectionClass<static> $reflection */
 	private function registerParsedInputsToDefinitions( ReflectionClass $reflection ): static {
 		// Does not override InputAttribute if already set by inheriting class via constructor.
-		$this->setInputAttribute(
-			$this->inputAttribute ?? InputAttribute::from( $reflection )->register()
-		);
+		$this->setInputAttribute( $this->inputAttribute ?? InputAttribute::from( $reflection ) );
 
 		return $this->isDefined() ? $this : $this->withDefinitionsFrom( $reflection );
 	}

@@ -176,11 +176,12 @@ class InputAttribute {
 	 * Registers which inputs needs to be inferred and in which mode.
 	 *
 	 * If none of the `InputVariant` given, then all `InputVariant` types will be inferred.
+	 * Subsequent invocation of this method does not re-register mode and input variants.
 	 *
 	 * @param self::INFER_AND* $mode
 	 */
 	public function register( int $mode = self::INFER_AND_UPDATE, InputVariant ...$inputs ): self {
-		if ( ! $this->isValid() ) {
+		if ( ! $this->isValid() || isset( $this->inputClassNames ) ) {
 			return $this;
 		}
 
@@ -357,9 +358,9 @@ class InputAttribute {
 	 * @param ReflectionClass<Console> $target
 	 * @return ReflectionClass<Console>
 	 */
-	private function inferAttributesFromTargetClass( ?ReflectionClass $target = null ): ReflectionClass {
-		$target            = $this->current['ref'] = $target ?? $this->target;
-		$this->hierarchy[] = $target->name;
+	private function inferAttributesFromTarget( ?ReflectionClass $target = null ): ReflectionClass {
+		$this->current['ref'] = $target ??= $this->target;
+		$this->hierarchy[]    = $target->name;
 
 		foreach ( $target->getAttributes() as $attribute ) {
 			$this->ensureAndRegisterFrom( $attribute ) && $this->inferCurrentInput( ignoreIfExists: false );
@@ -373,8 +374,8 @@ class InputAttribute {
 		return $this->getBaseClass() !== ( $ref ?? $this->getTargetReflection() )->name;
 	}
 
-	private function isCurrentTargetLastParent(): bool {
-		return ( $parent = $this->current['ref']->getParentClass() ) && ! $this->shouldTargetParent( $parent );
+	private function hasInferredFinalTarget(): bool {
+		return ! $this->shouldTargetParent( $this->current['ref']->getParentClass() ?: null );
 	}
 
 	/**
@@ -395,17 +396,15 @@ class InputAttribute {
 	}
 
 	private function infer(): self {
-		$target = $this->inferAttributesFromTargetClass();
+		$parent = $this->register()->inferAttributesFromTarget()->getParentClass();
 
-		if ( $this->shouldTargetParent() ) {
-			$parent = $target->getParentClass();
-
+		if ( $parent && $this->shouldTargetParent() ) {
 			while ( $parent ) {
-				if ( $this->isCurrentTargetLastParent() ) {
+				if ( $this->hasInferredFinalTarget() ) {
 					break;
 				}
 
-				$parent = $this->inferAttributesFromTargetClass( $parent )->getParentClass();
+				$parent = $this->inferAttributesFromTarget( $parent )->getParentClass();
 			}
 		}
 
