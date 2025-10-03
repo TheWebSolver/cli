@@ -53,13 +53,6 @@ abstract class TableConsole extends Console {
 	abstract protected function getInputDefaultsForOutput(): array;
 	abstract protected function getTableContextForOutput(): string;
 
-	protected function configure() {
-		parent::configure();
-
-		$this->hasInputAttribute()
-			|| $this->setInputAttribute( InputAttribute::from( static::class )->register()->parse() );
-	}
-
 	protected function initialize( InputInterface $input, OutputInterface $output ) {
 		$this->inputValue['accent']      = ( $accent = $input->getOption( 'accent' ) ) ? (string) $accent : null;
 		$this->inputValue['datasetKeys'] = ! empty( $keys = $input->getArgument( 'collection-key' ) ) ? $keys : null;
