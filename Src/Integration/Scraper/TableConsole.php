@@ -42,7 +42,7 @@ abstract class TableConsole extends Console {
 	 * Gets parsed table raws.
 	 *
 	 * @return array{
-	 *  data : array<TTableRowDataType>,
+	 *  data : array<iterable<array-key,TTableRowDataType>>,
 	 *  cache: ?array{path:string,bytes:int|false,content:non-empty-string|false}
 	 * } The `cache` value must be `null` when table rows data is not cached.
 	 */
