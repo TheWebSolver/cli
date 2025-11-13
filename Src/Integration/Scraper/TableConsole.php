@@ -108,16 +108,16 @@ abstract class TableConsole extends Console {
 	 * @throws OutOfBoundsException When index key cannot be verified against collection keys.
 	 */
 	protected function getValidatedIndexKeyFromInput( InputInterface $input ): ?string {
-		$indexKey   = (string) $input->getOption( 'with-key' );
-		$keyInput   = $this->getInputAttribute()->getInputBy( 'with-key', Associative::class );
+		$indexKey = (string) $input->getOption( 'with-key' );
+		$keyInput = $this->getInputAttribute()->getInputBy( 'with-key', Associative::class );
+		( $s        = $keyInput?->shortcut ) && $this->stringFromShortcut( $indexKey, $input, (array) $s );
 		$collection = $this->getUserProvidedCollectionKeys() ?? $this->getSuggestedCollectionKeys(
 			argv: $input instanceof ArgvInput ? $input->getRawTokens( strip: true ) : null
 		);
 
-		( $s = $keyInput?->shortcut ) && $this->stringFromShortcut( $indexKey, $input, (array) $s );
-		$key = new IndexKey( $indexKey, $collection, $this->getDisallowedIndexKeys() );
-
-		return $keyInput?->default === $indexKey ? $key->value : $key->validated()->value;
+		return $keyInput?->default !== $indexKey
+			? ( new IndexKey( $indexKey, $collection, $this->getDisallowedIndexKeys() ) )->validated()->value
+			: $indexKey;
 	}
 
 	protected function execute( InputInterface $input, OutputInterface $output ): int {

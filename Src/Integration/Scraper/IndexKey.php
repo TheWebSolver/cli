@@ -28,9 +28,9 @@ final readonly class IndexKey {
 			return $this;
 		} elseif ( ! $allowed = $this->withOnlyAllowed()->collection ) {
 			$this->throwInvalid(
-				...( $this->collection ? [ self::NON_COLLECTABLE, $this->collection ] : [ self::EMPTY_COLLECTABLE, null ] )
+				...( $this->collection ? [ self::NON_COLLECTABLE, $this->collection ] : [ self::EMPTY_COLLECTABLE ] )
 			);
-		} elseif ( ! $this->isIn( $this->collection ) || $this->isIn( $this->disallowed ) ) {
+		} elseif ( ! $this->valueIn( $this->collection ) || $this->valueIn( $this->disallowed ) ) {
 			$this->throwInvalid( self::ALLOWED_COLLECTABLE, $allowed );
 		}
 
@@ -42,13 +42,13 @@ final readonly class IndexKey {
 			return $this;
 		}
 
-		$allowed = array_filter( $this->collection, fn( string $key ) => ! in_array( $key, $this->disallowed, true ) );
+		$allowed = array_diff( $this->collection, $this->disallowed );
 
 		return $this->collection === $allowed ? $this : new self( $this->value, $allowed, disallowed: [] );
 	}
 
 	/** @param string[] $stack */
-	private function isIn( array $stack ): bool {
+	private function valueIn( array $stack ): bool {
 		return in_array( $this->value, $stack, strict: true );
 	}
 
