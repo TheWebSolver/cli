@@ -35,7 +35,9 @@ class Console extends Command {
 	public const LONG_SEPARATOR          = '==============================================================================';
 
 	/** @param ReflectionClass<Console> $ref */
-	final public static function getCommandAttribute( ReflectionClass $ref ): ?CommandAttribute {
+	final public static function getCommandAttribute( ?ReflectionClass $ref = null ): ?CommandAttribute {
+		$ref ??= new ReflectionClass( static::class );
+
 		return ( Parser::parseClassAttribute( CommandAttribute::class, $ref )[0] ?? null )?->newInstance();
 	}
 
@@ -135,33 +137,50 @@ class Console extends Command {
 	 * This method may be overridden to handle attribute extraction. Make sure
 	 * to update `InputAttribute` property using `$this->setInputAttribute()`
 	 * if a new instance is used to handle attribute extraction & parsing.
+	 *
+	 * @param ReflectionClass<Console> $reflection    The late static binding class reflection, or the reflection
+	 *                                                from parser if the attribute parser has already been set.
+	 * @param ?InputAttribute          $defaultParser Parser instantiated by late static binding class. If it
+	 *                                                is `null`, the attribute parser has already been set &
+	 *                                                can be retrieved using `$this->getInputAttribute()`.
+	 *
 	 * ```php
 	 * use ReflectionClass;
 	 * use TheWebSolver\Codegarage\Cli\Data\Flag;
 	 * use heWebSolver\Codegarage\Cli\Enums\InputVariant;
 	 * use TheWebSolver\Codegarage\Cli\Helper\InputAttribute;
 	 *
-	 * function withDefinitionsFrom(ReflectionClass $reflection): static {
-	 *
-	 *  // Updates instead of replacing whole parent attribute. Eg: for prop: "default" or "suggestedValues".
+	 * function withDefinitionsFrom(?InputAttribute $defaultParser, ReflectionClass $reflection): static {
+	 *  // Using update mode instead of replacing whole parent attribute. Eg: for prop: "default" or "suggestedValues".
 	 *  $mode = InputAttribute::INFER_AND_UPDATE;
-	 *  // Optional but if only some variants needs to be parsed, provide like so:
+	 *  // If only some attribute variants needs to be parsed, provide like so:
 	 *  $variants = [InputVariant::Positional, InputVariant::Associative];
-	 *  $inputAttribute = InputAttribute::from($reflection)->register($mode, ...$variants)->parse();
-	 *  // Other inputs before converting to input definition (in addition to class attribute).
-	 *  $inputAttribute->add(new Flag('cheer', desc: 'celebrate victory!'));
-	 * // Convert to symfony inputs.
-	 *  $inputAttribute->toSymfonyInput($this->getDefinition());
+	 *
+	 *  // OPTION 1: Use default or already set attribute parser.
+	 *  $existingParser = $defaultParser ?? $this->getInputAttribute();
+	 *
+	 *  $existingParser->register($mode, ...$variants)->parse();
+	 * // Remove attribute named: "cheer".
+	 *  $isCheerInputRemoved = $existingParser->remove('cheer', Flag::class);
+	 *  // Finally, convert to symfony inputs.
+	 *  $symfonyInputs = $existingParser->toSymfonyInput($this->getDefinition());
 	 *  // Ensure definitions are registered.
-	 *  return $this->setInputAttribute($inputAttribute)->setDefined();
+	 *  return $this->setInputAttribute($existingParser)->setDefined(!empty($symfonyInputs));
+	 *
+	 *  // OPTION 2: Ignore both default or already set attribute parser via constructor.
+	 *  $newParser = InputAttribute::from($reflection)->register($mode, ...$variants)->parse();
+	 *  // Add additional input before converting to input definition (in addition to class attribute).
+	 *  $isCheerInputAdded = $newParser->add(new Flag('cheer', desc: 'celebrate victory!'));
+	 * // Finally, convert to symfony inputs.
+	 *  $symfonyInputs = $newParser->toSymfonyInput($this->getDefinition());
+	 *  // Ensure definitions are registered.
+	 *  return $this->setInputAttribute($newParser)->setDefined(!empty($symfonyInputs));
 	 * }
 	 * ```
-	 *
-	 * @param ReflectionClass<Console> $reflection
 	 */
-	protected function withDefinitionsFrom( ReflectionClass $reflection ): static {
+	protected function withDefinitionsFrom( ?InputAttribute $defaultParser, ReflectionClass $reflection ): static {
 		return $this->setDefined(
-			$this->hasInputAttribute() && $this->getInputAttribute()->parse()->toSymfonyInput( $this->getDefinition() )
+			! empty( ( $defaultParser ?? $this->getInputAttribute() )->parse()->toSymfonyInput( $this->getDefinition() ) )
 		);
 	}
 
@@ -201,8 +220,8 @@ class Console extends Command {
 	/** @param ReflectionClass<Console> $reflection */
 	private function registerParsedInputsToDefinitions( ReflectionClass $reflection ): static {
 		// Does not override InputAttribute if already set by inheriting class via constructor.
-		$this->setInputAttribute( $this->inputAttribute ?? InputAttribute::from( $reflection ) );
+		$this->setInputAttribute( $this->inputAttribute ?? ( $parser = InputAttribute::from( $reflection ) ) );
 
-		return $this->isDefined() ? $this : $this->withDefinitionsFrom( $reflection );
+		return $this->isDefined() ? $this : $this->withDefinitionsFrom( $parser ?? null, $reflection );
 	}
 }

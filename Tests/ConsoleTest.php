@@ -3,6 +3,7 @@ declare( strict_types = 1 );
 
 namespace TheWebSolver\Codegarage\Test;
 
+use ReflectionClass;
 use PHPUnit\Framework\TestCase;
 use PHPUnit\Framework\Attributes\Test;
 use TheWebSolver\Codegarage\Cli\Console;
@@ -88,6 +89,50 @@ class ConsoleTest extends TestCase {
 			$tester->assertCommandIsSuccessful( sprintf( 'Could not discover command using alias: "%s".', $alias ) );
 		}
 	}
+
+	#[Test]
+	public function itRetrievesCommandAttributeInstance(): void {
+		$this->assertSame( 'nameFromAttribute', Command_With_Attribute::getCommandAttribute()->name );
+		$this->assertSame(
+			'nameFromAttribute',
+			Command_With_Attribute::getCommandAttribute( new ReflectionClass( Command_With_Attribute::class ) )->name
+		);
+
+		$command = new #[Command( 'test', 'current', '' )] class() extends Command_With_Attribute {};
+
+		$this->assertSame( 'current', $command::getCommandAttribute()->name );
+		$this->assertSame(
+			'nameFromAttribute',
+			$command::getCommandAttribute( new ReflectionClass( Command_With_Attribute::class ) )->name
+		);
+
+		$this->assertNull( Command_Without_Attribute::getCommandAttribute() );
+	}
+
+	#[Test]
+	public function itEnsuresDefaultOrUserProvidedParserIsRegistered(): void {
+		$command = new Command_With_Parser( null );
+
+		$this->assertSame( $command->defaultParser, $command->getInputAttribute() );
+
+		$command = new Command_With_Parser( $injectedParser = InputAttribute::from( Command_With_Parser::class ) );
+
+		$this->assertSame( $injectedParser, $command->getInputAttribute() );
+		$this->assertNull( $command->defaultParser );
+
+		$command = new class() extends Command_With_Parser {
+			public function __construct() {}
+		};
+
+		$this->assertFalse(
+			isset( $command->defaultParser ),
+			'Console::withDefinitionsFrom() is only invoked from Console::__construct().'
+		);
+		$this->assertFalse( $command->hasInputAttribute(), 'Default parser is never initialized.' );
+
+		$command->setInputAttribute( $stub = $this->createStub( InputAttribute::class ) );
+		$this->assertSame( $stub, $command->getInputAttribute() );
+	}
 }
 
 // phpcs:disable Generic.Files.OneObjectStructurePerFile.MultipleFound
@@ -122,5 +167,20 @@ class Command_With_Attribute extends Console {
 		}
 
 		return $success ? self::SUCCESS : self::FAILURE;
+	}
+}
+
+class Command_With_Parser extends Console {
+	public ?InputAttribute $defaultParser;
+
+	public function __construct( public ?InputAttribute $userParser ) {
+		$userParser && $this->setInputAttribute( $userParser );
+		parent::__construct();
+	}
+
+	protected function withDefinitionsFrom( ?InputAttribute $defaultParser, ReflectionClass $reflection ): static {
+		$this->defaultParser = $defaultParser;
+
+		return parent::withDefinitionsFrom( $defaultParser, $reflection );
 	}
 }
