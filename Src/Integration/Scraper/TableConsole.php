@@ -110,14 +110,17 @@ abstract class TableConsole extends Console {
 	protected function getValidatedIndexKeyFromInput( InputInterface $input ): ?string {
 		$indexKey = (string) $input->getOption( 'with-key' );
 		$keyInput = $this->getInputAttribute()->getInputBy( 'with-key', Associative::class );
-		( $s        = $keyInput?->shortcut ) && $this->stringFromShortcut( $indexKey, $input, (array) $s );
+		( $s = $keyInput?->shortcut ) && $this->stringFromShortcut( $indexKey, $input, (array) $s );
+
+		if ( $keyInput?->default === $indexKey ) {
+			return $indexKey;
+		}
+
 		$collection = $this->getUserProvidedCollectionKeys() ?? $this->getSuggestedCollectionKeys(
 			argv: $input instanceof ArgvInput ? $input->getRawTokens( strip: true ) : null
 		);
 
-		return $keyInput?->default !== $indexKey
-			? ( new IndexKey( $indexKey, $collection, $this->getDisallowedIndexKeys() ) )->validated()->value
-			: $indexKey;
+		return ( new IndexKey( $indexKey, $collection, $this->getDisallowedIndexKeys() ) )->validated()->value;
 	}
 
 	protected function execute( InputInterface $input, OutputInterface $output ): int {
