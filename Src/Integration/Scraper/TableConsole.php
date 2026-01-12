@@ -20,7 +20,7 @@ use TheWebSolver\Codegarage\Cli\Integration\Scraper\ScrapedTable;
 
 /** @template TTableRowDataType */
 #[Positional( 'collection-key', desc: 'Items to collect from scraped content', isVariadic: true )]
-#[Associative( 'with-key', desc: 'Collection key to use as index', shortcut: 'k' )]
+#[Associative( 'with-key', desc: 'Collection key to use as index', shortcut: [ 'i', 'k' ] )]
 #[Associative( 'to-filename', desc: 'The filename (without extension) to write cached content to', shortcut: 'r' )]
 #[Associative( 'extension', desc: 'Filename extension to save cache to.', shortcut: 'x', default: 'json' )]
 #[Flag( 'show', desc: 'Display parsed data in console' )]
