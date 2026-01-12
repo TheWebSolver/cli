@@ -127,11 +127,7 @@ class Container implements ContainerInterface {
 	 * @template T of object
 	 */
 	public function get( string $id, array $args = [] ): mixed {
-		try {
-			return $this->resolve( $id, $args );
-		} catch ( Exception $e ) {
-			$this->throwException( $id, $e );
-		}
+		return $this->resolve( $id, $args );
 	}
 
 	/** @param class-string $concrete */
@@ -183,18 +179,12 @@ class Container implements ContainerInterface {
 		return [ ...$carry, ...[ $param->name => $type ] ];
 	}
 
-	private function unresolvableEntry( string $id ): never {
-		$unresolvedMsg = sprintf( 'Could not resolve instance from entry: "%s".', $id );
-
-		throw new class( $unresolvedMsg ) extends Exception implements ContainerExceptionInterface {};
-	}
-
 	/** @param class-string $id */ // phpcs:ignore Squiz.Commenting.FunctionCommentThrowTag.Missing
-	private function throwException( string $id, Exception $thrown ): never {
-		$notFoundMsg = sprintf( 'Unable to find entry for the given id: "%s".', $id );
+	private function unresolvableEntry( string $id ): never {
+		$this->has( $id ) && throw new class( sprintf( 'Could not resolve instance from entry: "%s".', $id ) )
+			extends Exception implements ContainerExceptionInterface {};
 
-		throw $this->has( $id ) || $thrown instanceof ContainerExceptionInterface
-			? $thrown
-			: new class( $notFoundMsg ) extends Exception implements NotFoundExceptionInterface {};
+		throw new class( sprintf( 'Unable to find entry for the given id: "%s".', $id ) )
+			extends Exception implements NotFoundExceptionInterface {};
 	}
 }
