@@ -4,7 +4,8 @@
 !composer.json
 !composer.dev.json
 !phpcs.xml.dist
-!phpstan.neon
+!phpstan.dist.neon
+!phpstan-common.neon
 !phpunit.xml.dist
 !bootstrap.php
 !Src
