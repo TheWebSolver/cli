@@ -2,7 +2,7 @@ parameters:
 	ignoreErrors:
 		- # Allow overriding Console child-classes constructor for Dependency Injection.
 			identifier: parameter.notOptional
-			message: '#^Parameter \#1 \$.*? of method .*?Command::__construct\(\) is required but parameter \#1 \$name of method .*?Console::__construct\(\) is optional.$#'
+			message: '#^Parameter \#1 \$.*? of method .*?::__construct\(\) is required but parameter \#1 \$name of method .*?Console::__construct\(\) is optional.$#'
 		- # Silence not co-variant error due to same reason as above.
 			identifier: method.childParameterType
-			message: '#^Parameter \#1 \$.*? \(.*?\) of method .*?Command::__construct\(\) is not contravariant with parameter \#1 \$name \(string\|null\) of method .*?Console::__construct\(\).$#'
+			message: '#^Parameter \#1 \$.*? \(.*?\) of method .*?::__construct\(\) is not contravariant with parameter \#1 \$name \(string\|null\) of method .*?Console::__construct\(\).$#'
