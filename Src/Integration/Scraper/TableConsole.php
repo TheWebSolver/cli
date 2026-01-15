@@ -180,15 +180,6 @@ abstract class TableConsole extends Console {
 			) && $value = substr( $value, offset: 1 );
 	}
 
-	private function getOutputSection(
-		OutputInterface $output,
-		int $verbosity = OutputInterface::VERBOSITY_DEBUG
-	): ?ConsoleSectionOutput {
-		return $output instanceof ConsoleOutputInterface && $verbosity <= $output->getVerbosity()
-			? $output->section()
-			: null;
-	}
-
 	private function createTableFor( OutputInterface $output, int $rowsCount, bool $cached ): ScrapedTable {
 		$input   = $this->getInputValue();
 		$default = $this->getInputDefaultsForOutput();

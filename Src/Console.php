@@ -13,11 +13,14 @@ use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Input\InputArgument;
 use TheWebSolver\Codegarage\Cli\Enums\InputVariant;
 use Symfony\Component\Console\Helper\HelperInterface;
+use Symfony\Component\Console\Output\OutputInterface;
 use TheWebSolver\Codegarage\Cli\Helper\InputAttribute;
 use TheWebSolver\Codegarage\Cli\Traits\ContainerAware;
 use Symfony\Component\Console\Exception\LogicException;
 use TheWebSolver\Codegarage\Cli\Data\Positional as Pos;
+use Symfony\Component\Console\Output\ConsoleSectionOutput;
 use TheWebSolver\Codegarage\Cli\Data\Associative as Assoc;
+use Symfony\Component\Console\Output\ConsoleOutputInterface;
 use TheWebSolver\Codegarage\Cli\Attribute\Command as CommandAttribute;
 
 /** @phpstan-consistent-constructor */
@@ -129,6 +132,15 @@ class Console extends Command {
 		return ( $helper = $this->getHelperSet()?->get( $helperClass ) ) instanceof $helperClass
 			? $helper
 			: new $helperClass();
+	}
+
+	public static function getOutputSection(
+		OutputInterface $output,
+		int $verbosity = OutputInterface::VERBOSITY_DEBUG
+	): ?ConsoleSectionOutput {
+		return $output instanceof ConsoleOutputInterface && $verbosity <= $output->getVerbosity()
+			? $output->section()
+			: null;
 	}
 
 	/**
