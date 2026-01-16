@@ -9,6 +9,7 @@ use TheWebSolver\Codegarage\Cli\Enums\Symbol;
 use Symfony\Component\Console\Helper\TableCell;
 use Symfony\Component\Console\Helper\TableCellStyle;
 use Symfony\Component\Console\Output\OutputInterface;
+use TheWebSolver\Codegarage\Cli\Helper\TableActionBuilder;
 
 class ScrapedTable extends Table {
 	private TableCellStyle $centeredCellStyle;
@@ -27,7 +28,7 @@ class ScrapedTable extends Table {
 	) {
 		parent::__construct( $output );
 
-		$this->setStyle( 'box' )->setHeaders( TableActionBuilder::HEADERS )->registerCenteredCellStyle();
+		$this->setStyle( 'box' )->registerCenteredCellStyle();
 	}
 
 	public function forCommand( string $name ): self {
@@ -39,10 +40,10 @@ class ScrapedTable extends Table {
 	public function collectedUsing( IndexKey $indexKey ): self {
 		$keys = $indexKey->collection;
 
-		$this->builder->withAction( TableActionBuilder::ROW_KEYS, $this->builder->convertToString( $keys ) );
+		$this->builder->withAction( TableRow::Keys, $this->builder->convertToString( $keys ) );
 
 		if ( ! $indexKey->value || in_array( $indexKey->value, $keys, true ) ) {
-			$this->builder->withAction( TableActionBuilder::ROW_INDEX, $indexKey->value );
+			$this->builder->withAction( TableRow::Index, $indexKey->value );
 
 			return $this;
 		}
@@ -51,18 +52,18 @@ class ScrapedTable extends Table {
 	}
 
 	public function fetchedItemsCount( int $count ): self {
-		$this->builder->withAction( TableActionBuilder::ROW_FETCH, $count );
+		$this->builder->withAction( TableRow::Fetch, $count );
 
-		! ! $count || $this->builder->withSymbol( TableActionBuilder::ROW_FETCH, Symbol::Red );
+		! ! $count || $this->builder->withSymbol( TableRow::Fetch, Symbol::Red );
 
 		return $this;
 	}
 
 	/** @param null|non-empty-string $action */
 	public function accentedCharacters( ?string $action ): self {
-		$this->builder->withAction( TableActionBuilder::ROW_ACCENTS, $action ?? TableActionBuilder::NOT_AVAILABLE );
+		$this->builder->withAction( TableRow::Accent, $action ?? TableActionBuilder::NOT_AVAILABLE );
 
-		! ! $action || $this->builder->withSymbol( TableActionBuilder::ROW_ACCENTS, Symbol::Yellow );
+		! ! $action || $this->builder->withSymbol( TableRow::Accent, Symbol::Yellow );
 
 		return $this;
 	}
@@ -83,7 +84,7 @@ class ScrapedTable extends Table {
 
 	/** @return array<string,array{Status:TableCell,Action:string,Details:string|int}> */
 	public function getBuiltRows( string $context ): array {
-		return $this->builder->build( $this, $context );
+		return $this->builder->build( $this, $this->getNormalizedTableRows( $context ) );
 	}
 
 	/** @return array{0:string,1:string} bg and fg. */
@@ -137,8 +138,8 @@ class ScrapedTable extends Table {
 	private function getRegisteredContentParsedAction( string $path, bool $hasContent ): string {
 		[$symbol, $details] = $hasContent ? [ Symbol::Green, 'Parsed' ] : [ Symbol::Red, 'Could not parse' ];
 
-		$this->builder->withAction( TableActionBuilder::ROW_PATH, $path );
-		$this->builder->withSymbol( TableActionBuilder::ROW_PATH, $symbol );
+		$this->builder->withAction( TableRow::Path, $path );
+		$this->builder->withSymbol( TableRow::Path, $symbol );
 
 		return $details;
 	}
@@ -148,8 +149,8 @@ class ScrapedTable extends Table {
 			? [ Symbol::Green, ( $hasContent ? 'and' : 'but' ) . ' cached to a file' ]
 			: [ Symbol::Red, ( $hasContent ? 'but' : 'and' ) . ' could not cache to a file' ];
 
-		$this->builder->withAction( TableActionBuilder::ROW_BYTES, $bytes ?: 0 );
-		$this->builder->withSymbol( TableActionBuilder::ROW_BYTES, $symbol );
+		$this->builder->withAction( TableRow::Byte, $bytes ?: 0 );
+		$this->builder->withSymbol( TableRow::Byte, $symbol );
 
 		return $details;
 	}
@@ -164,8 +165,8 @@ class ScrapedTable extends Table {
 			$status = "{$NA} (Possible option is{$oneOf}: {$this->builder->convertToString( $allowedKeys )})";
 		}
 
-		$this->builder->withAction( TableActionBuilder::ROW_INDEX, $status );
-		$this->builder->withSymbol( TableActionBuilder::ROW_INDEX, Symbol::NotAllowed );
+		$this->builder->withAction( TableRow::Index, $status );
+		$this->builder->withSymbol( TableRow::Index, Symbol::NotAllowed );
 
 		return $this;
 	}
@@ -184,10 +185,10 @@ class ScrapedTable extends Table {
 		}
 
 		$this->builder
-			->withAction( TableActionBuilder::ROW_PATH, 'skipped' )
-			->withSymbol( TableActionBuilder::ROW_PATH, Symbol::Yellow )
-			->withAction( TableActionBuilder::ROW_BYTES, 'skipped' )
-			->withSymbol( TableActionBuilder::ROW_BYTES, Symbol::Yellow );
+			->withAction( TableRow::Path, 'skipped' )
+			->withSymbol( TableRow::Path, Symbol::Yellow )
+			->withAction( TableRow::Byte, 'skipped' )
+			->withSymbol( TableRow::Byte, Symbol::Yellow );
 
 		return true;
 	}
@@ -198,5 +199,18 @@ class ScrapedTable extends Table {
 		$this->builder->withSymbolCellOptions( [ 'style' => $this->centeredCellStyle ] );
 
 		return $this;
+	}
+
+	/** @return non-empty-array<string,string> */
+	private function getNormalizedTableRows( string $context ): array {
+		$rows                          = array_column( TableRow::cases(), column_key: 'value', index_key: 'name' );
+		$rows[ TableRow::Fetch->name ] = str_replace( 'items', $context, $rows[ TableRow::Fetch->name ], $context );
+		$collectionKeysDetails         = $this->builder->getActionDetailsBy( TableRow::Keys->name );
+
+		! $collectionKeysDetails
+			|| str_contains( (string) $collectionKeysDetails, TableActionBuilder::ITEMS_SEPARATOR )
+			|| $rows[ TableRow::Keys->name ] = substr( $rows[ TableRow::Keys->name ], offset: 0, length: -1 );
+
+		return $rows;
 	}
 }

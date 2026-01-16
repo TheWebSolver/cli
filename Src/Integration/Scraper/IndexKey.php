@@ -4,6 +4,7 @@ declare( strict_types = 1 );
 namespace TheWebSolver\Codegarage\Cli\Integration\Scraper;
 
 use OutOfBoundsException;
+use TheWebSolver\Codegarage\Cli\Helper\TableActionBuilder;
 
 final readonly class IndexKey {
 	/** @placeholder `%s`: The index key value. */

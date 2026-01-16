@@ -10,6 +10,7 @@ use PHPUnit\Framework\Attributes\DataProvider;
 use Symfony\Component\Console\Output\BufferedOutput;
 use Symfony\Component\Console\Output\OutputInterface;
 use TheWebSolver\Codegarage\Cli\Integration\Scraper\IndexKey;
+use TheWebSolver\Codegarage\Cli\Integration\Scraper\TableRow;
 use TheWebSolver\Codegarage\Cli\Integration\Scraper\ScrapedTable;
 
 class ScrapedTableTest extends TestCase {
@@ -35,32 +36,32 @@ class ScrapedTableTest extends TestCase {
 		$rows = $this->table->fetchedItemsCount( 5 )->getBuiltRows( 'test' );
 
 		$this->assertCount( 1, $rows );
-		$this->assertSame( Symbol::Green->value, (string) $rows['fetch']['Status'] );
-		$this->assertSame( 'No. of test Fetched', $rows['fetch']['Action'] );
-		$this->assertSame( 5, $rows['fetch']['Details'] );
+		$this->assertSame( Symbol::Green->value, (string) $rows[ TableRow::Fetch->name ]['Status'] );
+		$this->assertSame( 'No. of test Fetched', $rows[ TableRow::Fetch->name ]['Action'] );
+		$this->assertSame( 5, $rows[ TableRow::Fetch->name ]['Details'] );
 
 		$this->assertSame(
 			Symbol::Red->value,
-			(string) $this->table->fetchedItemsCount( 0 )->getBuiltRows( 'test' )['fetch']['Status']
+			(string) $this->table->fetchedItemsCount( 0 )->getBuiltRows( 'test' )[ TableRow::Fetch->name ]['Status']
 		);
 
 		$rows = $this->table->accentedCharacters( 'escaped' )->getBuiltRows( 'test' );
 
 		$this->assertCount( 2, $rows );
 
-		$this->assertSame( Symbol::Green->value, (string) $rows['accents']['Status'] );
-		$this->assertSame( 'Accented Characters', $rows['accents']['Action'] );
-		$this->assertSame( 'escaped', $rows['accents']['Details'] );
+		$this->assertSame( Symbol::Green->value, (string) $rows[ TableRow::Accent->name ]['Status'] );
+		$this->assertSame( 'Accented Characters', $rows[ TableRow::Accent->name ]['Action'] );
+		$this->assertSame( 'escaped', $rows[ TableRow::Accent->name ]['Details'] );
 
 		$rows = $this->table->accentedCharacters( null )->getBuiltRows( 'test' );
 
 		$this->assertCount( 2, $rows );
 
-		$this->assertSame( 0, $rows['fetch']['Details'] );
+		$this->assertSame( 0, $rows[ TableRow::Fetch->name ]['Details'] );
 
-		$this->assertSame( Symbol::Yellow->value, (string) $rows['accents']['Status'] );
-		$this->assertSame( 'Accented Characters', $rows['accents']['Action'] );
-		$this->assertSame( 'N/A', $rows['accents']['Details'] );
+		$this->assertSame( Symbol::Yellow->value, (string) $rows[ TableRow::Accent->name ]['Status'] );
+		$this->assertSame( 'Accented Characters', $rows[ TableRow::Accent->name ]['Action'] );
+		$this->assertSame( 'N/A', $rows[ TableRow::Accent->name ]['Details'] );
 	}
 
 	#[Test]
@@ -77,9 +78,9 @@ class ScrapedTableTest extends TestCase {
 
 		[$status, $action, $details] = $KeysInfo;
 
-		$this->assertSame( $status, (string) $rows['keys']['Status'] );
-		$this->assertSame( "Collection Key{$action}", $rows['keys']['Action'] );
-		$this->assertSame( $details, $rows['keys']['Details'] );
+		$this->assertSame( $status, (string) $rows[ TableRow::Keys->name ]['Status'] );
+		$this->assertSame( "Collection Key{$action}", $rows[ TableRow::Keys->name ]['Action'] );
+		$this->assertSame( $details, $rows[ TableRow::Keys->name ]['Details'] );
 
 		if ( ! $indexInfo ) {
 			$this->assertArrayNotHasKey( 'index', $rows );
@@ -89,9 +90,9 @@ class ScrapedTableTest extends TestCase {
 
 		[$status, $details] = $indexInfo;
 
-		$this->assertSame( $status, (string) $rows['index']['Status'] );
-		$this->assertSame( 'Indexed by Value of', $rows['index']['Action'] );
-		$this->assertSame( $details, $rows['index']['Details'] );
+		$this->assertSame( $status, (string) $rows[ TableRow::Index->name ]['Status'] );
+		$this->assertSame( 'Indexed by Value of', $rows[ TableRow::Index->name ]['Action'] );
+		$this->assertSame( $details, $rows[ TableRow::Index->name ]['Details'] );
 	}
 
 	public static function provideCollectionDetails(): array {
@@ -163,13 +164,13 @@ class ScrapedTableTest extends TestCase {
 		$this->assertSame( $success, $this->table->isSuccess() );
 		$this->assertSame( $statusCode, $this->table->getStatusCode() );
 
-		$this->assertSame( $pathInfo[0], (string) $rows['path']['Status'] );
-		$this->assertSame( 'Cache Filepath', $rows['path']['Action'] );
-		$this->assertSame( $pathInfo[1] ?? $args[0], $rows['path']['Details'] );
+		$this->assertSame( $pathInfo[0], (string) $rows[ TableRow::Path->name ]['Status'] );
+		$this->assertSame( 'Cache Filepath', $rows[ TableRow::Path->name ]['Action'] );
+		$this->assertSame( $pathInfo[1] ?? $args[0], $rows[ TableRow::Path->name ]['Details'] );
 
-		$this->assertSame( $byteInfo[0], (string) $rows['byte']['Status'] );
-		$this->assertSame( 'Total Bytes Written', $rows['byte']['Action'] );
-		$this->assertSame( $byteInfo[1] ?? $args[2], $rows['byte']['Details'] );
+		$this->assertSame( $byteInfo[0], (string) $rows[ TableRow::Byte->name ]['Status'] );
+		$this->assertSame( 'Total Bytes Written', $rows[ TableRow::Byte->name ]['Action'] );
+		$this->assertSame( $byteInfo[1] ?? $args[2], $rows[ TableRow::Byte->name ]['Details'] );
 	}
 
 	public static function provideCacheDetails(): array {

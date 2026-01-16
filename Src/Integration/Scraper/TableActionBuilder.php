@@ -1,30 +1,18 @@
 <?php
 declare( strict_types = 1 );
 
-namespace TheWebSolver\Codegarage\Cli\Integration\Scraper;
+namespace TheWebSolver\Codegarage\Cli\Helper;
 
+use UnitEnum;
+use Symfony\Component\Console\Helper\Table;
 use TheWebSolver\Codegarage\Cli\Enums\Symbol;
 use Symfony\Component\Console\Helper\TableCell;
 use Symfony\Component\Console\Helper\TableSeparator;
 
 class TableActionBuilder {
 	final public const ITEMS_SEPARATOR = '|';
-	final public const HEADERS         = [ 'Status', 'Action', 'Details' ];
 	final public const NOT_AVAILABLE   = 'N/A';
-	final public const ROW_FETCH       = 'fetch';
-	final public const ROW_KEYS        = 'keys';
-	final public const ROW_INDEX       = 'index';
-	final public const ROW_ACCENTS     = 'accents';
-	final public const ROW_BYTES       = 'byte';
-	final public const ROW_PATH        = 'path';
-	final public const TABLE_ACTIONS   = [
-		self::ROW_FETCH   => 'No. of %s Fetched',
-		self::ROW_KEYS    => 'Collection Keys',
-		self::ROW_INDEX   => 'Indexed by Value of',
-		self::ROW_ACCENTS => 'Accented Characters',
-		self::ROW_BYTES   => 'Total Bytes Written',
-		self::ROW_PATH    => 'Cache Filepath',
-	];
+	final public const HEADERS         = [ 'Status', 'Action', 'Details' ];
 
 	/** @var array<string,Symbol> */
 	private array $symbols;
@@ -40,22 +28,14 @@ class TableActionBuilder {
 		return "$wrapper" . implode( "$wrapper " . self::ITEMS_SEPARATOR . " $wrapper", $array ) . "$wrapper";
 	}
 
-	/** @param non-empty-array<string,string> $rows action ID as key and title as value. */
-	public function __construct( private array $rows = self::TABLE_ACTIONS ) {
-		$this->rowIndices = [
-			'first' => array_key_first( $rows ),
-			'last'  => array_key_last( $rows ),
-		];
-	}
-
-	public function withSymbol( string $rowIndex, Symbol $symbol ): self {
-		$this->symbols[ $rowIndex ] = $symbol;
+	public function withSymbol( UnitEnum $action, Symbol $symbol ): self {
+		$this->symbols[ $action->name ] = $symbol;
 
 		return $this;
 	}
 
-	public function withAction( string $rowIndex, string|int|null $actionValue ): self {
-		$this->actions[ $rowIndex ] = $actionValue;
+	public function withAction( UnitEnum $action, string|int|null $actionValue ): self {
+		$this->actions[ $action->name ] = $actionValue;
 
 		return $this;
 	}
@@ -67,49 +47,42 @@ class TableActionBuilder {
 		return $this;
 	}
 
-	/** @return array<string,array{Status:TableCell,Action:string,Details:string|int}> */
-	public function build( ScrapedTable $table, string $context ): array {
-		$built = [];
+	public function getActionDetailsBy( string $unitEnumCaseName ): string|int|null {
+		return $this->actions[ $unitEnumCaseName ] ?? null;
+	}
 
-		foreach ( $this->rows as $rowIndex => $Action ) {
-			if ( is_null( $Details = $this->getActionDetailsBy( $rowIndex ) ) ) {
+	/**
+	 * @param non-empty-array<string,string> $rows action ID as key and title as value.
+	 * @return array<string,array{Status:TableCell,Action:string,Details:string|int}>
+	 */
+	public function build( Table $table, array $rows ): array {
+		$built            = [];
+		$this->rowIndices = [
+			'first' => array_key_first( $rows ),
+			'last'  => array_key_last( $rows ),
+		];
+
+		$table->setHeaders( self::HEADERS );
+
+		foreach ( $rows as $unitEnumCaseName => $Action ) {
+			if ( is_null( $Details = $this->getActionDetailsBy( $unitEnumCaseName ) ) ) {
 				continue;
 			}
 
-			[$Action, $symbol] = $this->getNormalizedDetailAndSymbolOf( $rowIndex, $Action, $context );
+			$symbol = ( $this->symbols[ $unitEnumCaseName ] ?? Symbol::Green )->value;
 
 			is_string( $Details ) && empty( $Details ) && $this->asNotAvailable( $Details, $symbol );
 
 			$Status = new TableCell( $symbol, $this->symbolCellOptions );
 
-			$this->actionToSingularIfOnlyOne( $Details, $rowIndex, $Action );
-
 			$table->addRow( $row = compact( self::HEADERS ) );
 
-			$this->shouldAddSeparatorFor( $rowIndex ) && $table->addRow( new TableSeparator() );
+			$this->shouldAddSeparatorFor( $unitEnumCaseName ) && $table->addRow( new TableSeparator() );
 
-			$built[ $rowIndex ] = $row;
+			$built[ $unitEnumCaseName ] = $row;
 		}
 
 		return $built;
-	}
-
-	protected function actionToSingularIfOnlyOne( string|int $details, string $rowIndex, string &$action ): void {
-		self::ROW_KEYS === $rowIndex
-			&& ! str_contains( (string) $details, self::ITEMS_SEPARATOR )
-			&& $action = substr( $action, 0, -1 );
-	}
-
-	private function getActionDetailsBy( string $rowIndex ): string|int|null {
-		return $this->actions[ $rowIndex ] ?? null;
-	}
-
-	/** @return array{0:string,1:string} */
-	private function getNormalizedDetailAndSymbolOf( string $rowIndex, string $action, string $context ): array {
-		return [
-			self::ROW_FETCH === $rowIndex ? sprintf( $action, $context ) : $action,
-			( $this->symbols[ $rowIndex ] ?? Symbol::Green )->value,
-		];
 	}
 
 	private function shouldAddSeparatorFor( string $rowIndex ): bool {

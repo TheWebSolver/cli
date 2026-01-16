@@ -20,8 +20,8 @@ use Symfony\Component\Console\Tester\ApplicationTester;
 use Symfony\Component\Console\Output\ConsoleSectionOutput;
 use Symfony\Component\Console\Output\ConsoleOutputInterface;
 use TheWebSolver\Codegarage\Cli\Integration\Scraper\IndexKey;
+use TheWebSolver\Codegarage\Cli\Integration\Scraper\TableRow;
 use TheWebSolver\Codegarage\Test\Fixture\TableConsoleCommand;
-use TheWebSolver\Codegarage\Cli\Integration\Scraper\TableActionBuilder;
 
 class TableConsoleTest extends TestCase {
 	private const EXPECTED_JSON = '{"two":{"a":"one","b":"two","c":"three"}}';
@@ -151,7 +151,7 @@ class TableConsoleTest extends TestCase {
 
 		$rows = $fixture->scrapedTable->getBuiltRows( 'table rows' );
 
-		foreach ( array_keys( TableActionBuilder::TABLE_ACTIONS ) as $expectedBuiltKey ) {
+		foreach ( array_column( TableRow::cases(), 'name' ) as $expectedBuiltKey ) {
 			$this->assertArrayHasKey( $expectedBuiltKey, $rows );
 		}
 
@@ -217,10 +217,10 @@ class TableConsoleTest extends TestCase {
 		);
 
 		[
-			'keys'    => $keys,
-			'index'   => $key,
-			'accents' => $accentedCharacters,
-			'byte'    => $bytes,
+			TableRow::Keys->name    => $keys,
+			TableRow::Index->name   => $key,
+			TableRow::Accent->name => $accentedCharacters,
+			TableRow::Byte->name    => $bytes,
 		] = $command->scrapedTable->getBuiltRows( 'with collection keys and accent action from CLI input' );
 
 		$this->assertSame( '"a" | "b" | "c"', $keys['Details'], 'Collection keys from CLI input.' );
